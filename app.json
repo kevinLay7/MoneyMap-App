@@ -1,14 +1,15 @@
 {
   "expo": {
-    "name": "moneymap-app",
-    "slug": "moneymap-app",
+    "name": "MoneyMap",
+    "slug": "moneymap",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "moneymapapp",
+    "scheme": "moneymap",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
+      "bundleIdentifier": "com.codenest.moneymap",
       "supportsTablet": true
     },
     "android": {
@@ -22,6 +23,7 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
+      "bundler": "metro",
       "output": "static",
       "favicon": "./assets/images/favicon.png"
     },
