@@ -6,8 +6,15 @@ import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Link } from "expo-router";
+import { useGetCurrentUser } from "@/hooks/api/user-api";
+import { useAuth0 } from "react-native-auth0";
 
 export default function HomeScreen() {
+  const { data: currentUser } = useGetCurrentUser();
+
+  const { clearCredentials } = useAuth0();
+
+  console.log("currentUser", currentUser);
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
@@ -18,6 +25,7 @@ export default function HomeScreen() {
         />
       }
     >
+      <Button title="Logout" onPress={() => clearCredentials()} />
       <Text className="text-red-500">DHSKADK</Text>
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Welcome!</ThemedText>
