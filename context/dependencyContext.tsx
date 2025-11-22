@@ -9,10 +9,10 @@ import { useAuth0 } from "react-native-auth0";
 export const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 interface DependencyContextType {
-  authApi: Auth<{ accessToken?: string }>;
-  categoryApi: Categories<{ accessToken?: string }>;
-  plaidApi: Plaid<{ accessToken?: string }>;
-  usersApi: Users<{ accessToken?: string }>;
+  authApi: Auth;
+  categoryApi: Categories;
+  plaidApi: Plaid;
+  usersApi: Users;
   // Add new services here
   // newService: NewService;
 }
@@ -21,9 +21,7 @@ export const DependencyContext = createContext<
   DependencyContextType | undefined
 >(undefined);
 
-function initializeDependencies(
-  httpClient: HttpClient<{ accessToken?: string }>
-) {
+function initializeDependencies(httpClient: HttpClient<unknown>) {
   const authApi = new Auth(httpClient);
   const categoryApi = new Categories(httpClient);
   const plaidApi = new Plaid(httpClient);
@@ -42,80 +40,119 @@ export const DependencyProvider = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const { getCredentials, clearSession, user } = useAuth0();
+  const { getCredentials, clearCredentials, user } = useAuth0();
 
   const dependencies = useMemo(() => {
-    const httpClient = new HttpClient<{ accessToken?: string }>({
-      securityWorker: (securityData) => {
-        if (securityData?.accessToken) {
-          console.log("securityData", securityData);
-          return {
-            headers: {
-              Authorization: `Bearer ${securityData.accessToken}`,
-            },
-          };
-        }
-        return {};
-      },
-      secure: true,
-    });
+    const httpClient = new HttpClient<unknown>();
     httpClient.instance.defaults.baseURL = API_URL;
 
+    // Set up initial authorization header if user is authenticated
     const setupInitialAuth = async () => {
       if (user) {
         try {
+          console.log("setting up initial auth");
+          // logger.info('Setting up initial authentication for user', { userId: user.sub }, 'DependencyContext');
           const credentials = await getCredentials();
-
           console.log("credentials", credentials);
           if (credentials?.accessToken) {
-            console.log("setting security data");
-            httpClient.setSecurityData({
-              accessToken: credentials.accessToken,
-            });
+            console.log("setting auth header", credentials.accessToken);
+            httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
+            console.log(
+              "auth header",
+              httpClient.instance.defaults.headers.common.Authorization
+            );
+            // logger.debug(
+            //   'Authentication header set successfully',
+            //   { hasToken: !!credentials.accessToken },
+            //   'DependencyContext'
+            // );
           }
         } catch (error) {
-          console.error("Error setting initial auth:", error);
+          console.error("error setting up initial auth", error);
+          // logger.error(
+          //   'Failed to get credentials during initial auth setup',
+          //   { error: error instanceof Error ? error.message : String(error) },
+          //   'DependencyContext'
+          // );
         }
       } else {
-        try {
-          // await clearSession();
-        } catch (error) {
-          console.error("Error clearing session:", error);
-        }
+        console.log("clearing auth header");
+        // Clear authorization header when user is not authenticated
+        // logger.info('Clearing authentication header - no user', {}, 'DependencyContext');
+        delete httpClient.instance.defaults.headers.common.Authorization;
       }
     };
 
+    // Set up request interceptor for automatic token refresh
     httpClient.instance.interceptors.response.use(
-      (response: AxiosResponse) => response,
-      async (error: AxiosError) => {
-        const { response } = error;
+      (response) => response,
+      async (error) => {
+        const { response, config } = error;
 
-        if (response?.status !== 401) {
+        if (response.status !== 401) {
           return Promise.reject(error);
         }
+
+        return Promise.reject(error);
+
+        console.log("received 401 response, attempting token refresh");
+        // logger.warn(
+        //   'Received 401 response, attempting token refresh',
+        //   {
+        //     url: config.url,
+        //     method: config.method,
+        //   },
+        //   'DependencyContext'
+        // );
 
         try {
           const credentials = await getCredentials();
 
           if (credentials?.accessToken) {
-            httpClient.setSecurityData({
-              accessToken: credentials.accessToken,
-            });
+            httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
+            config.headers["Authorization"] =
+              `Bearer ${credentials.accessToken}`;
+            // logger.info(
+            //   'Token refresh successful, retrying request',
+            //   {
+            //     url: config.url,
+            //     method: config.method,
+            //   },
+            //   'DependencyContext'
+            // );
+            return httpClient.instance(config);
           } else {
-            await clearSession();
+            console.log(
+              "no credentials available during token refresh, clearing session"
+            );
+            // logger.warn('No credentials available during token refresh, clearing session', {}, 'DependencyContext');
+            await clearCredentials();
             return Promise.reject(error);
           }
-        } catch {
-          await clearSession();
+        } catch (refreshError) {
+          console.error("token refresh failed, clearing session", refreshError);
+          // logger.error(
+          //   'Token refresh failed, clearing session',
+          //   {
+          //     error: refreshError instanceof Error ? refreshError.message : String(refreshError),
+          //   },
+          //   'DependencyContext'
+          // );
+          await clearCredentials();
           return Promise.reject(error);
         }
       }
     );
 
+    // Set up initial auth header
     setupInitialAuth();
 
-    return initializeDependencies(httpClient);
-  }, [getCredentials, clearSession, user]);
+    const deps = initializeDependencies(httpClient);
+
+    return deps;
+  }, [getCredentials, clearCredentials, user]);
+
+  console.log("credentials", user);
 
   return (
     <DependencyContext.Provider value={dependencies}>

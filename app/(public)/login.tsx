@@ -26,6 +26,10 @@ export default function Login() {
         {
           scope: "openid profile email",
           redirectUrl: "moneymap://auth/callback",
+          audience: process.env.EXPO_PUBLIC_AUTH0_AUDIENCE,
+          additionalParameters: {
+            prompt: "login",
+          },
         },
         { ephemeralSession: true }
       );

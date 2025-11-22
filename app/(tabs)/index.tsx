@@ -8,9 +8,11 @@ import { ThemedView } from "@/components/themed-view";
 import { Link } from "expo-router";
 import { useGetCurrentUser } from "@/hooks/api/user-api";
 import { useAuth0 } from "react-native-auth0";
+import { useGetCategories } from "@/hooks/api/categories-api";
 
 export default function HomeScreen() {
   const { data: currentUser } = useGetCurrentUser();
+  const { refetch: fetchCategories, isFetching } = useGetCategories();
 
   const { clearCredentials } = useAuth0();
 
@@ -26,6 +28,20 @@ export default function HomeScreen() {
       }
     >
       <Button title="Logout" onPress={() => clearCredentials()} />
+      <Button
+        title={isFetching ? "Loading..." : "Test API Call"}
+        onPress={() => {
+          fetchCategories()
+            .then((result) => {
+              console.log("Categories fetched:", result.data);
+              alert(`Fetched ${result.data?.length || 0} categories`);
+            })
+            .catch((error) => {
+              console.error("API call failed:", error);
+              alert("API call failed - check console");
+            });
+        }}
+      />
       <Text className="text-red-500">DHSKADK</Text>
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Welcome!</ThemedText>

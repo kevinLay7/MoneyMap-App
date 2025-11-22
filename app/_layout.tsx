@@ -39,9 +39,8 @@ export default function RootLayout() {
 }
 
 function RootLayoutContent() {
-  const { user, clearSession } = useAuth0();
+  const { user } = useAuth0();
   const colorScheme = useColorScheme();
-  console.log("user", user);
 
   return (
     <View className={`w-full h-full ${colorScheme === "dark" ? "dark" : ""}`}>

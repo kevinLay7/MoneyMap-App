@@ -1,10 +1,9 @@
-import { Platform } from "react-native";
 import { Database } from "@nozbe/watermelondb";
 import SQLiteAdapter from "@nozbe/watermelondb/adapters/sqlite";
 
-import schema from "./model/schema";
-import migrations from "./model/migrations";
-// import Post from './model/Post' // ⬅️ You'll import your Models here
+import { schema } from "./schema";
+import migrations from "./migrations";
+import Account from "./models/account";
 
 // First, create the adapter to the underlying database:
 const adapter = new SQLiteAdapter({
@@ -19,6 +18,7 @@ const adapter = new SQLiteAdapter({
   // (optional, but you should implement this method)
   onSetUpError: (error) => {
     // Database failed to load -- offer the user to reload the app or log out
+    console.error("Database setup error:", error);
   },
 });
 
@@ -26,6 +26,9 @@ const adapter = new SQLiteAdapter({
 const database = new Database({
   adapter,
   modelClasses: [
-    // Post, // ⬅️ You'll add Models to Watermelon here
+    Account, // ⬅️ You'll add Models to Watermelon here
   ],
 });
+
+export default database;
+
