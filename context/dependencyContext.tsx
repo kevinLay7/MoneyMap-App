@@ -2,16 +2,19 @@ import { Auth } from "@/api/gen/Auth";
 import { Categories } from "@/api/gen/Categories";
 import { HttpClient } from "@/api/gen/http-client";
 import { Plaid } from "@/api/gen/Plaid";
+import { Sync } from "@/api/gen/Sync";
 import { Users } from "@/api/gen/Users";
 import { AxiosError, AxiosResponse } from "axios";
 import { createContext, useContext, useMemo } from "react";
 import { useAuth0 } from "react-native-auth0";
+import { getDeviceClientId } from "@/utils/device-client-id";
 export const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 interface DependencyContextType {
   authApi: Auth;
   categoryApi: Categories;
   plaidApi: Plaid;
+  syncApi: Sync;
   usersApi: Users;
   // Add new services here
   // newService: NewService;
@@ -25,12 +28,14 @@ function initializeDependencies(httpClient: HttpClient<unknown>) {
   const authApi = new Auth(httpClient);
   const categoryApi = new Categories(httpClient);
   const plaidApi = new Plaid(httpClient);
+  const syncApi = new Sync(httpClient);
   const usersApi = new Users(httpClient);
 
   return {
     authApi,
     categoryApi,
     plaidApi,
+    syncApi,
     usersApi,
   };
 }
@@ -53,7 +58,6 @@ export const DependencyProvider = ({
           console.log("setting up initial auth");
           // logger.info('Setting up initial authentication for user', { userId: user.sub }, 'DependencyContext');
           const credentials = await getCredentials();
-          console.log("credentials", credentials);
           if (credentials?.accessToken) {
             console.log("setting auth header", credentials.accessToken);
             httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
@@ -83,6 +87,27 @@ export const DependencyProvider = ({
       }
     };
 
+    // Set up request interceptor to add x-client-id header for sync endpoints
+    httpClient.instance.interceptors.request.use(
+      async (config) => {
+        // Only add x-client-id header for sync endpoints
+        if (
+          config.url &&
+          (config.url.includes("/sync/pull") ||
+            config.url.includes("/sync/push"))
+        ) {
+          try {
+            const clientId = await getDeviceClientId();
+            config.headers["x-client-id"] = clientId;
+          } catch (error) {
+            console.error("Failed to get device client ID:", error);
+          }
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
+
     // Set up request interceptor for automatic token refresh
     httpClient.instance.interceptors.response.use(
       (response) => response,
@@ -92,8 +117,6 @@ export const DependencyProvider = ({
         if (response.status !== 401) {
           return Promise.reject(error);
         }
-
-        return Promise.reject(error);
 
         console.log("received 401 response, attempting token refresh");
         // logger.warn(

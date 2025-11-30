@@ -6,17 +6,14 @@ import ParallaxScrollView from "@/components/parallax-scroll-view";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Link } from "expo-router";
-import { useGetCurrentUser } from "@/hooks/api/user-api";
 import { useAuth0 } from "react-native-auth0";
 import { useGetCategories } from "@/hooks/api/categories-api";
 
 export default function HomeScreen() {
-  const { data: currentUser } = useGetCurrentUser();
   const { refetch: fetchCategories, isFetching } = useGetCategories();
 
   const { clearCredentials } = useAuth0();
 
-  console.log("currentUser", currentUser);
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}

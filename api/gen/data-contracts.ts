@@ -378,6 +378,46 @@ export interface Category {
   children?: any[][];
 }
 
+export interface MigrationDto {
+  /** Previous schema version (local schema at time of last sync) */
+  from: number;
+  /** Current schema version */
+  to: number;
+  /** Tables added since last sync (whitelisted) */
+  tables: string[];
+  /** Columns added since last sync, grouped by table (whitelisted) */
+  columns: Record<string, string[]>;
+}
+
+export interface PullChangesDto {
+  /**
+   * Last pulled timestamp in milliseconds since epoch (null or 0 for first sync)
+   * @example 1640995200000
+   */
+  lastPulledAt: object;
+  /** Migration information for schema versioning */
+  migration: MigrationDto;
+}
+
+export interface PushChangesDto {
+  /** Changes grouped by table name */
+  changes: Record<
+    string,
+    {
+      created?: any[];
+      updated?: any[];
+      deleted?: any[];
+    }
+  >;
+  /** Last pulled timestamp before this push */
+  lastPulledAt: string;
+  /**
+   * Schema version/migration number
+   * @default 0
+   */
+  migrations: number;
+}
+
 /** The status of the Plaid item */
 export enum PlaidItemResponseDtoStatusEnum {
   Active = "active",

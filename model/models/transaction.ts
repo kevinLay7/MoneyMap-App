@@ -1,0 +1,46 @@
+import { Model } from "@nozbe/watermelondb";
+import {
+  field,
+  relation,
+  readonly,
+  date,
+} from "@nozbe/watermelondb/decorators";
+
+export default class Transaction extends Model {
+  static table = "transactions";
+
+  @field("transaction_id") transactionId!: string;
+  @field("account_id") accountId!: string;
+  @field("amount") amount!: number;
+  @field("iso_currency_code") isoCurrencyCode?: string;
+  @field("unofficial_currency_code") unofficialCurrencyCode?: string;
+  @field("category") category?: string;
+  @field("category_id") categoryId?: string;
+  @field("check_number") checkNumber?: string;
+  @field("date") date!: string;
+  @field("authorized_date") authorizedDate?: string;
+  @field("authorized_datetime") authorizedDatetime?: string;
+  @field("datetime") datetime?: string;
+  @field("payment_channel") paymentChannel!: string;
+  @field("personal_finance_category_primary")
+  personalFinanceCategoryPrimary?: string;
+  @field("personal_finance_category_detailed")
+  personalFinanceCategoryDetailed?: string;
+  @field("personal_finance_category_confidence_level")
+  personalFinanceCategoryConfidenceLevel?: string;
+  @field("personal_finance_category_icon_url")
+  personalFinanceCategoryIconUrl?: string;
+  @field("name") name!: string;
+  @field("merchant_name") merchantName?: string;
+  @field("merchant_entity_id") merchantEntityId?: string;
+  @field("logo_url") logoUrl?: string;
+  @field("website") website?: string;
+  @field("pending") pending!: boolean;
+  @field("transaction_code") transactionCode?: string;
+  @field("counterparties") counterparties?: string;
+
+  @readonly @date("created_at") createdAt!: Date;
+  @readonly @date("updated_at") updatedAt!: Date;
+
+  @relation("accounts", "account_id") account!: any;
+}

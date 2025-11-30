@@ -8,6 +8,10 @@ import { DependencyProvider } from "@/context/dependencyContext";
 import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
+if (__DEV__) {
+  import("../ReactotronConfig");
+}
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
