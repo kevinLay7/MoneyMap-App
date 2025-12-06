@@ -1,40 +1,17 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { useColorScheme as useNativeWindColorScheme } from "nativewind";
+import { ReactNode } from "react";
 
-type ColorScheme = "dark" | "light";
-
-interface ColorSchemeContextType {
-  colorScheme: ColorScheme;
-  setColorScheme: (scheme: ColorScheme) => void;
-}
-
-const ColorSchemeContext = createContext<ColorSchemeContextType | undefined>(
-  undefined
-);
-
+// Just a pass-through component now, as NativeWind handles context internally
 export function ColorSchemeProvider({ children }: { children: ReactNode }) {
-  const [colorScheme, setColorScheme] = useState<ColorScheme>("dark");
-
-  return (
-    <ColorSchemeContext.Provider value={{ colorScheme, setColorScheme }}>
-      {children}
-    </ColorSchemeContext.Provider>
-  );
+  return <>{children}</>;
 }
 
-export function useColorScheme(): ColorScheme {
-  const context = useContext(ColorSchemeContext);
-  if (!context) {
-    throw new Error("useColorScheme must be used within ColorSchemeProvider");
-  }
-  return context.colorScheme;
+export function useColorScheme() {
+  const { colorScheme } = useNativeWindColorScheme();
+  return "dark";
 }
 
 export function useSetColorScheme() {
-  const context = useContext(ColorSchemeContext);
-  if (!context) {
-    throw new Error(
-      "useSetColorScheme must be used within ColorSchemeProvider"
-    );
-  }
-  return context.setColorScheme;
+  const { setColorScheme } = useNativeWindColorScheme();
+  return setColorScheme;
 }

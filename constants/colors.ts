@@ -1,7 +1,7 @@
 const tintColorLight = "#973AFF";
 const tintColorDark = "#973AFF";
 
-module.exports = {
+export const Colors = {
   primary: "#973AFF",
   secondary: "#028FFF",
   tertiary: "#FC4F9E",
@@ -10,6 +10,7 @@ module.exports = {
   negative: "transparent",
   light: {
     text: "#11181C",
+    textSecondary: "#687076",
     background: "#fff",
     tint: tintColorLight,
     icon: "#687076",
@@ -17,9 +18,11 @@ module.exports = {
     tabIconSelected: tintColorLight,
     backgroundSecondary: "#f5f5f5",
     backgroundTertiary: "#e5e5e5",
+    disabled: "#A6A6A6",
   },
   dark: {
     text: "#ECEDEE",
+    textSecondary: "#BCBCBC",
     background: "#040607",
     backgroundSecondary: "#191819",
     backgroundTertiary: "#2d2d2d",
@@ -27,5 +30,6 @@ module.exports = {
     icon: "#9BA1A6",
     tabIconDefault: "#9BA1A6",
     tabIconSelected: tintColorDark,
+    disabled: "#5F5F5F",
   },
 };

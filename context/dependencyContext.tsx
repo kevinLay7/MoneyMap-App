@@ -55,16 +55,10 @@ export const DependencyProvider = ({
     const setupInitialAuth = async () => {
       if (user) {
         try {
-          console.log("setting up initial auth");
           // logger.info('Setting up initial authentication for user', { userId: user.sub }, 'DependencyContext');
           const credentials = await getCredentials();
           if (credentials?.accessToken) {
-            console.log("setting auth header", credentials.accessToken);
             httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
-            console.log(
-              "auth header",
-              httpClient.instance.defaults.headers.common.Authorization
-            );
             // logger.debug(
             //   'Authentication header set successfully',
             //   { hasToken: !!credentials.accessToken },
@@ -80,7 +74,7 @@ export const DependencyProvider = ({
           // );
         }
       } else {
-        console.log("clearing auth header");
+        console.warn("clearing auth header");
         // Clear authorization header when user is not authenticated
         // logger.info('Clearing authentication header - no user', {}, 'DependencyContext');
         delete httpClient.instance.defaults.headers.common.Authorization;

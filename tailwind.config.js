@@ -1,5 +1,32 @@
-const colors = require("./constants/colors");
-const plugin = require("tailwindcss/plugin");
+const { Colors } = require("./constants/colors");
+
+// Helper to convert camelCase to kebab-case
+function camelToKebab(str) {
+  return str.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2").toLowerCase();
+}
+
+// Generate CSS variables plugin
+function generateCSSVariables() {
+  return function ({ addBase, theme }) {
+    const lightVars = {};
+    const darkVars = {};
+
+    // Generate CSS variables from Colors.light
+    Object.entries(Colors.light).forEach(([key, value]) => {
+      lightVars[`--color-${camelToKebab(key)}`] = value;
+    });
+
+    // Generate CSS variables from Colors.dark
+    Object.entries(Colors.dark).forEach(([key, value]) => {
+      darkVars[`--color-${camelToKebab(key)}`] = value;
+    });
+
+    addBase({
+      ":root": lightVars,
+      ".dark": darkVars,
+    });
+  };
+}
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -10,70 +37,25 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: colors.primary,
-        secondary: colors.secondary,
-        tertiary: colors.tertiary,
-        quaternary: colors.quaternary,
-        quinary: colors.quinary,
-        negative: colors.negative,
+        primary: Colors.primary,
+        secondary: Colors.secondary,
+        tertiary: Colors.tertiary,
+        quaternary: Colors.quaternary,
+        quinary: Colors.quinary,
+        negative: Colors.negative,
+        white: "#ffffff",
+        background: "var(--color-background)",
+        "background-secondary": "var(--color-background-secondary)",
+        "background-tertiary": "var(--color-background-tertiary)",
+        text: "var(--color-text)",
+        "text-secondary": "var(--color-text-secondary)",
+        icon: "var(--color-icon)",
+        tint: "var(--color-tint)",
+        "tab-icon-default": "var(--color-tab-icon-default)",
+        "tab-icon-selected": "var(--color-tab-icon-selected)",
+        disabled: "var(--color-disabled)",
       },
     },
   },
-  plugins: [
-    plugin(function ({ addUtilities }) {
-      addUtilities({
-        // Background colors that automatically switch with dark mode
-        ".bg-background": {
-          backgroundColor: colors.light.background,
-        },
-        ".dark .bg-background": {
-          backgroundColor: colors.dark.background,
-        },
-        ".bg-background-secondary": {
-          backgroundColor: colors.light.backgroundSecondary,
-        },
-        ".dark .bg-background-secondary": {
-          backgroundColor: colors.dark.backgroundSecondary,
-        },
-        ".bg-background-tertiary": {
-          backgroundColor: colors.light.backgroundTertiary,
-        },
-        ".dark .bg-background-tertiary": {
-          backgroundColor: colors.dark.backgroundTertiary,
-        },
-        // Text colors that automatically switch with dark mode
-        ".text-text": {
-          color: colors.light.text,
-        },
-        ".dark .text-text": {
-          color: colors.dark.text,
-        },
-        ".text-icon": {
-          color: colors.light.icon,
-        },
-        ".dark .text-icon": {
-          color: colors.dark.icon,
-        },
-        ".text-tint": {
-          color: colors.light.tint,
-        },
-        ".dark .text-tint": {
-          color: colors.dark.tint,
-        },
-        // Tab icon colors
-        ".text-tab-icon-default": {
-          color: colors.light.tabIconDefault,
-        },
-        ".dark .text-tab-icon-default": {
-          color: colors.dark.tabIconDefault,
-        },
-        ".text-tab-icon-selected": {
-          color: colors.light.tabIconSelected,
-        },
-        ".dark .text-tab-icon-selected": {
-          color: colors.dark.tabIconSelected,
-        },
-      });
-    }),
-  ],
+  plugins: [generateCSSVariables()],
 };

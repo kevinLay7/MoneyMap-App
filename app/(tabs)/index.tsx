@@ -1,111 +1,58 @@
-import { Image } from "expo-image";
-import { Button, Platform, StyleSheet, Text } from "react-native";
-
-import { HelloWave } from "@/components/hello-wave";
-import ParallaxScrollView from "@/components/parallax-scroll-view";
+import { StyleSheet, View } from "react-native";
 import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
-import { Link } from "expo-router";
 import { useAuth0 } from "react-native-auth0";
 import { useGetCategories } from "@/hooks/api/categories-api";
+import { Button } from "@/components/button";
+import Header from "@/components/header";
+import { useAnimatedRef, useScrollOffset } from "react-native-reanimated";
+import { BackgroundContainer } from "@/components/background-container";
+import AnimatedScrollView from "@/components/animated-scrollview";
+import { Colors } from "@/constants/colors";
 
 export default function HomeScreen() {
   const { refetch: fetchCategories, isFetching } = useGetCategories();
 
   const { clearCredentials } = useAuth0();
 
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: "#A1CEDC", dark: "#1D3D47" }}
-      headerImage={
-        <Image
-          source={require("@/assets/images/partial-react-logo.png")}
-          style={styles.reactLogo}
-        />
-      }
-    >
-      <Button title="Logout" onPress={() => clearCredentials()} />
-      <Button
-        title={isFetching ? "Loading..." : "Test API Call"}
-        onPress={() => {
-          fetchCategories()
-            .then((result) => {
-              console.log("Categories fetched:", result.data);
-              alert(`Fetched ${result.data?.length || 0} categories`);
-            })
-            .catch((error) => {
-              console.error("API call failed:", error);
-              alert("API call failed - check console");
-            });
-        }}
-      />
-      <Text className="text-red-500">DHSKADK</Text>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit{" "}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText>{" "}
-          to see changes. Press{" "}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: "cmd + d",
-              android: "cmd + m",
-              web: "F12",
-            })}
-          </ThemedText>{" "}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction
-              title="Action"
-              icon="cube"
-              onPress={() => alert("Action pressed")}
-            />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert("Share pressed")}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert("Delete pressed")}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const animatedRef = useAnimatedRef<any>();
+  const scrollOffset = useScrollOffset(animatedRef);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">
-            npm run reset-project
-          </ThemedText>{" "}
-          to get a fresh <ThemedText type="defaultSemiBold">app</ThemedText>{" "}
-          directory. This will move the current{" "}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{" "}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  return (
+    <BackgroundContainer>
+      <Header
+        scrollOffset={scrollOffset}
+        backgroundHex={Colors.primary}
+        centerComponent={<ThemedText type="subtitle">MoneyMap</ThemedText>}
+      />
+
+      <AnimatedScrollView
+        animatedRef={animatedRef}
+        isPending={isFetching}
+        isRefreshing={isFetching}
+      >
+        <View className="h-full p-4 pt-28 ">
+          <Button
+            color="warning"
+            title="Logout"
+            onPress={() => clearCredentials()}
+          />
+          <Button
+            title={isFetching ? "Loading..." : "Test API Call"}
+            onPress={() => {
+              fetchCategories()
+                .then((result) => {
+                  console.log("Categories fetched:", result.data);
+                  alert(`Fetched ${result.data?.length || 0} categories`);
+                })
+                .catch((error) => {
+                  console.error("API call failed:", error);
+                  alert("API call failed - check console");
+                });
+            }}
+          />
+        </View>
+      </AnimatedScrollView>
+    </BackgroundContainer>
   );
 }
 
