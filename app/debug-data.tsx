@@ -15,15 +15,43 @@ import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { TextInput } from '@/components/ui/inputs/text-input';
+import { DataTable, TableColumn } from '@/components/ui/data-table';
 import { Colors } from '@/constants/colors';
 import { useDependency } from '@/context/dependencyContext';
 import { PlaidService } from '@/services/plaid-service';
 import { clearDatabase } from '@/helpers/database-helpers';
+import { useObservableCollection } from '@/hooks/use-observable';
+
+type TabType = 'account' | 'category' | 'item' | 'transaction' | 'sync' | 'transactionSync';
 
 export default function DebugDataScreen() {
   const animatedRef = useAnimatedRef<any>();
   const scrollOffset = useScrollOffset(animatedRef);
   const { plaidApi } = useDependency();
+
+  const [activeTab, setActiveTab] = useState<TabType>('account');
+  const [editingRecord, setEditingRecord] = useState<string | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
+  // Observe collections
+  const accounts = useObservableCollection(
+    database.get<Account>('accounts').query().observe()
+  );
+  const categories = useObservableCollection(
+    database.get<Category>('categories').query().observe()
+  );
+  const items = useObservableCollection(
+    database.get<Item>('items').query().observe()
+  );
+  const transactions = useObservableCollection(
+    database.get<Transaction>('transactions').query().observe()
+  );
+  const syncs = useObservableCollection(
+    database.get<Sync>('syncs').query().observe()
+  );
+  const transactionSyncs = useObservableCollection(
+    database.get<TransactionSync>('transaction_syncs').query().observe()
+  );
 
   // Account form state
   const [accountId, setAccountId] = useState('');
@@ -36,6 +64,7 @@ export default function DebugDataScreen() {
   const [balanceAvailable, setBalanceAvailable] = useState('');
   const [isoCurrencyCode, setIsoCurrencyCode] = useState('');
   const [unofficialCurrencyCode, setUnofficialCurrencyCode] = useState('');
+  const [itemId, setItemId] = useState('');
   const [fetchPlaidItemId, setFetchPlaidItemId] = useState('');
   const [isFetchingAccounts, setIsFetchingAccounts] = useState(false);
 
@@ -98,46 +127,580 @@ export default function DebugDataScreen() {
   const [hasMore, setHasMore] = useState(false);
   const [requestId, setRequestId] = useState('');
 
-  const [activeTab, setActiveTab] = useState<
-    'account' | 'category' | 'item' | 'transaction' | 'sync' | 'transactionSync'
-  >('account');
+  const resetAccountForm = () => {
+    setAccountId('');
+    setAccountName('');
+    setOfficialName('');
+    setAccountType('');
+    setSubtype('');
+    setMask('');
+    setBalanceCurrent('');
+    setBalanceAvailable('');
+    setIsoCurrencyCode('');
+    setUnofficialCurrencyCode('');
+    setItemId('');
+    setEditingRecord(null);
+    setShowCreateForm(false);
+  };
 
-  const handleCreateAccount = async () => {
-    if (!accountId || !accountName || !accountType || !subtype || !balanceCurrent) {
+  const resetCategoryForm = () => {
+    setCategoryName('');
+    setPrimary('');
+    setDetailed('');
+    setDescription('');
+    setIcon('');
+    setColor('');
+    setIgnored(false);
+    setChildren('');
+    setEditingRecord(null);
+    setShowCreateForm(false);
+  };
+
+  const resetItemForm = () => {
+    setItemAccountId('');
+    setPlaidItemId('');
+    setInstitutionId('');
+    setInstitutionName('');
+    setStatus('');
+    setLastSuccessfulUpdate('');
+    setIsActive(true);
+    setEditingRecord(null);
+    setShowCreateForm(false);
+  };
+
+  const resetTransactionForm = () => {
+    setTransactionId('');
+    setTransactionAccountId('');
+    setAmount('');
+    setTransactionIsoCurrencyCode('');
+    setTransactionUnofficialCurrencyCode('');
+    setCategory('');
+    setCategoryId('');
+    setCheckNumber('');
+    setDate('');
+    setAuthorizedDate('');
+    setAuthorizedDatetime('');
+    setDatetime('');
+    setPaymentChannel('');
+    setPersonalFinanceCategoryPrimary('');
+    setPersonalFinanceCategoryDetailed('');
+    setPersonalFinanceCategoryConfidenceLevel('');
+    setPersonalFinanceCategoryIconUrl('');
+    setTransactionName('');
+    setMerchantName('');
+    setMerchantEntityId('');
+    setLogoUrl('');
+    setWebsite('');
+    setPending(false);
+    setTransactionCode('');
+    setCounterparties('');
+    setEditingRecord(null);
+    setShowCreateForm(false);
+  };
+
+  const resetSyncForm = () => {
+    setSyncAccountId('');
+    setUserId('');
+    setSyncPlaidItemId('');
+    setAction('');
+    setEditingRecord(null);
+    setShowCreateForm(false);
+  };
+
+  const resetTransactionSyncForm = () => {
+    setTsPlaidItemId('');
+    setTransactionsUpdateStatus('');
+    setNextCursor('');
+    setHasMore(false);
+    setRequestId('');
+    setEditingRecord(null);
+    setShowCreateForm(false);
+  };
+
+  const loadAccountForEdit = (account: Account) => {
+    setAccountId(account.accountId);
+    setAccountName(account.name);
+    setOfficialName(account.officialName || '');
+    setAccountType(account.type);
+    setSubtype(account.subtype);
+    setMask(account.mask || '');
+    setBalanceCurrent(account.balanceCurrent.toString());
+    setBalanceAvailable(account.balanceAvailable?.toString() || '');
+    setIsoCurrencyCode(account.isoCurrencyCode || '');
+    setUnofficialCurrencyCode(account.unofficialCurrencyCode || '');
+    setItemId(account.itemId);
+    setEditingRecord(account.id);
+    setShowCreateForm(true);
+  };
+
+  const loadCategoryForEdit = (category: Category) => {
+    setCategoryName(category.name);
+    setPrimary(category.primary);
+    setDetailed(category.detailed);
+    setDescription(category.description);
+    setIcon(category.icon || '');
+    setColor(category.color || '');
+    setIgnored(category.ignored);
+    setChildren(category.children || '');
+    setEditingRecord(category.id);
+    setShowCreateForm(true);
+  };
+
+  const loadItemForEdit = (item: Item) => {
+    setItemAccountId(item.accountId);
+    setPlaidItemId(item.plaidItemId);
+    setInstitutionId(item.institutionId);
+    setInstitutionName(item.institutionName);
+    setStatus(item.status);
+    setLastSuccessfulUpdate(item.lastSuccessfulUpdate || '');
+    setIsActive(item.isActive);
+    setEditingRecord(item.id);
+    setShowCreateForm(true);
+  };
+
+  const loadTransactionForEdit = (transaction: Transaction) => {
+    setTransactionId(transaction.transactionId);
+    setTransactionAccountId(transaction.accountId);
+    setAmount(transaction.amount.toString());
+    setTransactionIsoCurrencyCode(transaction.isoCurrencyCode || '');
+    setTransactionUnofficialCurrencyCode(transaction.unofficialCurrencyCode || '');
+    setCategory(transaction.category || '');
+    setCategoryId(transaction.categoryId || '');
+    setCheckNumber(transaction.checkNumber || '');
+    setDate(transaction.date);
+    setAuthorizedDate(transaction.authorizedDate || '');
+    setAuthorizedDatetime(transaction.authorizedDatetime || '');
+    setDatetime(transaction.datetime || '');
+    setPaymentChannel(transaction.paymentChannel);
+    setPersonalFinanceCategoryPrimary(transaction.personalFinanceCategoryPrimary || '');
+    setPersonalFinanceCategoryDetailed(transaction.personalFinanceCategoryDetailed || '');
+    setPersonalFinanceCategoryConfidenceLevel(transaction.personalFinanceCategoryConfidenceLevel || '');
+    setPersonalFinanceCategoryIconUrl(transaction.personalFinanceCategoryIconUrl || '');
+    setTransactionName(transaction.name);
+    setMerchantName(transaction.merchantName || '');
+    setMerchantEntityId(transaction.merchantEntityId || '');
+    setLogoUrl(transaction.logoUrl || '');
+    setWebsite(transaction.website || '');
+    setPending(transaction.pending);
+    setTransactionCode(transaction.transactionCode || '');
+    setCounterparties(transaction.counterparties || '');
+    setEditingRecord(transaction.id);
+    setShowCreateForm(true);
+  };
+
+  const loadSyncForEdit = (sync: Sync) => {
+    setSyncAccountId(sync.accountId);
+    setUserId(sync.userId);
+    setSyncPlaidItemId(sync.plaidItemId);
+    setAction(sync.action);
+    setEditingRecord(sync.id);
+    setShowCreateForm(true);
+  };
+
+  const loadTransactionSyncForEdit = (ts: TransactionSync) => {
+    setTsPlaidItemId(ts.plaidItemId);
+    setTransactionsUpdateStatus(ts.transactionsUpdateStatus);
+    setNextCursor(ts.nextCursor);
+    setHasMore(ts.hasMore);
+    setRequestId(ts.requestId);
+    setEditingRecord(ts.id);
+    setShowCreateForm(true);
+  };
+
+  const handleCreateOrUpdateAccount = async () => {
+    if (!accountId || !accountName || !accountType || !subtype || !balanceCurrent || !itemId) {
       Alert.alert('Error', 'Please fill in required fields');
       return;
     }
 
     try {
       await database.write(async () => {
-        await database.get<Account>('accounts').create(account => {
-          account.accountId = accountId;
-          account.name = accountName;
-          account.officialName = officialName || undefined;
-          account.type = accountType;
-          account.subtype = subtype;
-          account.mask = mask || undefined;
-          account.balanceCurrent = parseFloat(balanceCurrent);
-          account.balanceAvailable = balanceAvailable ? parseFloat(balanceAvailable) : undefined;
-          account.isoCurrencyCode = isoCurrencyCode || undefined;
-          account.unofficialCurrencyCode = unofficialCurrencyCode || undefined;
-        });
+        if (editingRecord) {
+          const account = await database.get<Account>('accounts').find(editingRecord);
+          await account.update(acc => {
+            acc.accountId = accountId;
+            acc.name = accountName;
+            acc.officialName = officialName || undefined;
+            acc.type = accountType;
+            acc.subtype = subtype;
+            acc.mask = mask || undefined;
+            acc.balanceCurrent = parseFloat(balanceCurrent);
+            acc.balanceAvailable = balanceAvailable ? parseFloat(balanceAvailable) : undefined;
+            acc.isoCurrencyCode = isoCurrencyCode || undefined;
+            acc.unofficialCurrencyCode = unofficialCurrencyCode || undefined;
+            acc.itemId = itemId;
+          });
+          Alert.alert('Success', 'Account updated');
+        } else {
+          await database.get<Account>('accounts').create(account => {
+            account.accountId = accountId;
+            account.name = accountName;
+            account.officialName = officialName || undefined;
+            account.type = accountType;
+            account.subtype = subtype;
+            account.mask = mask || undefined;
+            account.balanceCurrent = parseFloat(balanceCurrent);
+            account.balanceAvailable = balanceAvailable ? parseFloat(balanceAvailable) : undefined;
+            account.isoCurrencyCode = isoCurrencyCode || undefined;
+            account.unofficialCurrencyCode = unofficialCurrencyCode || undefined;
+            account.itemId = itemId;
+          });
+          Alert.alert('Success', 'Account created');
+        }
       });
-      Alert.alert('Success', 'Account created');
-      // Reset form
-      setAccountId('');
-      setAccountName('');
-      setOfficialName('');
-      setAccountType('');
-      setSubtype('');
-      setMask('');
-      setBalanceCurrent('');
-      setBalanceAvailable('');
-      setIsoCurrencyCode('');
-      setUnofficialCurrencyCode('');
+      resetAccountForm();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create account');
+      Alert.alert('Error', error.message || 'Failed to save account');
     }
+  };
+
+  const handleDeleteAccount = async (id: string) => {
+    Alert.alert('Delete Account', 'Are you sure you want to delete this account?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              const account = await database.get<Account>('accounts').find(id);
+              await account.markAsDeleted();
+            });
+            Alert.alert('Success', 'Account deleted');
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to delete account');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCreateOrUpdateCategory = async () => {
+    if (!categoryName || !primary || !detailed || !description) {
+      Alert.alert('Error', 'Please fill in required fields');
+      return;
+    }
+
+    try {
+      await database.write(async () => {
+        if (editingRecord) {
+          const category = await database.get<Category>('categories').find(editingRecord);
+          await category.update(cat => {
+            cat.name = categoryName;
+            cat.primary = primary;
+            cat.detailed = detailed;
+            cat.description = description;
+            cat.icon = icon || undefined;
+            cat.color = color || undefined;
+            cat.ignored = ignored;
+            cat.children = children || undefined;
+          });
+          Alert.alert('Success', 'Category updated');
+        } else {
+          await database.get<Category>('categories').create(category => {
+            category.name = categoryName;
+            category.primary = primary;
+            category.detailed = detailed;
+            category.description = description;
+            category.icon = icon || undefined;
+            category.color = color || undefined;
+            category.ignored = ignored;
+            category.children = children || undefined;
+          });
+          Alert.alert('Success', 'Category created');
+        }
+      });
+      resetCategoryForm();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save category');
+    }
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    Alert.alert('Delete Category', 'Are you sure you want to delete this category?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              const category = await database.get<Category>('categories').find(id);
+              await category.markAsDeleted();
+            });
+            Alert.alert('Success', 'Category deleted');
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to delete category');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCreateOrUpdateItem = async () => {
+    if (!itemAccountId || !plaidItemId || !institutionId || !institutionName || !status) {
+      Alert.alert('Error', 'Please fill in required fields');
+      return;
+    }
+
+    try {
+      await database.write(async () => {
+        if (editingRecord) {
+          const item = await database.get<Item>('items').find(editingRecord);
+          await item.update(it => {
+            it.accountId = itemAccountId;
+            it.plaidItemId = plaidItemId;
+            it.institutionId = institutionId;
+            it.institutionName = institutionName;
+            it.status = status;
+            it.lastSuccessfulUpdate = lastSuccessfulUpdate || undefined;
+            it.isActive = isActive;
+          });
+          Alert.alert('Success', 'Item updated');
+        } else {
+          await database.get<Item>('items').create(item => {
+            item.accountId = itemAccountId;
+            item.plaidItemId = plaidItemId;
+            item.institutionId = institutionId;
+            item.institutionName = institutionName;
+            item.status = status;
+            item.lastSuccessfulUpdate = lastSuccessfulUpdate || undefined;
+            item.isActive = isActive;
+          });
+          Alert.alert('Success', 'Item created');
+        }
+      });
+      resetItemForm();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save item');
+    }
+  };
+
+  const handleDeleteItem = async (id: string) => {
+    Alert.alert('Delete Item', 'Are you sure you want to delete this item?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              const item = await database.get<Item>('items').find(id);
+              await item.markAsDeleted();
+            });
+            Alert.alert('Success', 'Item deleted');
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to delete item');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCreateOrUpdateTransaction = async () => {
+    if (!transactionId || !transactionAccountId || !amount || !date || !paymentChannel || !transactionName) {
+      Alert.alert('Error', 'Please fill in required fields');
+      return;
+    }
+
+    try {
+      await database.write(async () => {
+        if (editingRecord) {
+          const transaction = await database.get<Transaction>('transactions').find(editingRecord);
+          await transaction.update(tr => {
+            tr.transactionId = transactionId;
+            tr.accountId = transactionAccountId;
+            tr.amount = parseFloat(amount);
+            tr.isoCurrencyCode = transactionIsoCurrencyCode || undefined;
+            tr.unofficialCurrencyCode = transactionUnofficialCurrencyCode || undefined;
+            tr.category = category || undefined;
+            tr.categoryId = categoryId || undefined;
+            tr.checkNumber = checkNumber || undefined;
+            tr.date = date;
+            tr.authorizedDate = authorizedDate || undefined;
+            tr.authorizedDatetime = authorizedDatetime || undefined;
+            tr.datetime = datetime || undefined;
+            tr.paymentChannel = paymentChannel;
+            tr.personalFinanceCategoryPrimary = personalFinanceCategoryPrimary || undefined;
+            tr.personalFinanceCategoryDetailed = personalFinanceCategoryDetailed || undefined;
+            tr.personalFinanceCategoryConfidenceLevel = personalFinanceCategoryConfidenceLevel || undefined;
+            tr.personalFinanceCategoryIconUrl = personalFinanceCategoryIconUrl || undefined;
+            tr.name = transactionName;
+            tr.merchantName = merchantName || undefined;
+            tr.merchantEntityId = merchantEntityId || undefined;
+            tr.logoUrl = logoUrl || undefined;
+            tr.website = website || undefined;
+            tr.pending = pending;
+            tr.transactionCode = transactionCode || undefined;
+            tr.counterparties = counterparties || undefined;
+          });
+          Alert.alert('Success', 'Transaction updated');
+        } else {
+          await database.get<Transaction>('transactions').create(transaction => {
+            transaction.transactionId = transactionId;
+            transaction.accountId = transactionAccountId;
+            transaction.amount = parseFloat(amount);
+            transaction.isoCurrencyCode = transactionIsoCurrencyCode || undefined;
+            transaction.unofficialCurrencyCode = transactionUnofficialCurrencyCode || undefined;
+            transaction.category = category || undefined;
+            transaction.categoryId = categoryId || undefined;
+            transaction.checkNumber = checkNumber || undefined;
+            transaction.date = date;
+            transaction.authorizedDate = authorizedDate || undefined;
+            transaction.authorizedDatetime = authorizedDatetime || undefined;
+            transaction.datetime = datetime || undefined;
+            transaction.paymentChannel = paymentChannel;
+            transaction.personalFinanceCategoryPrimary = personalFinanceCategoryPrimary || undefined;
+            transaction.personalFinanceCategoryDetailed = personalFinanceCategoryDetailed || undefined;
+            transaction.personalFinanceCategoryConfidenceLevel = personalFinanceCategoryConfidenceLevel || undefined;
+            transaction.personalFinanceCategoryIconUrl = personalFinanceCategoryIconUrl || undefined;
+            transaction.name = transactionName;
+            transaction.merchantName = merchantName || undefined;
+            transaction.merchantEntityId = merchantEntityId || undefined;
+            transaction.logoUrl = logoUrl || undefined;
+            transaction.website = website || undefined;
+            transaction.pending = pending;
+            transaction.transactionCode = transactionCode || undefined;
+            transaction.counterparties = counterparties || undefined;
+          });
+          Alert.alert('Success', 'Transaction created');
+        }
+      });
+      resetTransactionForm();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save transaction');
+    }
+  };
+
+  const handleDeleteTransaction = async (id: string) => {
+    Alert.alert('Delete Transaction', 'Are you sure you want to delete this transaction?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              const transaction = await database.get<Transaction>('transactions').find(id);
+              await transaction.markAsDeleted();
+            });
+            Alert.alert('Success', 'Transaction deleted');
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to delete transaction');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCreateOrUpdateSync = async () => {
+    if (!syncAccountId || !userId || !syncPlaidItemId || !action) {
+      Alert.alert('Error', 'Please fill in required fields');
+      return;
+    }
+
+    try {
+      await database.write(async () => {
+        if (editingRecord) {
+          const sync = await database.get<Sync>('syncs').find(editingRecord);
+          await sync.update(s => {
+            s.accountId = syncAccountId;
+            s.userId = userId;
+            s.plaidItemId = syncPlaidItemId;
+            s.action = action;
+          });
+          Alert.alert('Success', 'Sync updated');
+        } else {
+          await database.get<Sync>('syncs').create(sync => {
+            sync.accountId = syncAccountId;
+            sync.userId = userId;
+            sync.plaidItemId = syncPlaidItemId;
+            sync.action = action;
+          });
+          Alert.alert('Success', 'Sync created');
+        }
+      });
+      resetSyncForm();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save sync');
+    }
+  };
+
+  const handleDeleteSync = async (id: string) => {
+    Alert.alert('Delete Sync', 'Are you sure you want to delete this sync?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              const sync = await database.get<Sync>('syncs').find(id);
+              await sync.markAsDeleted();
+            });
+            Alert.alert('Success', 'Sync deleted');
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to delete sync');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleCreateOrUpdateTransactionSync = async () => {
+    if (!tsPlaidItemId || !transactionsUpdateStatus || !nextCursor || !requestId) {
+      Alert.alert('Error', 'Please fill in required fields');
+      return;
+    }
+
+    try {
+      await database.write(async () => {
+        if (editingRecord) {
+          const ts = await database.get<TransactionSync>('transaction_syncs').find(editingRecord);
+          await ts.update(t => {
+            t.plaidItemId = tsPlaidItemId;
+            t.transactionsUpdateStatus = transactionsUpdateStatus;
+            t.nextCursor = nextCursor;
+            t.hasMore = hasMore;
+            t.requestId = requestId;
+          });
+          Alert.alert('Success', 'TransactionSync updated');
+        } else {
+          await database.get<TransactionSync>('transaction_syncs').create(ts => {
+            ts.plaidItemId = tsPlaidItemId;
+            ts.transactionsUpdateStatus = transactionsUpdateStatus;
+            ts.nextCursor = nextCursor;
+            ts.hasMore = hasMore;
+            ts.requestId = requestId;
+          });
+          Alert.alert('Success', 'TransactionSync created');
+        }
+      });
+      resetTransactionSyncForm();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save transaction sync');
+    }
+  };
+
+  const handleDeleteTransactionSync = async (id: string) => {
+    Alert.alert('Delete Transaction Sync', 'Are you sure you want to delete this transaction sync?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await database.write(async () => {
+              const ts = await database.get<TransactionSync>('transaction_syncs').find(id);
+              await ts.markAsDeleted();
+            });
+            Alert.alert('Success', 'TransactionSync deleted');
+          } catch (error: any) {
+            Alert.alert('Error', error.message || 'Failed to delete transaction sync');
+          }
+        },
+      },
+    ]);
   };
 
   const handleFetchAccounts = async () => {
@@ -160,194 +723,6 @@ export default function DebugDataScreen() {
     }
   };
 
-  const handleCreateCategory = async () => {
-    if (!categoryName || !primary || !detailed || !description) {
-      Alert.alert('Error', 'Please fill in required fields');
-      return;
-    }
-
-    try {
-      await database.write(async () => {
-        await database.get<Category>('categories').create(category => {
-          category.name = categoryName;
-          category.primary = primary;
-          category.detailed = detailed;
-          category.description = description;
-          category.icon = icon || undefined;
-          category.color = color || undefined;
-          category.ignored = ignored;
-          category.children = children || undefined;
-        });
-      });
-      Alert.alert('Success', 'Category created');
-      // Reset form
-      setCategoryName('');
-      setPrimary('');
-      setDetailed('');
-      setDescription('');
-      setIcon('');
-      setColor('');
-      setIgnored(false);
-      setChildren('');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create category');
-    }
-  };
-
-  const handleCreateItem = async () => {
-    if (!itemAccountId || !plaidItemId || !institutionId || !institutionName || !status) {
-      Alert.alert('Error', 'Please fill in required fields');
-      return;
-    }
-
-    try {
-      await database.write(async () => {
-        await database.get<Item>('items').create(item => {
-          item.accountId = itemAccountId;
-          item.plaidItemId = plaidItemId;
-          item.institutionId = institutionId;
-          item.institutionName = institutionName;
-          item.status = status;
-          item.lastSuccessfulUpdate = lastSuccessfulUpdate || undefined;
-          item.isActive = isActive;
-        });
-      });
-      Alert.alert('Success', 'Item created');
-      // Reset form
-      setItemAccountId('');
-      setPlaidItemId('');
-      setInstitutionId('');
-      setInstitutionName('');
-      setStatus('');
-      setLastSuccessfulUpdate('');
-      setIsActive(true);
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create item');
-    }
-  };
-
-  const handleCreateTransaction = async () => {
-    if (!transactionId || !transactionAccountId || !amount || !date || !paymentChannel || !transactionName) {
-      Alert.alert('Error', 'Please fill in required fields');
-      return;
-    }
-
-    try {
-      await database.write(async () => {
-        await database.get<Transaction>('transactions').create(transaction => {
-          transaction.transactionId = transactionId;
-          transaction.accountId = transactionAccountId;
-          transaction.amount = parseFloat(amount);
-          transaction.isoCurrencyCode = transactionIsoCurrencyCode || undefined;
-          transaction.unofficialCurrencyCode = transactionUnofficialCurrencyCode || undefined;
-          transaction.category = category || undefined;
-          transaction.categoryId = categoryId || undefined;
-          transaction.checkNumber = checkNumber || undefined;
-          transaction.date = date;
-          transaction.authorizedDate = authorizedDate || undefined;
-          transaction.authorizedDatetime = authorizedDatetime || undefined;
-          transaction.datetime = datetime || undefined;
-          transaction.paymentChannel = paymentChannel;
-          transaction.personalFinanceCategoryPrimary = personalFinanceCategoryPrimary || undefined;
-          transaction.personalFinanceCategoryDetailed = personalFinanceCategoryDetailed || undefined;
-          transaction.personalFinanceCategoryConfidenceLevel = personalFinanceCategoryConfidenceLevel || undefined;
-          transaction.personalFinanceCategoryIconUrl = personalFinanceCategoryIconUrl || undefined;
-          transaction.name = transactionName;
-          transaction.merchantName = merchantName || undefined;
-          transaction.merchantEntityId = merchantEntityId || undefined;
-          transaction.logoUrl = logoUrl || undefined;
-          transaction.website = website || undefined;
-          transaction.pending = pending;
-          transaction.transactionCode = transactionCode || undefined;
-          transaction.counterparties = counterparties || undefined;
-        });
-      });
-      Alert.alert('Success', 'Transaction created');
-      // Reset form
-      setTransactionId('');
-      setTransactionAccountId('');
-      setAmount('');
-      setTransactionIsoCurrencyCode('');
-      setTransactionUnofficialCurrencyCode('');
-      setCategory('');
-      setCategoryId('');
-      setCheckNumber('');
-      setDate('');
-      setAuthorizedDate('');
-      setAuthorizedDatetime('');
-      setDatetime('');
-      setPaymentChannel('');
-      setPersonalFinanceCategoryPrimary('');
-      setPersonalFinanceCategoryDetailed('');
-      setPersonalFinanceCategoryConfidenceLevel('');
-      setPersonalFinanceCategoryIconUrl('');
-      setTransactionName('');
-      setMerchantName('');
-      setMerchantEntityId('');
-      setLogoUrl('');
-      setWebsite('');
-      setPending(false);
-      setTransactionCode('');
-      setCounterparties('');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create transaction');
-    }
-  };
-
-  const handleCreateSync = async () => {
-    if (!syncAccountId || !userId || !syncPlaidItemId || !action) {
-      Alert.alert('Error', 'Please fill in required fields');
-      return;
-    }
-
-    try {
-      await database.write(async () => {
-        await database.get<Sync>('syncs').create(sync => {
-          sync.accountId = syncAccountId;
-          sync.userId = userId;
-          sync.plaidItemId = syncPlaidItemId;
-          sync.action = action;
-        });
-      });
-      Alert.alert('Success', 'Sync created');
-      // Reset form
-      setSyncAccountId('');
-      setUserId('');
-      setSyncPlaidItemId('');
-      setAction('');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create sync');
-    }
-  };
-
-  const handleCreateTransactionSync = async () => {
-    if (!tsPlaidItemId || !transactionsUpdateStatus || !nextCursor || !requestId) {
-      Alert.alert('Error', 'Please fill in required fields');
-      return;
-    }
-
-    try {
-      await database.write(async () => {
-        await database.get<TransactionSync>('transaction_syncs').create(ts => {
-          ts.plaidItemId = tsPlaidItemId;
-          ts.transactionsUpdateStatus = transactionsUpdateStatus;
-          ts.nextCursor = nextCursor;
-          ts.hasMore = hasMore;
-          ts.requestId = requestId;
-        });
-      });
-      Alert.alert('Success', 'TransactionSync created');
-      // Reset form
-      setTsPlaidItemId('');
-      setTransactionsUpdateStatus('');
-      setNextCursor('');
-      setHasMore(false);
-      setRequestId('');
-    } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create transaction sync');
-    }
-  };
-
   const handleClearDatabase = async () => {
     Alert.alert('Clear Database', 'This will permanently delete all data. Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
@@ -367,11 +742,65 @@ export default function DebugDataScreen() {
     ]);
   };
 
+  const accountColumns: TableColumn<Account>[] = [
+    { key: 'accountId', label: 'Account ID', width: 150 },
+    { key: 'name', label: 'Name', width: 150 },
+    { key: 'type', label: 'Type', width: 100 },
+    { key: 'subtype', label: 'Subtype', width: 100 },
+    {
+      key: 'balanceCurrent',
+      label: 'Balance',
+      width: 120,
+      render: (item) => (
+        <ThemedText type="default" className="text-text-secondary">
+          ${item.balanceCurrent.toFixed(2)} {item.isoCurrencyCode || ''}
+        </ThemedText>
+      ),
+    },
+    { key: 'mask', label: 'Mask', width: 80 },
+    { key: 'itemId', label: 'Item ID', width: 150 },
+  ];
+
+  const renderAccountList = () => (
+    <View className="flex-1">
+      <View className="flex-row justify-between items-center p-4">
+        <ThemedText type="subtitle">Accounts ({accounts.length})</ThemedText>
+        <Button
+          title="+ New"
+          onPress={() => {
+            resetAccountForm();
+            setShowCreateForm(true);
+          }}
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
+      {showCreateForm && renderAccountForm()}
+      <View className="flex-1 px-2">
+        <DataTable
+          data={accounts}
+          columns={accountColumns}
+          keyExtractor={(item) => item.id}
+          onRowPress={loadAccountForEdit}
+          onDelete={(item) => handleDeleteAccount(item.id)}
+          emptyMessage="No accounts found. Create one to get started."
+        />
+      </View>
+    </View>
+  );
+
   const renderAccountForm = () => (
     <Card className="m-4" padding="lg" backgroundColor="secondary">
-      <ThemedText type="title" className="mb-4">
-        Create Account
-      </ThemedText>
+      <View className="flex-row justify-between items-center mb-4">
+        <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Account</ThemedText>
+        <Button
+          title="Cancel"
+          onPress={resetAccountForm}
+          variant="outlined"
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
       <TextInput
         icon="hashtag"
         label="Account ID *"
@@ -403,6 +832,13 @@ export default function DebugDataScreen() {
       />
       <TextInput icon="mask" label="Mask" value={mask} onChangeText={setMask} placeholder="0000" />
       <TextInput
+        icon="hashtag"
+        label="Item ID *"
+        value={itemId}
+        onChangeText={setItemId}
+        placeholder="item_id"
+      />
+      <TextInput
         icon="dollar-sign"
         label="Balance Current *"
         value={balanceCurrent}
@@ -430,33 +866,101 @@ export default function DebugDataScreen() {
         onChangeText={setUnofficialCurrencyCode}
         placeholder=""
       />
-      <Button title="Create Account" onPress={handleCreateAccount} />
+      <Button
+        title={editingRecord ? 'Update Account' : 'Create Account'}
+        onPress={handleCreateOrUpdateAccount}
+      />
 
-      <View className="mt-6 pt-6 border-t border-border">
-        <ThemedText type="subtitle" className="mb-4">
-          Fetch Accounts from Plaid
+      {!editingRecord && (
+        <View className="mt-6 pt-6 border-t border-border">
+          <ThemedText type="subtitle" className="mb-4">
+            Fetch Accounts from Plaid
+          </ThemedText>
+          <TextInput
+            icon="link"
+            label="Plaid Item ID"
+            value={fetchPlaidItemId}
+            onChangeText={setFetchPlaidItemId}
+            placeholder="Enter Plaid Item ID"
+          />
+          <Button
+            title={isFetchingAccounts ? 'Fetching...' : 'Fetch Accounts'}
+            onPress={handleFetchAccounts}
+            disabled={isFetchingAccounts}
+          />
+        </View>
+      )}
+    </Card>
+  );
+
+  const categoryColumns: TableColumn<Category>[] = [
+    { key: 'name', label: 'Name', width: 150 },
+    { key: 'primary', label: 'Primary', width: 120 },
+    { key: 'detailed', label: 'Detailed', width: 150 },
+    {
+      key: 'description',
+      label: 'Description',
+      width: 200,
+      render: (item) => (
+        <ThemedText type="default" className="text-text-secondary" numberOfLines={2}>
+          {item.description}
         </ThemedText>
-        <TextInput
-          icon="link"
-          label="Plaid Item ID"
-          value={fetchPlaidItemId}
-          onChangeText={setFetchPlaidItemId}
-          placeholder="Enter Plaid Item ID"
-        />
+      ),
+    },
+    {
+      key: 'ignored',
+      label: 'Ignored',
+      width: 80,
+      render: (item) => (
+        <ThemedText type="default" className={item.ignored ? 'text-yellow-500' : 'text-text-secondary'}>
+          {item.ignored ? 'Yes' : 'No'}
+        </ThemedText>
+      ),
+    },
+    { key: 'icon', label: 'Icon', width: 100 },
+    { key: 'color', label: 'Color', width: 100 },
+  ];
+
+  const renderCategoryList = () => (
+    <View className="flex-1">
+      <View className="flex-row justify-between items-center p-4">
+        <ThemedText type="subtitle">Categories ({categories.length})</ThemedText>
         <Button
-          title={isFetchingAccounts ? 'Fetching...' : 'Fetch Accounts'}
-          onPress={handleFetchAccounts}
-          disabled={isFetchingAccounts}
+          title="+ New"
+          onPress={() => {
+            resetCategoryForm();
+            setShowCreateForm(true);
+          }}
+          size="sm"
+          width="w-1/4"
         />
       </View>
-    </Card>
+      {showCreateForm && renderCategoryForm()}
+      <View className="flex-1 px-2">
+        <DataTable
+          data={categories}
+          columns={categoryColumns}
+          keyExtractor={(item) => item.id}
+          onRowPress={loadCategoryForEdit}
+          onDelete={(item) => handleDeleteCategory(item.id)}
+          emptyMessage="No categories found. Create one to get started."
+        />
+      </View>
+    </View>
   );
 
   const renderCategoryForm = () => (
     <Card className="m-4" padding="lg" backgroundColor="secondary">
-      <ThemedText type="title" className="mb-4">
-        Create Category
-      </ThemedText>
+      <View className="flex-row justify-between items-center mb-4">
+        <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Category</ThemedText>
+        <Button
+          title="Cancel"
+          onPress={resetCategoryForm}
+          variant="outlined"
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
       <TextInput icon="tag" label="Name *" value={categoryName} onChangeText={setCategoryName} placeholder="name" />
       <TextInput icon="circle" label="Primary *" value={primary} onChangeText={setPrimary} placeholder="primary" />
       <TextInput icon="list" label="Detailed *" value={detailed} onChangeText={setDetailed} placeholder="detailed" />
@@ -474,15 +978,72 @@ export default function DebugDataScreen() {
         <Switch value={ignored} onValueChange={setIgnored} />
       </View>
       <TextInput icon="sitemap" label="Children" value={children} onChangeText={setChildren} placeholder="children" />
-      <Button title="Create Category" onPress={handleCreateCategory} />
+      <Button
+        title={editingRecord ? 'Update Category' : 'Create Category'}
+        onPress={handleCreateOrUpdateCategory}
+      />
     </Card>
+  );
+
+  const itemColumns: TableColumn<Item>[] = [
+    { key: 'institutionName', label: 'Institution', width: 150 },
+    { key: 'plaidItemId', label: 'Plaid Item ID', width: 200 },
+    { key: 'institutionId', label: 'Institution ID', width: 150 },
+    { key: 'status', label: 'Status', width: 100 },
+    {
+      key: 'isActive',
+      label: 'Active',
+      width: 80,
+      render: (item) => (
+        <ThemedText type="default" className={item.isActive ? 'text-green-500' : 'text-text-secondary'}>
+          {item.isActive ? 'Yes' : 'No'}
+        </ThemedText>
+      ),
+    },
+    { key: 'accountId', label: 'Account ID', width: 150 },
+    { key: 'lastSuccessfulUpdate', label: 'Last Update', width: 150 },
+  ];
+
+  const renderItemList = () => (
+    <View className="flex-1">
+      <View className="flex-row justify-between items-center p-4">
+        <ThemedText type="subtitle">Items ({items.length})</ThemedText>
+        <Button
+          title="+ New"
+          onPress={() => {
+            resetItemForm();
+            setShowCreateForm(true);
+          }}
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
+      {showCreateForm && renderItemForm()}
+      <View className="flex-1 px-2">
+        <DataTable
+          data={items}
+          columns={itemColumns}
+          keyExtractor={(item) => item.id}
+          onRowPress={loadItemForEdit}
+          onDelete={(item) => handleDeleteItem(item.id)}
+          emptyMessage="No items found. Create one to get started."
+        />
+      </View>
+    </View>
   );
 
   const renderItemForm = () => (
     <Card className="m-4" padding="lg" backgroundColor="secondary">
-      <ThemedText type="title" className="mb-4">
-        Create Item
-      </ThemedText>
+      <View className="flex-row justify-between items-center mb-4">
+        <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Item</ThemedText>
+        <Button
+          title="Cancel"
+          onPress={resetItemForm}
+          variant="outlined"
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
       <TextInput
         icon="hashtag"
         label="Account ID *"
@@ -523,15 +1084,91 @@ export default function DebugDataScreen() {
         <Text className="text-text font-semibold mr-2">Is Active</Text>
         <Switch value={isActive} onValueChange={setIsActive} />
       </View>
-      <Button title="Create Item" onPress={handleCreateItem} />
+      <Button
+        title={editingRecord ? 'Update Item' : 'Create Item'}
+        onPress={handleCreateOrUpdateItem}
+      />
     </Card>
+  );
+
+  const transactionColumns: TableColumn<Transaction>[] = [
+    {
+      key: 'name',
+      label: 'Name',
+      width: 180,
+      render: (item) => (
+        <ThemedText type="default" className="text-text" numberOfLines={1}>
+          {item.name}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'amount',
+      label: 'Amount',
+      width: 120,
+      render: (item) => (
+        <ThemedText type="default" className="text-text-secondary">
+          ${item.amount.toFixed(2)} {item.isoCurrencyCode || ''}
+        </ThemedText>
+      ),
+    },
+    { key: 'date', label: 'Date', width: 120 },
+    { key: 'transactionId', label: 'Transaction ID', width: 200 },
+    { key: 'accountId', label: 'Account ID', width: 150 },
+    {
+      key: 'pending',
+      label: 'Pending',
+      width: 80,
+      render: (item) => (
+        <ThemedText type="default" className={item.pending ? 'text-yellow-500' : 'text-text-secondary'}>
+          {item.pending ? 'Yes' : 'No'}
+        </ThemedText>
+      ),
+    },
+    { key: 'paymentChannel', label: 'Channel', width: 120 },
+    { key: 'merchantName', label: 'Merchant', width: 150 },
+  ];
+
+  const renderTransactionList = () => (
+    <View className="flex-1">
+      <View className="flex-row justify-between items-center p-4">
+        <ThemedText type="subtitle">Transactions ({transactions.length})</ThemedText>
+        <Button
+          title="+ New"
+          onPress={() => {
+            resetTransactionForm();
+            setShowCreateForm(true);
+          }}
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
+      {showCreateForm && renderTransactionForm()}
+      <View className="flex-1 px-2">
+        <DataTable
+          data={transactions}
+          columns={transactionColumns}
+          keyExtractor={(item) => item.id}
+          onRowPress={loadTransactionForEdit}
+          onDelete={(item) => handleDeleteTransaction(item.id)}
+          emptyMessage="No transactions found. Create one to get started."
+        />
+      </View>
+    </View>
   );
 
   const renderTransactionForm = () => (
     <Card className="m-4" padding="lg" backgroundColor="secondary">
-      <ThemedText type="title" className="mb-4">
-        Create Transaction
-      </ThemedText>
+      <View className="flex-row justify-between items-center mb-4">
+        <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Transaction</ThemedText>
+        <Button
+          title="Cancel"
+          onPress={resetTransactionForm}
+          variant="outlined"
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
       <TextInput
         icon="hashtag"
         label="Transaction ID *"
@@ -668,15 +1305,60 @@ export default function DebugDataScreen() {
         onChangeText={setCounterparties}
         placeholder="counterparties"
       />
-      <Button title="Create Transaction" onPress={handleCreateTransaction} />
+      <Button
+        title={editingRecord ? 'Update Transaction' : 'Create Transaction'}
+        onPress={handleCreateOrUpdateTransaction}
+      />
     </Card>
+  );
+
+  const syncColumns: TableColumn<Sync>[] = [
+    { key: 'action', label: 'Action', width: 120 },
+    { key: 'accountId', label: 'Account ID', width: 150 },
+    { key: 'userId', label: 'User ID', width: 150 },
+    { key: 'plaidItemId', label: 'Plaid Item ID', width: 200 },
+  ];
+
+  const renderSyncList = () => (
+    <View className="flex-1">
+      <View className="flex-row justify-between items-center p-4">
+        <ThemedText type="subtitle">Syncs ({syncs.length})</ThemedText>
+        <Button
+          title="+ New"
+          onPress={() => {
+            resetSyncForm();
+            setShowCreateForm(true);
+          }}
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
+      {showCreateForm && renderSyncForm()}
+      <View className="flex-1 px-2">
+        <DataTable
+          data={syncs}
+          columns={syncColumns}
+          keyExtractor={(item) => item.id}
+          onRowPress={loadSyncForEdit}
+          onDelete={(item) => handleDeleteSync(item.id)}
+          emptyMessage="No syncs found. Create one to get started."
+        />
+      </View>
+    </View>
   );
 
   const renderSyncForm = () => (
     <Card className="m-4" padding="lg" backgroundColor="secondary">
-      <ThemedText type="title" className="mb-4">
-        Create Sync
-      </ThemedText>
+      <View className="flex-row justify-between items-center mb-4">
+        <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Sync</ThemedText>
+        <Button
+          title="Cancel"
+          onPress={resetSyncForm}
+          variant="outlined"
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
       <TextInput
         icon="hashtag"
         label="Account ID *"
@@ -693,15 +1375,70 @@ export default function DebugDataScreen() {
         placeholder="plaid_item_id"
       />
       <TextInput icon="gear" label="Action *" value={action} onChangeText={setAction} placeholder="action" />
-      <Button title="Create Sync" onPress={handleCreateSync} />
+      <Button
+        title={editingRecord ? 'Update Sync' : 'Create Sync'}
+        onPress={handleCreateOrUpdateSync}
+      />
     </Card>
+  );
+
+  const transactionSyncColumns: TableColumn<TransactionSync>[] = [
+    { key: 'plaidItemId', label: 'Plaid Item ID', width: 200 },
+    { key: 'transactionsUpdateStatus', label: 'Status', width: 150 },
+    { key: 'nextCursor', label: 'Next Cursor', width: 200 },
+    {
+      key: 'hasMore',
+      label: 'Has More',
+      width: 100,
+      render: (item) => (
+        <ThemedText type="default" className={item.hasMore ? 'text-green-500' : 'text-text-secondary'}>
+          {item.hasMore ? 'Yes' : 'No'}
+        </ThemedText>
+      ),
+    },
+    { key: 'requestId', label: 'Request ID', width: 200 },
+  ];
+
+  const renderTransactionSyncList = () => (
+    <View className="flex-1">
+      <View className="flex-row justify-between items-center p-4">
+        <ThemedText type="subtitle">Transaction Syncs ({transactionSyncs.length})</ThemedText>
+        <Button
+          title="+ New"
+          onPress={() => {
+            resetTransactionSyncForm();
+            setShowCreateForm(true);
+          }}
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
+      {showCreateForm && renderTransactionSyncForm()}
+      <View className="flex-1 px-2">
+        <DataTable
+          data={transactionSyncs}
+          columns={transactionSyncColumns}
+          keyExtractor={(item) => item.id}
+          onRowPress={loadTransactionSyncForEdit}
+          onDelete={(item) => handleDeleteTransactionSync(item.id)}
+          emptyMessage="No transaction syncs found. Create one to get started."
+        />
+      </View>
+    </View>
   );
 
   const renderTransactionSyncForm = () => (
     <Card className="m-4" padding="lg" backgroundColor="secondary">
-      <ThemedText type="title" className="mb-4">
-        Create Transaction Sync
-      </ThemedText>
+      <View className="flex-row justify-between items-center mb-4">
+        <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Transaction Sync</ThemedText>
+        <Button
+          title="Cancel"
+          onPress={resetTransactionSyncForm}
+          variant="outlined"
+          size="sm"
+          width="w-1/4"
+        />
+      </View>
       <TextInput
         icon="link"
         label="Plaid Item ID *"
@@ -734,9 +1471,31 @@ export default function DebugDataScreen() {
         onChangeText={setRequestId}
         placeholder="request_id"
       />
-      <Button title="Create Transaction Sync" onPress={handleCreateTransactionSync} />
+      <Button
+        title={editingRecord ? 'Update Transaction Sync' : 'Create Transaction Sync'}
+        onPress={handleCreateOrUpdateTransactionSync}
+      />
     </Card>
   );
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'account':
+        return renderAccountList();
+      case 'category':
+        return renderCategoryList();
+      case 'item':
+        return renderItemList();
+      case 'transaction':
+        return renderTransactionList();
+      case 'sync':
+        return renderSyncList();
+      case 'transactionSync':
+        return renderTransactionSyncList();
+      default:
+        return null;
+    }
+  };
 
   return (
     <BackgroundContainer>
@@ -744,7 +1503,7 @@ export default function DebugDataScreen() {
         scrollOffset={scrollOffset}
         backgroundHex={Colors.primary}
         leftIcon="left"
-        centerComponent={<ThemedText type="subtitle">Debug Data Entry</ThemedText>}
+        centerComponent={<ThemedText type="subtitle">Database Editor</ThemedText>}
       />
       <AnimatedScrollView animatedRef={animatedRef}>
         <SafeAreaView className="flex-1">
@@ -766,7 +1525,11 @@ export default function DebugDataScreen() {
                 ).map(tab => (
                   <Pressable
                     key={tab.key}
-                    onPress={() => setActiveTab(tab.key)}
+                    onPress={() => {
+                      setActiveTab(tab.key as TabType);
+                      setShowCreateForm(false);
+                      setEditingRecord(null);
+                    }}
                     className={`px-4 py-2 rounded-full mr-2 ${activeTab === tab.key ? 'bg-primary' : 'bg-gray-500'}`}
                   >
                     <Text className={`font-semibold ${activeTab === tab.key ? 'text-white' : 'text-white'}`}>
@@ -777,14 +1540,7 @@ export default function DebugDataScreen() {
               </View>
             </ScrollView>
           </View>
-          <ScrollView>
-            {activeTab === 'account' && renderAccountForm()}
-            {activeTab === 'category' && renderCategoryForm()}
-            {activeTab === 'item' && renderItemForm()}
-            {activeTab === 'transaction' && renderTransactionForm()}
-            {activeTab === 'sync' && renderSyncForm()}
-            {activeTab === 'transactionSync' && renderTransactionSyncForm()}
-          </ScrollView>
+          {renderContent()}
         </SafeAreaView>
       </AnimatedScrollView>
     </BackgroundContainer>

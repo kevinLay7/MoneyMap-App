@@ -24,9 +24,25 @@ export class PlaidService {
    * 3. Fetch and store accounts
    * 4. Fetch and store transactions (with pagination)
    * 5. Alert user on success/error
+   * @param publicToken - The public token from Plaid Link
+   * @param institutionId - The institution ID from Plaid Link metadata
+   * @param existingPlaidItemId - Optional. If provided, this is an update flow for an existing item
    */
-  async handlePlaidLinkSuccess(publicToken: string): Promise<void> {
+  async handlePlaidLinkSuccess(
+    publicToken: string,
+    institutionId: string,
+    existingPlaidItemId?: string
+  ): Promise<void> {
     try {
+      // Step 0: Check if the item already exists (only for new items, not updates)
+      if (!existingPlaidItemId) {
+        const existingItems = await this.database.get<Item>('items').query().fetch();
+        const existingItem = existingItems.find(item => item.institutionId === institutionId);
+        if (existingItem) {
+          throw new Error('Item already exists');
+        }
+      }
+
       // Step 1: Exchange public token
       const exchangeResponse = await this.plaidApi.plaidControllerExchangePublicToken({
         publicToken,
@@ -38,8 +54,6 @@ export class PlaidService {
 
       const plaidItem: PlaidItemResponseDto = exchangeResponse.data;
 
-      console.log(plaidItem);
-
       // Step 2: Store item in database
       await this.storeItem(plaidItem);
 
@@ -50,7 +64,10 @@ export class PlaidService {
       await this.fetchAndStoreTransactions(plaidItem.plaid_item_id);
 
       // Step 5: Alert user on success
-      Alert.alert('Success', `Successfully connected ${plaidItem.institution_name}!`, [{ text: 'OK' }]);
+      const successMessage = existingPlaidItemId
+        ? `Successfully updated ${plaidItem.institution_name}!`
+        : `Successfully connected ${plaidItem.institution_name}!`;
+      Alert.alert('Success', successMessage, [{ text: 'OK' }]);
     } catch (error: any) {
       console.error('Failed to handle Plaid Link success:', error);
       const errorMessage =
@@ -69,10 +86,6 @@ export class PlaidService {
       const existingItems = await this.database.get<Item>('items').query().fetch();
 
       const existingItem = existingItems.find(item => item.plaidItemId === plaidItem.plaid_item_id);
-
-      console.log(plaidItem.institution_logo);
-      console.log(plaidItem.institution_primary_color);
-      console.log(plaidItem.institution_url);
 
       if (existingItem) {
         // Update existing item
@@ -222,7 +235,7 @@ export class PlaidService {
 
       while (hasMore) {
         const transactionsResponse = await this.plaidApi.plaidControllerGetTransactions(plaidItemId, {
-          cursor: cursor || '0',
+          cursor: cursor || '',
         });
 
         if (!transactionsResponse?.data) {

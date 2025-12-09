@@ -54,10 +54,10 @@ export function AccountGroupRow({
     <Fragment key={group.type}>
       <Pressable onPress={onToggle}>
         <View className="flex-row h-16 items-center">
-          <View className="w-2/12 items-start">
+          <View className="items-start px-3 justify-center">
             <IconCircle input={group.icon} size={30} borderSize={0} backgroundColor="transparent" />
           </View>
-          <View className="w-5/12 items-start">
+          <View className="w-5/12 items-start justify-center">
             <ThemedText type="defaultSemiBold">{group.type}</ThemedText>
           </View>
           <View className="w-4/12 justify-end items-end space-x-2">

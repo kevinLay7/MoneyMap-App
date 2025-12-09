@@ -16,3 +16,17 @@ export function useObservable<T extends Model>(observable: Observable<T>): T | n
   return value;
 }
 
+/**
+ * Generic hook to observe a WatermelonDB collection
+ */
+export function useObservableCollection<T extends Model>(observable: Observable<T[]>): T[] {
+  const [value, setValue] = useState<T[]>([]);
+
+  useEffect(() => {
+    const subscription = observable.subscribe(setValue);
+    return () => subscription.unsubscribe();
+  }, [observable]);
+
+  return value;
+}
+
