@@ -13,7 +13,7 @@ import Modal from "react-native-modal";
 import WaveBackground from "@/components/wave-background";
 import { useNavigation } from "@react-navigation/native";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { Colors } from "@/constants/colors";
 
 type HeaderProps = {
@@ -74,6 +74,11 @@ export default function Header({
 
   const handleOpenSettings = React.useCallback(async () => {
     navigator.navigate("Settings");
+    setShowSettingsDrawer(false);
+  }, [navigator]);
+
+  const handleOpenDebugData = React.useCallback(async () => {
+    navigator.navigate("debug-data");
     setShowSettingsDrawer(false);
   }, [navigator]);
 
@@ -144,6 +149,23 @@ export default function Header({
             className="justify-start"
             marginY="4"
           />
+
+          {__DEV__ && (
+            <Button
+              title="Debug Data"
+              onPress={handleOpenDebugData}
+              iconLeft={
+                <FontAwesome6
+                  name="bug"
+                  size={16}
+                  color={colorScheme === "light" ? "white" : "black"}
+                  style={{ marginRight: 8 }}
+                />
+              }
+              className="justify-start"
+              marginY="4"
+            />
+          )}
         </View>
         <View className="p-4 border-t border-border">
           <Button
@@ -158,6 +180,7 @@ export default function Header({
       colorScheme,
       handleOpenAccountManagement,
       handleOpenSettings,
+      handleOpenDebugData,
       clearCredentials,
     ]
   );
@@ -249,7 +272,7 @@ export default function Header({
         backdropColor={Colors.dark.backgroundSecondary}
       >
         <View className="w-full h-full flex-row">
-          <View className="w-4/6 h-full bg-background-secondary">
+          <View className="w-4/6 h-full bg-background-secondary border-r-2 border-background-tertiary">
             {drawerContent}
           </View>
           <Pressable
@@ -272,3 +295,4 @@ const linearGradientStyles = {
   borderRadius: 0,
   zIndex: 100,
 };
+

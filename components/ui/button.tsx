@@ -6,7 +6,7 @@ import { HapticWeight, useHaptics } from "@/hooks/useHaptics";
 interface ButtonProps {
   onPress: () => void;
   onLongPress?: () => void;
-  title: string;
+  title: string | React.ReactNode;
   iconLeft?: React.ReactNode;
   iconRight?: React.ReactNode;
   disabled?: boolean;
@@ -32,7 +32,8 @@ interface ButtonProps {
     | "white"
     | "error"
     | "success"
-    | "warning";
+    | "warning"
+    | "background";
   textColor?:
     | "white"
     | "black"
@@ -48,6 +49,7 @@ interface ButtonProps {
   className?: string;
   variant?: "contained" | "outlined" | "underlined";
   hapticWeight?: HapticWeight;
+  circular?: boolean;
 }
 
 const bgColorMap: Record<string, string> = {
@@ -63,6 +65,7 @@ const bgColorMap: Record<string, string> = {
   error: "bg-red-500",
   success: "bg-green-500",
   warning: "bg-yellow-500",
+  background: "bg-background",
 };
 
 const borderColorMap: Record<string, string> = {
@@ -78,6 +81,7 @@ const borderColorMap: Record<string, string> = {
   error: "border-red-500",
   success: "border-green-500",
   warning: "border-yellow-500",
+  background: "border-background",
 };
 
 // Colors that need dark text (light backgrounds)
@@ -90,6 +94,10 @@ const getContrastTextColor = (bgColor: string): string => {
   }
   // Special case for negative (transparent) - use theme text color
   if (bgColor === "negative") {
+    return "text-text";
+  }
+  // Special case for background - use theme text color
+  if (bgColor === "background") {
     return "text-text";
   }
   return "text-white";
@@ -122,12 +130,19 @@ const outlinedTextColorMap: Record<string, string> = {
   error: "text-red-500",
   success: "text-green-500",
   warning: "text-yellow-500",
+  background: "text-text",
 };
 
 const sizeMap = {
   sm: "h-10",
   md: "h-12",
   lg: "h-16",
+};
+
+const circularWidthMap = {
+  sm: "w-10",
+  md: "w-12",
+  lg: "w-16",
 };
 
 const marginYMap: Record<string, string> = {
@@ -160,6 +175,7 @@ export function Button({
   className,
   variant = "contained",
   hapticWeight = "light",
+  circular = false,
 }: ButtonProps) {
   const { impact } = useHaptics();
 
@@ -174,6 +190,12 @@ export function Button({
 
   const heightClass = sizeMap[size];
   const marginClass = marginYMap[marginY] || marginYMap["2"];
+
+  // Handle circular button styling
+  const isCircular = circular;
+  const finalRounded = isCircular ? "rounded-full" : rounded;
+  const finalWidth = isCircular ? circularWidthMap[size] : width;
+  const paddingClass = isCircular ? "p-0" : "py-2";
 
   // Handle variant-specific styling
   let bgColor: string;
@@ -209,10 +231,17 @@ export function Button({
     borderClasses = "";
   }
 
-  const buttonBaseClasses = `flex-row justify-center items-center ${width} ${bgColor} ${borderClasses}`;
+  const buttonBaseClasses = `flex-row justify-center items-center ${finalWidth} ${bgColor} ${borderClasses}`;
   const textBaseClasses = `${finalTextColor} font-semibold ${
     variant === "underlined" ? "underline underline-offset-4" : ""
   }`;
+
+  const isTitleString = typeof title === "string";
+  const titleContent = isTitleString ? (
+    <Text className={textBaseClasses}>{title}</Text>
+  ) : (
+    title
+  );
 
   return (
     <TouchableOpacity
@@ -220,14 +249,10 @@ export function Button({
       onLongPress={onLongPress}
       disabled={disabled}
       activeOpacity={activeOpacity}
-      className={`${buttonBaseClasses} py-2 ${rounded} ${heightClass} ${marginClass} ${className || ""}`}
+      className={`${buttonBaseClasses} ${paddingClass} ${finalRounded} ${heightClass} ${marginClass} ${className || ""}`}
     >
       {iconLeft}
-      {loading ? (
-        <LottieLoadingSpinner size={buttonSize + 24} />
-      ) : (
-        <Text className={textBaseClasses}>{title}</Text>
-      )}
+      {loading ? <LottieLoadingSpinner size={buttonSize + 24} /> : titleContent}
       {iconRight}
     </TouchableOpacity>
   );

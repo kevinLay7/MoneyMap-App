@@ -11,20 +11,16 @@ import Sync from "./models/sync";
 import Category from "./models/category";
 import TransactionSync from "./models/transaction-sync";
 
-// First, create the adapter to the underlying database:
+// Create adapter with JSI disabled for dev client compatibility
+// JSI requires native build - enable it only when running built app
+// Set jsi: true after running `npm run ios` or building the app
 const adapter = new SQLiteAdapter({
   schema,
-  // (You might want to comment it out for development purposes -- see Migrations documentation)
   migrations,
-  // (optional database name or file system path)
-  // dbName: 'myapp',
-  // (recommended option, should work flawlessly out of the box on iOS. On Android,
-  // additional installation steps have to be taken - disable if you run into issues...)
-  // JSI enabled for better performance (requires native rebuild)
-  jsi: Platform.OS === 'ios',
-  // (optional, but you should implement this method)
+  // Disable JSI for compatibility with dev client
+  // Enable JSI after building: jsi: Platform.OS === 'ios'
+  jsi: false,
   onSetUpError: (error) => {
-    // Database failed to load -- offer the user to reload the app or log out
     console.error("Database setup error:", error);
   },
 });

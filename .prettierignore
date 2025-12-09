@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+dist/
+build/
+.expo/
+.expo-shared/
+
+# Generated files
+api/gen/
+
+# iOS
+ios/Pods/
+ios/build/
+*.xcworkspace
+*.xcodeproj
+
+# Android
+android/app/build/
+android/build/
+android/.gradle/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Other
+*.ipa
+*.apk
+

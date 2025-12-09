@@ -33,7 +33,6 @@ export class Plaid<SecurityDataType = unknown> {
    * @name PlaidControllerCreateLinkToken
    * @summary Create a Plaid Link token for client-side initialization
    * @request POST:/plaid/create-link-token
-   * @secure
    */
   plaidControllerCreateLinkToken = (params: RequestParams = {}) =>
     this.http.request<
@@ -45,7 +44,6 @@ export class Plaid<SecurityDataType = unknown> {
     >({
       path: `/plaid/create-link-token`,
       method: "POST",
-      secure: true,
       format: "json",
       ...params,
     });
@@ -56,7 +54,6 @@ export class Plaid<SecurityDataType = unknown> {
    * @name PlaidControllerExchangePublicToken
    * @summary Exchange a public token for the plaid item
    * @request POST:/plaid/exchange-public-token
-   * @secure
    */
   plaidControllerExchangePublicToken = (
     data: PublicTokenDto,
@@ -66,7 +63,6 @@ export class Plaid<SecurityDataType = unknown> {
       path: `/plaid/exchange-public-token`,
       method: "POST",
       body: data,
-      secure: true,
       type: ContentType.Json,
       format: "json",
       ...params,
@@ -78,7 +74,6 @@ export class Plaid<SecurityDataType = unknown> {
    * @name PlaidControllerGetPlaidItem
    * @summary Get a Plaid item
    * @request GET:/plaid/{plaidItemId}
-   * @secure
    */
   plaidControllerGetPlaidItem = (
     plaidItemId: string,
@@ -87,8 +82,24 @@ export class Plaid<SecurityDataType = unknown> {
     this.http.request<PlaidItemResponseDto, void>({
       path: `/plaid/${plaidItemId}`,
       method: "GET",
-      secure: true,
       format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Plaid
+   * @name PlaidControllerRefreshInstitutionData
+   * @summary Refresh institution data including logo for a Plaid item
+   * @request POST:/plaid/{plaidItemId}/institution/refresh
+   */
+  plaidControllerRefreshInstitutionData = (
+    plaidItemId: string,
+    params: RequestParams = {},
+  ) =>
+    this.http.request<any, void>({
+      path: `/plaid/${plaidItemId}/institution/refresh`,
+      method: "POST",
       ...params,
     });
   /**
@@ -98,7 +109,6 @@ export class Plaid<SecurityDataType = unknown> {
    * @name PlaidControllerGetAccounts
    * @summary Get accounts for a Plaid item
    * @request GET:/plaid/{plaidItemId}/accounts
-   * @secure
    */
   plaidControllerGetAccounts = (
     plaidItemId: string,
@@ -107,7 +117,6 @@ export class Plaid<SecurityDataType = unknown> {
     this.http.request<PlaidAccountDto[], void>({
       path: `/plaid/${plaidItemId}/accounts`,
       method: "GET",
-      secure: true,
       format: "json",
       ...params,
     });
@@ -118,7 +127,6 @@ export class Plaid<SecurityDataType = unknown> {
    * @name PlaidControllerGetTransactions
    * @summary Get transactions for a Plaid item
    * @request GET:/plaid/plaid/{plaidItemId}/transactions/sync
-   * @secure
    */
   plaidControllerGetTransactions = (
     plaidItemId: string,
@@ -131,7 +139,6 @@ export class Plaid<SecurityDataType = unknown> {
       path: `/plaid/plaid/${plaidItemId}/transactions/sync`,
       method: "GET",
       query: query,
-      secure: true,
       format: "json",
       ...params,
     });
@@ -142,13 +149,11 @@ export class Plaid<SecurityDataType = unknown> {
    * @name PlaidControllerSyncAccountsForPlaidItem
    * @summary Sync accounts for a Plaid item. If the user has multiple plaid items, this will sync all of them.
    * @request POST:/plaid/items/sync
-   * @secure
    */
   plaidControllerSyncAccountsForPlaidItem = (params: RequestParams = {}) =>
     this.http.request<PlaidItemResponseDto[], void>({
       path: `/plaid/items/sync`,
       method: "POST",
-      secure: true,
       format: "json",
       ...params,
     });
@@ -159,13 +164,11 @@ export class Plaid<SecurityDataType = unknown> {
    * @name PlaidControllerHandleWebhook
    * @summary Handle a Plaid webhook
    * @request POST:/plaid/webhook
-   * @secure
    */
   plaidControllerHandleWebhook = (params: RequestParams = {}) =>
     this.http.request<void, void>({
       path: `/plaid/webhook`,
       method: "POST",
-      secure: true,
       ...params,
     });
   /**
@@ -175,13 +178,11 @@ export class Plaid<SecurityDataType = unknown> {
    * @name PlaidControllerCheckForUpdates
    * @summary Check for updates for a Plaid item
    * @request GET:/plaid/updates/check
-   * @secure
    */
   plaidControllerCheckForUpdates = (params: RequestParams = {}) =>
     this.http.request<PlaidSyncDto[], void>({
       path: `/plaid/updates/check`,
       method: "GET",
-      secure: true,
       format: "json",
       ...params,
     });

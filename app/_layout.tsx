@@ -5,11 +5,38 @@ import "../global.css";
 import { View } from "react-native";
 import { ColorSchemeProvider, useColorScheme } from "@/hooks/use-color-scheme";
 import { DependencyProvider } from "@/context/dependencyContext";
-import { Auth0Provider, useAuth0 } from "react-native-auth0";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
+import { DemoProvider } from "@/context/demoContext";
 
-if (__DEV__) {
-  import("../ReactotronConfig");
+// Conditionally import Auth0 - it requires native modules
+let Auth0Provider: React.ComponentType<{
+  domain: string;
+  clientId: string;
+  children: ReactNode;
+}>;
+let useAuth0: () => { user: unknown };
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const auth0 = require("react-native-auth0");
+  Auth0Provider = auth0.Auth0Provider;
+  useAuth0 = auth0.useAuth0;
+} catch {
+  // Auth0 not available (native modules not built)
+  console.warn(
+    "Auth0 native module not available. Run 'npm run ios' to build native modules."
+  );
+  const Auth0ProviderFallback = ({
+    children,
+  }: {
+    domain: string;
+    clientId: string;
+    children: ReactNode;
+  }) => <>{children}</>;
+  Auth0ProviderFallback.displayName = "Auth0ProviderFallback";
+  Auth0Provider = Auth0ProviderFallback;
+  useAuth0 = () => ({ user: null });
 }
 
 const queryClient = new QueryClient({
@@ -34,7 +61,9 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <ColorSchemeProvider>
           <DependencyProvider>
-            <RootLayoutContent />
+            <DemoProvider>
+              <RootLayoutContent />
+            </DemoProvider>
           </DependencyProvider>
         </ColorSchemeProvider>
       </QueryClientProvider>
@@ -51,6 +80,9 @@ function RootLayoutContent() {
       <Stack>
         <Stack.Protected guard={!!user}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          {__DEV__ && (
+            <Stack.Screen name="debug-data" options={{ headerShown: false }} />
+          )}
         </Stack.Protected>
 
         <Stack.Protected guard={!user}>

@@ -2,11 +2,24 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "expo",
+      "name": "Debug Expo App",
+      "type": "reactnativedirect",
       "request": "attach",
-      "name": "Inspect Expo app",
-
-      "bundlerHost": "127.0.0.1"
+      "cwd": "${workspaceFolder}",
+      "port": 8081,
+      "sourceMaps": true,
+      "sourceMapRenames": true,
+      "trace": "verbose",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMapPathOverrides": {
+        "[metro-project]/*": "${workspaceFolder}/*",
+        "[metro-project]/node_modules/*": "${workspaceFolder}/node_modules/*",
+        "webpack:///./*": "${workspaceFolder}/*",
+        "webpack:///./~/*": "${workspaceFolder}/node_modules/*",
+        "webpack:///./*~*": "${workspaceFolder}/node_modules/*",
+        "metro:///*": "${workspaceFolder}/*",
+        "/[metro-project]/*": "${workspaceFolder}/*"
+      }
     }
   ]
 }

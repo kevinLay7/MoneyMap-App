@@ -27,30 +27,15 @@ export class Sync<SecurityDataType = unknown> {
    * @name SyncControllerPullChanges
    * @summary Pull changes from server (WatermelonDB sync)
    * @request POST:/sync/pull
-   * @secure
    */
   syncControllerPullChanges = (
     data: PullChangesDto,
     params: RequestParams = {},
   ) =>
-    this.http.request<
-      {
-        changes: Record<
-          string,
-          {
-            created?: any[];
-            updated?: any[];
-            deleted?: any[];
-          }
-        >;
-        timestamp: number;
-      },
-      void
-    >({
+    this.http.request<void, void>({
       path: `/sync/pull`,
       method: "POST",
       body: data,
-      secure: true,
       type: ContentType.Json,
       ...params,
     });
@@ -61,7 +46,6 @@ export class Sync<SecurityDataType = unknown> {
    * @name SyncControllerPushChanges
    * @summary Push changes to server (WatermelonDB sync)
    * @request POST:/sync/push
-   * @secure
    */
   syncControllerPushChanges = (
     data: PushChangesDto,
@@ -71,7 +55,6 @@ export class Sync<SecurityDataType = unknown> {
       path: `/sync/push`,
       method: "POST",
       body: data,
-      secure: true,
       type: ContentType.Json,
       ...params,
     });

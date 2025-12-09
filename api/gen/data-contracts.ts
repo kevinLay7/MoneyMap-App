@@ -50,6 +50,15 @@ export interface PlaidItemResponseDto {
   institution_id: string;
   /** The name of the institution (Returned by Plaid) */
   institution_name: string;
+  /** Base64 encoded logo of the institution (152x152 PNG). May be null if not available. */
+  institution_logo: object | null;
+  /**
+   * Primary brand color of the institution in hexadecimal format. May be null if not available.
+   * @example "#1A1A1A"
+   */
+  institution_primary_color: object | null;
+  /** Homepage URL of the institution. May be null if not available. */
+  institution_url: object | null;
   /** The status of the Plaid item */
   status: PlaidItemResponseDtoStatusEnum;
   /**

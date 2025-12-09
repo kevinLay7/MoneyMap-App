@@ -1,11 +1,11 @@
 import { View, Text } from "react-native";
-import { Button } from "@/components/button";
+import { Button } from "@/components/ui/button";
 import { useAuth0 } from "react-native-auth0";
 import { SafeAreaView } from "react-native-safe-area-context";
 import LottieView from "lottie-react-native";
 import financeAnimation from "../../assets/lottie/Finance.json";
-import { BackgroundContainer } from "@/components/background-container";
-import { ThemedText } from "@/components/themed-text";
+import { BackgroundContainer } from "@/components/ui/background-container";
+import { ThemedText } from "@/components/shared";
 
 export default function Login() {
   const { authorize } = useAuth0();
