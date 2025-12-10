@@ -1,12 +1,12 @@
 import { View, ScrollView, Pressable, Dimensions } from 'react-native';
 import Modal from 'react-native-modal';
-import { ThemedText } from '../shared/themed-text';
-import { Button } from '../ui/button';
-import { Card } from '../ui/card';
+import { ThemedText } from '../../shared/themed-text';
+import { Button } from '../../ui/button';
+import { Card } from '../../ui/card';
 import { FontAwesome6 } from '@expo/vector-icons';
 import Item from '@/model/models/item';
 import { Colors } from '@/constants/colors';
-import IconCircle from '../ui/icon-circle';
+import IconCircle from '../../ui/icon-circle';
 
 interface AddAccountModalProps {
   isVisible: boolean;

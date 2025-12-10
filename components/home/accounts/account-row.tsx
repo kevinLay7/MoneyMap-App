@@ -1,8 +1,8 @@
 import { Pressable, View } from 'react-native';
-import { ThemedText } from '../shared/themed-text';
+import { ThemedText } from '../../shared/themed-text';
 import Account from '@/model/models/account';
 import { useMoneyFormatter } from '@/hooks/format-money';
-import IconCircle from '../ui/icon-circle';
+import IconCircle from '../../ui/icon-circle';
 import { useModelWithRelations } from '@/hooks/use-model-with-relations';
 import Item from '@/model/models/item';
 

@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import { Database } from '@nozbe/watermelondb';
+import { Database, Q } from '@nozbe/watermelondb';
 import { Plaid } from '@/api/gen/Plaid';
 import {
   PlaidItemResponseDto,
@@ -272,12 +272,15 @@ export class PlaidService {
     removed: { transaction_id: string; account_id: string }[]
   ): Promise<void> {
     await this.database.write(async () => {
-      // Get existing transactions
-      const existingTransactions = await this.database.get<Transaction>('transactions').query().fetch();
-
       // Process added transactions
       for (const transactionDto of added) {
-        const existingTransaction = existingTransactions.find(t => t.transactionId === transactionDto.transaction_id);
+        const existingTransaction =
+          (
+            await this.database
+              .get<Transaction>('transactions')
+              .query(Q.where('transaction_id', transactionDto.transaction_id))
+              .fetch()
+          )[0] || undefined;
 
         if (!existingTransaction) {
           await this.database.get<Transaction>('transactions').create(transaction => {
@@ -288,7 +291,13 @@ export class PlaidService {
 
       // Process modified transactions
       for (const transactionDto of modified) {
-        const existingTransaction = existingTransactions.find(t => t.transactionId === transactionDto.transaction_id);
+        const existingTransaction =
+          (
+            await this.database
+              .get<Transaction>('transactions')
+              .query(Q.where('transaction_id', transactionDto.transaction_id))
+              .fetch()
+          )[0] || undefined;
 
         if (existingTransaction) {
           await existingTransaction.update(transaction => {
@@ -304,9 +313,13 @@ export class PlaidService {
 
       // Process removed transactions
       for (const removedTransaction of removed) {
-        const existingTransaction = existingTransactions.find(
-          t => t.transactionId === removedTransaction.transaction_id
-        );
+        const existingTransaction =
+          (
+            await this.database
+              .get<Transaction>('transactions')
+              .query(Q.where('transaction_id', removedTransaction.transaction_id))
+              .fetch()
+          )[0] || undefined;
 
         if (existingTransaction) {
           await existingTransaction.markAsDeleted();

@@ -1,8 +1,8 @@
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import IconCircle from '../ui/icon-circle';
+import IconCircle from '../../ui/icon-circle';
 import { useNavigation } from '@react-navigation/native';
 import { useMoneyFormatter } from '@/hooks/format-money';
-import { ThemedText } from '../shared/themed-text';
+import { ThemedText } from '../../shared/themed-text';
 import { View, Pressable } from 'react-native';
 import { Fragment, useState, useEffect } from 'react';
 import { FontAwesome6 } from '@expo/vector-icons';

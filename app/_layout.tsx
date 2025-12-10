@@ -2,12 +2,14 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import "../global.css";
+import "../config/ReactotronConfig";
 import { View } from "react-native";
 import { ColorSchemeProvider, useColorScheme } from "@/hooks/use-color-scheme";
 import { DependencyProvider } from "@/context/dependencyContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { DemoProvider } from "@/context/demoContext";
+import { useEffect } from "react";
 
 // Conditionally import Auth0 - it requires native modules
 let Auth0Provider: React.ComponentType<{
@@ -74,6 +76,17 @@ export default function RootLayout() {
 function RootLayoutContent() {
   const { user } = useAuth0();
   const colorScheme = useColorScheme();
+
+  useEffect(() => {
+    if (__DEV__ && console.tron) {
+      console.tron.log('Reactotron connected successfully!');
+      console.tron.display({
+        name: 'App Started',
+        value: { platform: 'React Native', framework: 'Expo' },
+        important: true,
+      });
+    }
+  }, []);
 
   return (
     <View className={`w-full h-full ${colorScheme === "dark" ? "dark" : ""}`}>

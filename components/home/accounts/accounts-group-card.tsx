@@ -1,12 +1,12 @@
 import { View } from 'react-native';
-import { Card } from '../ui/card';
-import { ThemedText } from '../shared/themed-text';
+import { Card } from '../../ui/card';
+import { ThemedText } from '../../shared/themed-text';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useDependency } from '@/context/dependencyContext';
 import { create, LinkExit, LinkLogLevel, LinkSuccess, open } from 'react-native-plaid-link-sdk';
 import { ContentType } from '@/api/gen/http-client';
-import { Button } from '../ui/button';
+import { Button } from '../../ui/button';
 import { useState, useEffect, useMemo } from 'react';
 import database from '@/model/database';
 import Account from '@/model/models/account';
