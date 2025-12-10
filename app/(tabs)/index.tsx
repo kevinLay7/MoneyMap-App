@@ -5,7 +5,7 @@ import { BackgroundContainer } from '@/components/ui/background-container';
 import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import { Colors } from '@/constants/colors';
 import { AccountsGroupCard } from '@/components/home/accounts';
-import { HomeSpendingGraphCard } from '@/components/home/spending/spending-line-graph';
+import { HomeSpendingGraphCard } from '@/components/home/spending/home-spending-card';
 
 export default function HomeScreen() {
   const animatedRef = useAnimatedRef<any>();
