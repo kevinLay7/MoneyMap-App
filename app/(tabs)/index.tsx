@@ -6,6 +6,7 @@ import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import { Colors } from '@/constants/colors';
 import { AccountsGroupCard } from '@/components/home/accounts';
 import { HomeSpendingGraphCard } from '@/components/home/spending/home-spending-card';
+import { UncategorizedTransactionsCard } from '@/components/home/uncategorized-transactions/uncategorized-transactions-card';
 
 export default function HomeScreen() {
   const animatedRef = useAnimatedRef<any>();
@@ -22,6 +23,7 @@ export default function HomeScreen() {
       <AnimatedScrollView animatedRef={animatedRef}>
         <View className="h-full p-4">
           <HomeSpendingGraphCard />
+          <UncategorizedTransactionsCard />
           <AccountsGroupCard />
         </View>
       </AnimatedScrollView>

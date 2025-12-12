@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { View, Pressable, ViewProps } from 'react-native';
+import { View, Pressable, ViewProps, ViewStyle, StyleProp } from 'react-native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useHaptics, HapticWeight } from '@/hooks/useHaptics';
 
@@ -15,6 +15,7 @@ export interface CardProps extends Omit<ViewProps, 'style'> {
   hapticWeight?: HapticWeight;
   disabled?: boolean;
   activeOpacity?: number;
+  style?: StyleProp<ViewStyle>;
 }
 
 const paddingMap: Record<string, string> = {
@@ -52,6 +53,7 @@ export function Card({
   hapticWeight = 'light',
   disabled = false,
   activeOpacity = 0.7,
+  style,
   ...viewProps
 }: CardProps) {
   const { impact } = useHaptics();

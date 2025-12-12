@@ -9,7 +9,13 @@ export function useObservable<T extends Model>(observable: Observable<T>): T | n
   const [value, setValue] = useState<T | null>(null);
 
   useEffect(() => {
-    const subscription = observable.subscribe(setValue);
+    const subscription = observable.subscribe({
+      next: setValue,
+      error: error => {
+        console.warn('Error observing model:', error);
+        setValue(null);
+      },
+    });
     return () => subscription.unsubscribe();
   }, [observable]);
 
@@ -23,7 +29,13 @@ export function useObservableCollection<T extends Model>(observable: Observable<
   const [value, setValue] = useState<T[]>([]);
 
   useEffect(() => {
-    const subscription = observable.subscribe(setValue);
+    const subscription = observable.subscribe({
+      next: setValue,
+      error: error => {
+        console.warn('Error observing collection:', error);
+        setValue([]);
+      },
+    });
     return () => subscription.unsubscribe();
   }, [observable]);
 

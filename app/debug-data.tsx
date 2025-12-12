@@ -34,21 +34,11 @@ export default function DebugDataScreen() {
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   // Observe collections
-  const accounts = useObservableCollection(
-    database.get<Account>('accounts').query().observe()
-  );
-  const categories = useObservableCollection(
-    database.get<Category>('categories').query().observe()
-  );
-  const items = useObservableCollection(
-    database.get<Item>('items').query().observe()
-  );
-  const transactions = useObservableCollection(
-    database.get<Transaction>('transactions').query().observe()
-  );
-  const syncs = useObservableCollection(
-    database.get<Sync>('syncs').query().observe()
-  );
+  const accounts = useObservableCollection(database.get<Account>('accounts').query().observe());
+  const categories = useObservableCollection(database.get<Category>('categories').query().observe());
+  const items = useObservableCollection(database.get<Item>('items').query().observe());
+  const transactions = useObservableCollection(database.get<Transaction>('transactions').query().observe());
+  const syncs = useObservableCollection(database.get<Sync>('syncs').query().observe());
   const transactionSyncs = useObservableCollection(
     database.get<TransactionSync>('transaction_syncs').query().observe()
   );
@@ -751,7 +741,7 @@ export default function DebugDataScreen() {
       key: 'balanceCurrent',
       label: 'Balance',
       width: 120,
-      render: (item) => (
+      render: item => (
         <ThemedText type="default" className="text-text-secondary">
           ${item.balanceCurrent.toFixed(2)} {item.isoCurrencyCode || ''}
         </ThemedText>
@@ -780,9 +770,9 @@ export default function DebugDataScreen() {
         <DataTable
           data={accounts}
           columns={accountColumns}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           onRowPress={loadAccountForEdit}
-          onDelete={(item) => handleDeleteAccount(item.id)}
+          onDelete={item => handleDeleteAccount(item.id)}
           emptyMessage="No accounts found. Create one to get started."
         />
       </View>
@@ -793,13 +783,7 @@ export default function DebugDataScreen() {
     <Card className="m-4" padding="lg" backgroundColor="secondary">
       <View className="flex-row justify-between items-center mb-4">
         <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Account</ThemedText>
-        <Button
-          title="Cancel"
-          onPress={resetAccountForm}
-          variant="outlined"
-          size="sm"
-          width="w-1/4"
-        />
+        <Button title="Cancel" onPress={resetAccountForm} variant="outlined" size="sm" width="w-1/4" />
       </View>
       <TextInput
         icon="hashtag"
@@ -831,13 +815,7 @@ export default function DebugDataScreen() {
         placeholder="checking, savings, etc."
       />
       <TextInput icon="mask" label="Mask" value={mask} onChangeText={setMask} placeholder="0000" />
-      <TextInput
-        icon="hashtag"
-        label="Item ID *"
-        value={itemId}
-        onChangeText={setItemId}
-        placeholder="item_id"
-      />
+      <TextInput icon="hashtag" label="Item ID *" value={itemId} onChangeText={setItemId} placeholder="item_id" />
       <TextInput
         icon="dollar-sign"
         label="Balance Current *"
@@ -866,10 +844,7 @@ export default function DebugDataScreen() {
         onChangeText={setUnofficialCurrencyCode}
         placeholder=""
       />
-      <Button
-        title={editingRecord ? 'Update Account' : 'Create Account'}
-        onPress={handleCreateOrUpdateAccount}
-      />
+      <Button title={editingRecord ? 'Update Account' : 'Create Account'} onPress={handleCreateOrUpdateAccount} />
 
       {!editingRecord && (
         <View className="mt-6 pt-6 border-t border-border">
@@ -901,7 +876,7 @@ export default function DebugDataScreen() {
       key: 'description',
       label: 'Description',
       width: 200,
-      render: (item) => (
+      render: item => (
         <ThemedText type="default" className="text-text-secondary" numberOfLines={2}>
           {item.description}
         </ThemedText>
@@ -911,7 +886,7 @@ export default function DebugDataScreen() {
       key: 'ignored',
       label: 'Ignored',
       width: 80,
-      render: (item) => (
+      render: item => (
         <ThemedText type="default" className={item.ignored ? 'text-yellow-500' : 'text-text-secondary'}>
           {item.ignored ? 'Yes' : 'No'}
         </ThemedText>
@@ -940,9 +915,9 @@ export default function DebugDataScreen() {
         <DataTable
           data={categories}
           columns={categoryColumns}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           onRowPress={loadCategoryForEdit}
-          onDelete={(item) => handleDeleteCategory(item.id)}
+          onDelete={item => handleDeleteCategory(item.id)}
           emptyMessage="No categories found. Create one to get started."
         />
       </View>
@@ -953,13 +928,7 @@ export default function DebugDataScreen() {
     <Card className="m-4" padding="lg" backgroundColor="secondary">
       <View className="flex-row justify-between items-center mb-4">
         <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Category</ThemedText>
-        <Button
-          title="Cancel"
-          onPress={resetCategoryForm}
-          variant="outlined"
-          size="sm"
-          width="w-1/4"
-        />
+        <Button title="Cancel" onPress={resetCategoryForm} variant="outlined" size="sm" width="w-1/4" />
       </View>
       <TextInput icon="tag" label="Name *" value={categoryName} onChangeText={setCategoryName} placeholder="name" />
       <TextInput icon="circle" label="Primary *" value={primary} onChangeText={setPrimary} placeholder="primary" />
@@ -978,10 +947,7 @@ export default function DebugDataScreen() {
         <Switch value={ignored} onValueChange={setIgnored} />
       </View>
       <TextInput icon="sitemap" label="Children" value={children} onChangeText={setChildren} placeholder="children" />
-      <Button
-        title={editingRecord ? 'Update Category' : 'Create Category'}
-        onPress={handleCreateOrUpdateCategory}
-      />
+      <Button title={editingRecord ? 'Update Category' : 'Create Category'} onPress={handleCreateOrUpdateCategory} />
     </Card>
   );
 
@@ -994,7 +960,7 @@ export default function DebugDataScreen() {
       key: 'isActive',
       label: 'Active',
       width: 80,
-      render: (item) => (
+      render: item => (
         <ThemedText type="default" className={item.isActive ? 'text-green-500' : 'text-text-secondary'}>
           {item.isActive ? 'Yes' : 'No'}
         </ThemedText>
@@ -1023,9 +989,9 @@ export default function DebugDataScreen() {
         <DataTable
           data={items}
           columns={itemColumns}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           onRowPress={loadItemForEdit}
-          onDelete={(item) => handleDeleteItem(item.id)}
+          onDelete={item => handleDeleteItem(item.id)}
           emptyMessage="No items found. Create one to get started."
         />
       </View>
@@ -1036,13 +1002,7 @@ export default function DebugDataScreen() {
     <Card className="m-4" padding="lg" backgroundColor="secondary">
       <View className="flex-row justify-between items-center mb-4">
         <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Item</ThemedText>
-        <Button
-          title="Cancel"
-          onPress={resetItemForm}
-          variant="outlined"
-          size="sm"
-          width="w-1/4"
-        />
+        <Button title="Cancel" onPress={resetItemForm} variant="outlined" size="sm" width="w-1/4" />
       </View>
       <TextInput
         icon="hashtag"
@@ -1084,10 +1044,7 @@ export default function DebugDataScreen() {
         <Text className="text-text font-semibold mr-2">Is Active</Text>
         <Switch value={isActive} onValueChange={setIsActive} />
       </View>
-      <Button
-        title={editingRecord ? 'Update Item' : 'Create Item'}
-        onPress={handleCreateOrUpdateItem}
-      />
+      <Button title={editingRecord ? 'Update Item' : 'Create Item'} onPress={handleCreateOrUpdateItem} />
     </Card>
   );
 
@@ -1096,7 +1053,7 @@ export default function DebugDataScreen() {
       key: 'name',
       label: 'Name',
       width: 180,
-      render: (item) => (
+      render: item => (
         <ThemedText type="default" className="text-text" numberOfLines={1}>
           {item.name}
         </ThemedText>
@@ -1106,9 +1063,49 @@ export default function DebugDataScreen() {
       key: 'amount',
       label: 'Amount',
       width: 120,
-      render: (item) => (
+      render: item => (
         <ThemedText type="default" className="text-text-secondary">
           ${item.amount.toFixed(2)} {item.isoCurrencyCode || ''}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'category',
+      label: 'Category',
+      width: 150,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary" numberOfLines={1}>
+          {item.category || '-'}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'categoryId',
+      label: 'Category ID',
+      width: 150,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary" numberOfLines={1}>
+          {item.categoryId || '-'}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'personalFinanceCategoryPrimary',
+      label: 'PFC Primary',
+      width: 120,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary" numberOfLines={1}>
+          {item.personalFinanceCategoryPrimary || '-'}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'personalFinanceCategoryDetailed',
+      label: 'PFC Detailed',
+      width: 150,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary" numberOfLines={1}>
+          {item.personalFinanceCategoryDetailed || '-'}
         </ThemedText>
       ),
     },
@@ -1119,7 +1116,7 @@ export default function DebugDataScreen() {
       key: 'pending',
       label: 'Pending',
       width: 80,
-      render: (item) => (
+      render: item => (
         <ThemedText type="default" className={item.pending ? 'text-yellow-500' : 'text-text-secondary'}>
           {item.pending ? 'Yes' : 'No'}
         </ThemedText>
@@ -1148,9 +1145,9 @@ export default function DebugDataScreen() {
         <DataTable
           data={transactions}
           columns={transactionColumns}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           onRowPress={loadTransactionForEdit}
-          onDelete={(item) => handleDeleteTransaction(item.id)}
+          onDelete={item => handleDeleteTransaction(item.id)}
           emptyMessage="No transactions found. Create one to get started."
         />
       </View>
@@ -1161,13 +1158,7 @@ export default function DebugDataScreen() {
     <Card className="m-4" padding="lg" backgroundColor="secondary">
       <View className="flex-row justify-between items-center mb-4">
         <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Transaction</ThemedText>
-        <Button
-          title="Cancel"
-          onPress={resetTransactionForm}
-          variant="outlined"
-          size="sm"
-          width="w-1/4"
-        />
+        <Button title="Cancel" onPress={resetTransactionForm} variant="outlined" size="sm" width="w-1/4" />
       </View>
       <TextInput
         icon="hashtag"
@@ -1338,9 +1329,9 @@ export default function DebugDataScreen() {
         <DataTable
           data={syncs}
           columns={syncColumns}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           onRowPress={loadSyncForEdit}
-          onDelete={(item) => handleDeleteSync(item.id)}
+          onDelete={item => handleDeleteSync(item.id)}
           emptyMessage="No syncs found. Create one to get started."
         />
       </View>
@@ -1351,13 +1342,7 @@ export default function DebugDataScreen() {
     <Card className="m-4" padding="lg" backgroundColor="secondary">
       <View className="flex-row justify-between items-center mb-4">
         <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Sync</ThemedText>
-        <Button
-          title="Cancel"
-          onPress={resetSyncForm}
-          variant="outlined"
-          size="sm"
-          width="w-1/4"
-        />
+        <Button title="Cancel" onPress={resetSyncForm} variant="outlined" size="sm" width="w-1/4" />
       </View>
       <TextInput
         icon="hashtag"
@@ -1375,10 +1360,7 @@ export default function DebugDataScreen() {
         placeholder="plaid_item_id"
       />
       <TextInput icon="gear" label="Action *" value={action} onChangeText={setAction} placeholder="action" />
-      <Button
-        title={editingRecord ? 'Update Sync' : 'Create Sync'}
-        onPress={handleCreateOrUpdateSync}
-      />
+      <Button title={editingRecord ? 'Update Sync' : 'Create Sync'} onPress={handleCreateOrUpdateSync} />
     </Card>
   );
 
@@ -1390,7 +1372,7 @@ export default function DebugDataScreen() {
       key: 'hasMore',
       label: 'Has More',
       width: 100,
-      render: (item) => (
+      render: item => (
         <ThemedText type="default" className={item.hasMore ? 'text-green-500' : 'text-text-secondary'}>
           {item.hasMore ? 'Yes' : 'No'}
         </ThemedText>
@@ -1418,9 +1400,9 @@ export default function DebugDataScreen() {
         <DataTable
           data={transactionSyncs}
           columns={transactionSyncColumns}
-          keyExtractor={(item) => item.id}
+          keyExtractor={item => item.id}
           onRowPress={loadTransactionSyncForEdit}
-          onDelete={(item) => handleDeleteTransactionSync(item.id)}
+          onDelete={item => handleDeleteTransactionSync(item.id)}
           emptyMessage="No transaction syncs found. Create one to get started."
         />
       </View>
@@ -1431,13 +1413,7 @@ export default function DebugDataScreen() {
     <Card className="m-4" padding="lg" backgroundColor="secondary">
       <View className="flex-row justify-between items-center mb-4">
         <ThemedText type="title">{editingRecord ? 'Edit' : 'Create'} Transaction Sync</ThemedText>
-        <Button
-          title="Cancel"
-          onPress={resetTransactionSyncForm}
-          variant="outlined"
-          size="sm"
-          width="w-1/4"
-        />
+        <Button title="Cancel" onPress={resetTransactionSyncForm} variant="outlined" size="sm" width="w-1/4" />
       </View>
       <TextInput
         icon="link"

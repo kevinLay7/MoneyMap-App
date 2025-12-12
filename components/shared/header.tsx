@@ -1,20 +1,16 @@
-import React, { ReactNode } from "react";
-import { useAuth0 } from "react-native-auth0";
-import { Pressable, View, Text } from "react-native";
-import { FontAwesome6 } from "@expo/vector-icons";
-import { SafeAreaView } from "react-native-safe-area-context";
-import Animated, {
-  useAnimatedStyle,
-  useDerivedValue,
-  type SharedValue,
-} from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient";
-import Modal from "react-native-modal";
-import WaveBackground from "@/components/wave-background";
-import { useNavigation } from "@react-navigation/native";
-import { useColorScheme } from "@/hooks/use-color-scheme";
-import { Button } from "@/components/ui/button";
-import { Colors } from "@/constants/colors";
+import React, { ReactNode } from 'react';
+import { useAuth0 } from 'react-native-auth0';
+import { Pressable, View, Text } from 'react-native';
+import { FontAwesome6 } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, { useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
+import { LinearGradient } from 'expo-linear-gradient';
+import Modal from 'react-native-modal';
+import WaveBackground from '@/components/wave-background';
+import { useNavigation } from '@react-navigation/native';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Button } from '@/components/ui/button';
+import { Colors } from '@/constants/colors';
 
 type HeaderProps = {
   scrollOffset: SharedValue<number>;
@@ -55,12 +51,12 @@ export default function Header({
   }, [noBackground]);
 
   // Memoize icon calculations
-  const leftIconToUse = React.useMemo(() => leftIcon ?? "bars", [leftIcon]);
-  const rightIconToUse = React.useMemo(() => rightIcon ?? "", [rightIcon]);
+  const leftIconToUse = React.useMemo(() => leftIcon ?? 'bars', [leftIcon]);
+  const rightIconToUse = React.useMemo(() => rightIcon ?? '', [rightIcon]);
 
   // Memoize press handlers
   const handleLeftIconPress = React.useCallback(() => {
-    if (leftIconToUse.includes("left")) {
+    if (leftIconToUse.includes('left')) {
       setShowSettingsDrawer(false);
       navigator.goBack();
     } else {
@@ -69,27 +65,25 @@ export default function Header({
   }, [leftIconToUse, navigator]);
 
   const handleOpenAccountManagement = React.useCallback(async () => {
-    navigator.navigate("AccountManagement");
+    navigator.navigate('AccountManagement');
   }, [navigator]);
 
   const handleOpenSettings = React.useCallback(async () => {
-    navigator.navigate("Settings");
+    navigator.navigate('Settings');
     setShowSettingsDrawer(false);
   }, [navigator]);
 
   const handleOpenDebugData = React.useCallback(async () => {
-    navigator.navigate("debug-data");
+    navigator.navigate('debug-data');
     setShowSettingsDrawer(false);
   }, [navigator]);
 
   // Combine animated styles
   const combinedHeaderStyles = useAnimatedStyle(
     () => ({
-      width: "100%",
-      position: "absolute",
-      transform: [
-        { translateY: scrollOffset.value <= 0 ? 0 : -scrollOffset.value },
-      ],
+      width: '100%',
+      position: 'absolute',
+      transform: [{ translateY: scrollOffset.value <= 0 ? 0 : -scrollOffset.value }],
       height: 100,
       zIndex: 1,
     }),
@@ -97,14 +91,14 @@ export default function Header({
   );
 
   // Static styles
-  const iconContainerStyle = "w-1/6 h-12 justify-center items-start pl-8";
-  const centerContainerStyle = "w-4/6 h-12 justify-center items-center";
-  const rightContainerStyle = "w-1/6 h-12 justify-center items-end pr-8";
+  const iconContainerStyle = 'w-1/6 h-12 justify-center items-start pl-8';
+  const centerContainerStyle = 'w-4/6 h-12 justify-center items-center';
+  const rightContainerStyle = 'w-1/6 h-12 justify-center items-end pr-8';
 
   // Memoize gradient configuration
   const shadowGradientConfig = React.useMemo(
     () => ({
-      colors: ["#000000d5", "transparent"] as const,
+      colors: ['#000000d5', 'transparent'] as const,
       start: { x: 0, y: 0 },
       end: { x: 0, y: 1 },
       locations: [0, 0.99] as const,
@@ -127,7 +121,7 @@ export default function Header({
               <FontAwesome6
                 name="building"
                 size={16}
-                color={colorScheme === "light" ? "white" : "black"}
+                color={colorScheme === 'light' ? 'white' : 'black'}
                 style={{ marginRight: 8 }}
               />
             }
@@ -142,7 +136,7 @@ export default function Header({
               <FontAwesome6
                 name="gear"
                 size={16}
-                color={colorScheme === "light" ? "white" : "black"}
+                color={colorScheme === 'light' ? 'white' : 'black'}
                 style={{ marginRight: 8 }}
               />
             }
@@ -158,7 +152,7 @@ export default function Header({
                 <FontAwesome6
                   name="bug"
                   size={16}
-                  color={colorScheme === "light" ? "white" : "black"}
+                  color={colorScheme === 'light' ? 'white' : 'black'}
                   style={{ marginRight: 8 }}
                 />
               }
@@ -166,23 +160,14 @@ export default function Header({
               marginY="4"
             />
           )}
+          <Pressable className="flex-1 h-full" onPress={() => setShowSettingsDrawer(false)} />
         </View>
         <View className="p-4 border-t border-border">
-          <Button
-            title="Logout"
-            onPress={async () => await clearCredentials()}
-            color="error"
-          />
+          <Button title="Logout" onPress={async () => await clearCredentials()} color="error" />
         </View>
       </SafeAreaView>
     ),
-    [
-      colorScheme,
-      handleOpenAccountManagement,
-      handleOpenSettings,
-      handleOpenDebugData,
-      clearCredentials,
-    ]
+    [colorScheme, handleOpenAccountManagement, handleOpenSettings, handleOpenDebugData, clearCredentials]
   );
 
   const bgHeight = useDerivedValue(() => {
@@ -192,9 +177,9 @@ export default function Header({
   const bgStyles = useAnimatedStyle(
     () => ({
       height: bgHeight.value,
-      width: "100%",
+      width: '100%',
       backgroundColor: backgroundHex,
-      position: "absolute",
+      position: 'absolute',
       top: 0,
       left: 0,
       zIndex: 0,
@@ -215,8 +200,8 @@ export default function Header({
   const shadowStyles = useAnimatedStyle(
     () => ({
       height: 70,
-      position: "absolute",
-      width: "100%",
+      position: 'absolute',
+      width: '100%',
       zIndex: 300,
       opacity: shadowOpacity.value,
     }),
@@ -226,10 +211,7 @@ export default function Header({
   return (
     <View className="w-full">
       <Animated.View style={shadowStyles}>
-        <LinearGradient
-          {...shadowGradientConfig}
-          style={linearGradientStyles}
-        />
+        <LinearGradient {...shadowGradientConfig} style={linearGradientStyles} />
       </Animated.View>
 
       {shouldShowBackground && <Animated.View style={bgStyles}></Animated.View>}
@@ -247,10 +229,7 @@ export default function Header({
             <View className={rightContainerStyle}>
               {rightComponent}
               {rightIconToUse && (
-                <Pressable
-                  onPress={rightCallback}
-                  className="w-12 h-full items-end justify-center"
-                >
+                <Pressable onPress={rightCallback} className="w-12 h-full items-end justify-center">
                   <FontAwesome6 name={rightIconToUse} size={24} color="white" />
                 </Pressable>
               )}
@@ -267,7 +246,7 @@ export default function Header({
         swipeDirection="left"
         animationIn="slideInLeft"
         animationOut="slideOutLeft"
-        style={{ margin: 0, justifyContent: "flex-start" }}
+        style={{ margin: 0, justifyContent: 'flex-start' }}
         backdropOpacity={0}
         backdropColor={Colors.dark.backgroundSecondary}
       >
@@ -275,10 +254,7 @@ export default function Header({
           <View className="w-4/6 h-full bg-background-secondary border-r-2 border-background-tertiary">
             {drawerContent}
           </View>
-          <Pressable
-            className="flex-1 h-full"
-            onPress={() => setShowSettingsDrawer(false)}
-          />
+          <Pressable className="flex-1 h-full" onPress={() => setShowSettingsDrawer(false)} />
         </View>
       </Modal>
     </View>
@@ -287,12 +263,11 @@ export default function Header({
 
 // Static styles moved outside component
 const linearGradientStyles = {
-  position: "absolute" as const,
+  position: 'absolute' as const,
   left: 0,
   right: 0,
   top: 0,
-  height: "100%" as const,
+  height: '100%' as const,
   borderRadius: 0,
   zIndex: 100,
 };
-

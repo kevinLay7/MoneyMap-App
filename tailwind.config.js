@@ -1,8 +1,8 @@
-const { Colors } = require("./constants/colors");
+const { Colors } = require('./constants/colors');
 
 // Helper to convert camelCase to kebab-case
 function camelToKebab(str) {
-  return str.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, "$1-$2").toLowerCase();
+  return str.replace(/([a-z0-9]|(?=[A-Z]))([A-Z])/g, '$1-$2').toLowerCase();
 }
 
 // Generate CSS variables plugin
@@ -22,8 +22,8 @@ function generateCSSVariables() {
     });
 
     addBase({
-      ":root": lightVars,
-      ".dark": darkVars,
+      ':root': lightVars,
+      '.dark': darkVars,
     });
   };
 }
@@ -31,9 +31,9 @@ function generateCSSVariables() {
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   // NOTE: Update this to include the paths to all files that contain Nativewind classes.
-  content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
-  presets: [require("nativewind/preset")],
-  darkMode: "class",
+  content: ['./app/**/*.{js,jsx,ts,tsx}', './components/**/*.{js,jsx,ts,tsx}'],
+  presets: [require('nativewind/preset')],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
@@ -43,17 +43,22 @@ module.exports = {
         quaternary: Colors.quaternary,
         quinary: Colors.quinary,
         negative: Colors.negative,
-        white: "#ffffff",
-        background: "var(--color-background)",
-        "background-secondary": "var(--color-background-secondary)",
-        "background-tertiary": "var(--color-background-tertiary)",
-        text: "var(--color-text)",
-        "text-secondary": "var(--color-text-secondary)",
-        icon: "var(--color-icon)",
-        tint: "var(--color-tint)",
-        "tab-icon-default": "var(--color-tab-icon-default)",
-        "tab-icon-selected": "var(--color-tab-icon-selected)",
-        disabled: "var(--color-disabled)",
+        success: Colors.success,
+        pending: Colors.pending,
+        warning: Colors.warning,
+        error: Colors.error,
+        alert: Colors.alert,
+        white: '#ffffff',
+        background: 'var(--color-background)',
+        'background-secondary': 'var(--color-background-secondary)',
+        'background-tertiary': 'var(--color-background-tertiary)',
+        text: 'var(--color-text)',
+        'text-secondary': 'var(--color-text-secondary)',
+        icon: 'var(--color-icon)',
+        tint: 'var(--color-tint)',
+        'tab-icon-default': 'var(--color-tab-icon-default)',
+        'tab-icon-selected': 'var(--color-tab-icon-selected)',
+        disabled: 'var(--color-disabled)',
       },
     },
   },

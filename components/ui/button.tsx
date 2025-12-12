@@ -1,7 +1,7 @@
-import React, { useCallback } from "react";
-import { TouchableOpacity, Text } from "react-native";
-import { LottieLoadingSpinner } from "@/components/lottie-loading-spinner";
-import { HapticWeight, useHaptics } from "@/hooks/useHaptics";
+import React, { useCallback } from 'react';
+import { TouchableOpacity, Text } from 'react-native';
+import { LottieLoadingSpinner } from '@/components/lottie-loading-spinner';
+import { HapticWeight, useHaptics } from '@/hooks/useHaptics';
 
 interface ButtonProps {
   onPress: () => void;
@@ -12,149 +12,144 @@ interface ButtonProps {
   disabled?: boolean;
   activeOpacity?: number;
   loading?: boolean;
-  size?: "sm" | "md" | "lg";
-  marginY?: "0" | "1" | "2" | "3" | "4" | "5" | "6" | "8" | "10";
-  rounded?:
-    | "rounded-full"
-    | "rounded-lg"
-    | "rounded-md"
-    | "rounded-sm"
-    | "rounded-none";
+  size?: 'sm' | 'md' | 'lg';
+  marginY?: '0' | '1' | '2' | '3' | '4' | '5' | '6' | '8' | '10';
+  rounded?: 'rounded-full' | 'rounded-lg' | 'rounded-md' | 'rounded-sm' | 'rounded-none';
   color?:
-    | "primary"
-    | "secondary"
-    | "tertiary"
-    | "quaternary"
-    | "quinary"
-    | "gray"
-    | "negative"
-    | "pending"
-    | "white"
-    | "error"
-    | "success"
-    | "warning"
-    | "background";
+    | 'primary'
+    | 'secondary'
+    | 'tertiary'
+    | 'quaternary'
+    | 'quinary'
+    | 'gray'
+    | 'negative'
+    | 'pending'
+    | 'white'
+    | 'error'
+    | 'success'
+    | 'warning'
+    | 'background';
   textColor?:
-    | "white"
-    | "black"
-    | "primary"
-    | "secondary"
-    | "tertiary"
-    | "quaternary"
-    | "quinary"
-    | "gray"
-    | "text"
-    | "text-secondary";
-  width?: "w-full" | "w-1/2" | "w-1/3" | "w-1/4" | "w-1/5" | "w-4/5";
+    | 'white'
+    | 'black'
+    | 'primary'
+    | 'secondary'
+    | 'tertiary'
+    | 'quaternary'
+    | 'quinary'
+    | 'gray'
+    | 'text'
+    | 'text-secondary';
+  width?: 'w-full' | 'w-1/2' | 'w-1/3' | 'w-1/4' | 'w-1/5' | 'w-4/5';
   className?: string;
-  variant?: "contained" | "outlined" | "underlined";
+  variant?: 'contained' | 'outlined' | 'underlined';
   hapticWeight?: HapticWeight;
   circular?: boolean;
 }
 
 const bgColorMap: Record<string, string> = {
-  primary: "bg-primary",
-  secondary: "bg-secondary",
-  tertiary: "bg-tertiary",
-  quaternary: "bg-quaternary",
-  quinary: "bg-quinary",
-  gray: "bg-gray-500",
-  negative: "bg-negative",
-  pending: "bg-yellow-500",
-  white: "bg-white",
-  error: "bg-red-500",
-  success: "bg-green-500",
-  warning: "bg-yellow-500",
-  background: "bg-background",
+  primary: 'bg-primary',
+  secondary: 'bg-secondary',
+  tertiary: 'bg-tertiary',
+  quaternary: 'bg-quaternary',
+  quinary: 'bg-quinary',
+  gray: 'bg-gray-500',
+  negative: 'bg-negative',
+  pending: 'bg-yellow-500',
+  white: 'bg-white',
+  error: 'bg-red-500',
+  success: 'bg-success',
+  warning: 'bg-yellow-500',
+  background: 'bg-background',
 };
 
 const borderColorMap: Record<string, string> = {
-  primary: "border-primary",
-  secondary: "border-secondary",
-  tertiary: "border-tertiary",
-  quaternary: "border-quaternary",
-  quinary: "border-quinary",
-  gray: "border-gray-500",
-  negative: "border-negative",
-  pending: "border-yellow-500",
-  white: "border-white",
-  error: "border-red-500",
-  success: "border-green-500",
-  warning: "border-yellow-500",
-  background: "border-background",
+  primary: 'border-primary',
+  secondary: 'border-secondary',
+  tertiary: 'border-tertiary',
+  quaternary: 'border-quaternary',
+  quinary: 'border-quinary',
+  gray: 'border-gray-500',
+  negative: 'border-negative',
+  pending: 'border-yellow-500',
+  white: 'border-white',
+  error: 'border-red-500',
+  success: 'border-green-500',
+  warning: 'border-yellow-500',
+  background: 'border-background',
 };
 
 // Colors that need dark text (light backgrounds)
-const lightBackgroundColors = new Set(["white", "pending", "warning"]);
+const lightBackgroundColors = new Set(['white', 'pending', 'warning']);
 
 // Auto-contrast text color based on background
 const getContrastTextColor = (bgColor: string): string => {
   if (lightBackgroundColors.has(bgColor)) {
-    return "text-black";
+    return 'text-black';
   }
   // Special case for negative (transparent) - use theme text color
-  if (bgColor === "negative") {
-    return "text-text";
+  if (bgColor === 'negative') {
+    return 'text-text';
   }
   // Special case for background - use theme text color
-  if (bgColor === "background") {
-    return "text-text";
+  if (bgColor === 'background') {
+    return 'text-text';
   }
-  return "text-white";
+  return 'text-white';
 };
 
 // Custom text color options
 const customTextColorMap: Record<string, string> = {
-  white: "text-white",
-  black: "text-black",
-  primary: "text-primary",
-  secondary: "text-secondary",
-  tertiary: "text-tertiary",
-  quaternary: "text-quaternary",
-  quinary: "text-quinary",
-  gray: "text-gray-500",
-  text: "text-text",
-  "text-secondary": "text-text-secondary",
+  white: 'text-white',
+  black: 'text-black',
+  primary: 'text-primary',
+  secondary: 'text-secondary',
+  tertiary: 'text-tertiary',
+  quaternary: 'text-quaternary',
+  quinary: 'text-quinary',
+  gray: 'text-gray-500',
+  text: 'text-text',
+  'text-secondary': 'text-text-secondary',
 };
 
 const outlinedTextColorMap: Record<string, string> = {
-  primary: "text-primary",
-  secondary: "text-secondary",
-  tertiary: "text-tertiary",
-  quaternary: "text-quaternary",
-  quinary: "text-quinary",
-  gray: "text-gray-500",
-  negative: "text-text",
-  pending: "text-yellow-500",
-  white: "text-white",
-  error: "text-red-500",
-  success: "text-green-500",
-  warning: "text-yellow-500",
-  background: "text-text",
+  primary: 'text-primary',
+  secondary: 'text-secondary',
+  tertiary: 'text-tertiary',
+  quaternary: 'text-quaternary',
+  quinary: 'text-quinary',
+  gray: 'text-gray-500',
+  negative: 'text-text',
+  pending: 'text-yellow-500',
+  white: 'text-white',
+  error: 'text-red-500',
+  success: 'text-green-500',
+  warning: 'text-yellow-500',
+  background: 'text-text',
 };
 
 const sizeMap = {
-  sm: "h-10",
-  md: "h-12",
-  lg: "h-16",
+  sm: 'h-10',
+  md: 'h-12',
+  lg: 'h-16',
 };
 
 const circularWidthMap = {
-  sm: "w-10",
-  md: "w-12",
-  lg: "w-16",
+  sm: 'w-10',
+  md: 'w-12',
+  lg: 'w-16',
 };
 
 const marginYMap: Record<string, string> = {
-  "0": "my-0",
-  "1": "my-1",
-  "2": "my-2",
-  "3": "my-3",
-  "4": "my-4",
-  "5": "my-5",
-  "6": "my-6",
-  "8": "my-8",
-  "10": "my-10",
+  '0': 'my-0',
+  '1': 'my-1',
+  '2': 'my-2',
+  '3': 'my-3',
+  '4': 'my-4',
+  '5': 'my-5',
+  '6': 'my-6',
+  '8': 'my-8',
+  '10': 'my-10',
 };
 
 export function Button({
@@ -166,15 +161,15 @@ export function Button({
   disabled,
   activeOpacity,
   loading,
-  size = "md",
-  marginY = "2",
-  rounded = "rounded-full",
-  color = "primary",
+  size = 'md',
+  marginY = '2',
+  rounded = 'rounded-full',
+  color = 'primary',
   textColor,
-  width = "w-full",
+  width = 'w-full',
   className,
-  variant = "contained",
-  hapticWeight = "light",
+  variant = 'contained',
+  hapticWeight = 'light',
   circular = false,
 }: ButtonProps) {
   const { impact } = useHaptics();
@@ -186,16 +181,16 @@ export function Button({
     onPress();
   }, [disabled, hapticWeight, impact, onPress]);
 
-  const buttonSize = size === "sm" ? 10 : size === "md" ? 12 : 16;
+  const buttonSize = size === 'sm' ? 10 : size === 'md' ? 12 : 16;
 
   const heightClass = sizeMap[size];
-  const marginClass = marginYMap[marginY] || marginYMap["2"];
+  const marginClass = marginYMap[marginY] || marginYMap['2'];
 
   // Handle circular button styling
   const isCircular = circular;
-  const finalRounded = isCircular ? "rounded-full" : rounded;
+  const finalRounded = isCircular ? 'rounded-full' : rounded;
   const finalWidth = isCircular ? circularWidthMap[size] : width;
-  const paddingClass = isCircular ? "p-0" : "py-2";
+  const paddingClass = isCircular ? 'p-0' : 'py-2';
 
   // Handle variant-specific styling
   let bgColor: string;
@@ -203,22 +198,22 @@ export function Button({
   let borderClasses: string;
 
   if (disabled) {
-    bgColor = "bg-disabled";
-    finalTextColor = "text-text-secondary";
-    borderClasses = "";
-  } else if (variant === "outlined") {
-    bgColor = "bg-transparent";
+    bgColor = 'bg-disabled';
+    finalTextColor = 'text-text-secondary';
+    borderClasses = '';
+  } else if (variant === 'outlined') {
+    bgColor = 'bg-transparent';
     // For outlined/underlined, use custom textColor if provided, otherwise use color-matched text
     finalTextColor = textColor
       ? customTextColorMap[textColor] || `text-${textColor}`
       : outlinedTextColorMap[color] || outlinedTextColorMap.primary;
     borderClasses = `border-2 ${borderColorMap[color] || borderColorMap.primary}`;
-  } else if (variant === "underlined") {
-    bgColor = "bg-transparent";
+  } else if (variant === 'underlined') {
+    bgColor = 'bg-transparent';
     finalTextColor = textColor
       ? customTextColorMap[textColor] || `text-${textColor}`
       : outlinedTextColorMap[color] || outlinedTextColorMap.primary;
-    borderClasses = "";
+    borderClasses = '';
   } else {
     // contained variant
     bgColor = bgColorMap[color] || bgColorMap.primary;
@@ -228,20 +223,16 @@ export function Button({
     } else {
       finalTextColor = getContrastTextColor(color);
     }
-    borderClasses = "";
+    borderClasses = '';
   }
 
   const buttonBaseClasses = `flex-row justify-center items-center ${finalWidth} ${bgColor} ${borderClasses}`;
   const textBaseClasses = `${finalTextColor} font-semibold ${
-    variant === "underlined" ? "underline underline-offset-4" : ""
+    variant === 'underlined' ? 'underline underline-offset-4' : ''
   }`;
 
-  const isTitleString = typeof title === "string";
-  const titleContent = isTitleString ? (
-    <Text className={textBaseClasses}>{title}</Text>
-  ) : (
-    title
-  );
+  const isTitleString = typeof title === 'string';
+  const titleContent = isTitleString ? <Text className={textBaseClasses}>{title}</Text> : title;
 
   return (
     <TouchableOpacity
@@ -249,7 +240,7 @@ export function Button({
       onLongPress={onLongPress}
       disabled={disabled}
       activeOpacity={activeOpacity}
-      className={`${buttonBaseClasses} ${paddingClass} ${finalRounded} ${heightClass} ${marginClass} ${className || ""}`}
+      className={`${buttonBaseClasses} ${paddingClass} ${finalRounded} ${heightClass} ${marginClass} ${className || ''}`}
     >
       {iconLeft}
       {loading ? <LottieLoadingSpinner size={buttonSize + 24} /> : titleContent}
