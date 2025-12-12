@@ -17,11 +17,13 @@ function UncategorizedTransactionItem({
   zIndex,
   width,
   onCategorized,
+  transactionService,
 }: {
   transaction: Transaction;
   zIndex: number;
   width: number;
   onCategorized: () => void;
+  transactionService?: TransactionService;
 }) {
   const formatMoney = useMoneyFormatter();
   const cardOpacity = useSharedValue(1);
@@ -38,6 +40,11 @@ function UncategorizedTransactionItem({
       zIndex: zIndex,
     };
   });
+
+  async function categorizeTransaction() {
+    await transactionService?.categorizeTransaction(transaction);
+    cardOpacity.value = withTiming(0, { duration: 400 }, () => scheduleOnRN(onCategorized));
+  }
 
   return (
     <Animated.View style={cardStyle}>
@@ -57,9 +64,7 @@ function UncategorizedTransactionItem({
             width="w-1/3"
             color="success"
             className="ml-auto"
-            onPress={() => {
-              cardOpacity.value = withTiming(0, { duration: 400 }, () => scheduleOnRN(onCategorized));
-            }}
+            onPress={categorizeTransaction}
           />
         </View>
       </Card>
@@ -164,6 +169,7 @@ export function UncategorizedTransactionsCard() {
             onCategorized={() => {
               moveRight();
             }}
+            transactionService={transactionService}
           />
         ))}
       </View>

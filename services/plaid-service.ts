@@ -1,21 +1,20 @@
 import { Alert } from 'react-native';
-import { Database, Q } from '@nozbe/watermelondb';
+import { Database } from '@nozbe/watermelondb';
 import { Plaid } from '@/api/gen/Plaid';
-import {
-  PlaidItemResponseDto,
-  PlaidAccountDto,
-  TransactionDto,
-  TransactionsSyncResponseDto,
-} from '@/api/gen/data-contracts';
+import { PlaidItemResponseDto, PlaidAccountDto, TransactionsSyncResponseDto } from '@/api/gen/data-contracts';
 import Item from '@/model/models/item';
 import Account from '@/model/models/account';
-import Transaction from '@/model/models/transaction';
+import { TransactionService } from './transaction-service';
 
 export class PlaidService {
+  private transactionService: TransactionService;
+
   constructor(
     private plaidApi: Plaid,
     private database: Database
-  ) {}
+  ) {
+    this.transactionService = new TransactionService(database);
+  }
 
   /**
    * Handles the complete Plaid Link success flow:
@@ -246,7 +245,9 @@ export class PlaidService {
         const transactionsData: TransactionsSyncResponseDto = transactionsResponse.data;
 
         // Store transactions
-        await this.storeTransactions(transactionsData.added, transactionsData.modified, transactionsData.removed);
+        await this.transactionService.storeAddedTransactions(transactionsData.added);
+        await this.transactionService.storeModifiedTransactions(transactionsData.modified);
+        await this.transactionService.storeRemovedTransactions(transactionsData.removed);
 
         // Update cursor for next iteration
         cursor = transactionsData.next_cursor;
@@ -261,112 +262,6 @@ export class PlaidService {
       console.error('Failed to fetch and store transactions:', error);
       throw error;
     }
-  }
-
-  /**
-   * Stores transactions in the database (added, modified, and removed)
-   */
-  private async storeTransactions(
-    added: TransactionDto[],
-    modified: TransactionDto[],
-    removed: { transaction_id: string; account_id: string }[]
-  ): Promise<void> {
-    await this.database.write(async () => {
-      // Process added transactions
-      for (const transactionDto of added) {
-        const existingTransaction =
-          (
-            await this.database
-              .get<Transaction>('transactions')
-              .query(Q.where('transaction_id', transactionDto.transaction_id))
-              .fetch()
-          )[0] || undefined;
-
-        if (!existingTransaction) {
-          await this.database.get<Transaction>('transactions').create(transaction => {
-            this.mapTransactionDtoToModel(transaction, transactionDto);
-          });
-        }
-      }
-
-      // Process modified transactions
-      for (const transactionDto of modified) {
-        const existingTransaction =
-          (
-            await this.database
-              .get<Transaction>('transactions')
-              .query(Q.where('transaction_id', transactionDto.transaction_id))
-              .fetch()
-          )[0] || undefined;
-
-        if (existingTransaction) {
-          await existingTransaction.update(transaction => {
-            this.mapTransactionDtoToModel(transaction, transactionDto);
-          });
-        } else {
-          // If not found, create it
-          await this.database.get<Transaction>('transactions').create(transaction => {
-            this.mapTransactionDtoToModel(transaction, transactionDto);
-          });
-        }
-      }
-
-      // Process removed transactions
-      for (const removedTransaction of removed) {
-        const existingTransaction =
-          (
-            await this.database
-              .get<Transaction>('transactions')
-              .query(Q.where('transaction_id', removedTransaction.transaction_id))
-              .fetch()
-          )[0] || undefined;
-
-        if (existingTransaction) {
-          await existingTransaction.markAsDeleted();
-        }
-      }
-    });
-  }
-
-  /**
-   * Maps a TransactionDto to a Transaction model
-   */
-  private mapTransactionDtoToModel(transaction: Transaction, dto: TransactionDto): void {
-    transaction.transactionId = dto.transaction_id;
-    transaction.accountId = dto.account_id;
-    transaction.amount = dto.amount;
-    transaction.isoCurrencyCode =
-      dto.iso_currency_code && typeof dto.iso_currency_code === 'string' ? dto.iso_currency_code : undefined;
-    transaction.unofficialCurrencyCode =
-      dto.unofficial_currency_code && typeof dto.unofficial_currency_code === 'string'
-        ? dto.unofficial_currency_code
-        : undefined;
-    transaction.category = dto.category && Array.isArray(dto.category) ? dto.category.join(', ') : undefined;
-    transaction.categoryId = dto.category_id && typeof dto.category_id === 'string' ? dto.category_id : undefined;
-    transaction.checkNumber = dto.check_number && typeof dto.check_number === 'string' ? dto.check_number : undefined;
-    transaction.date = dto.date;
-    transaction.authorizedDate =
-      dto.authorized_date && typeof dto.authorized_date === 'string' ? dto.authorized_date : undefined;
-    transaction.authorizedDatetime =
-      dto.authorized_datetime && typeof dto.authorized_datetime === 'string' ? dto.authorized_datetime : undefined;
-    transaction.datetime = dto.datetime && typeof dto.datetime === 'string' ? dto.datetime : undefined;
-    transaction.paymentChannel = dto.payment_channel;
-    transaction.personalFinanceCategoryPrimary = dto.personal_finance_category?.primary || undefined;
-    transaction.personalFinanceCategoryDetailed = dto.personal_finance_category?.detailed || undefined;
-    transaction.personalFinanceCategoryConfidenceLevel = dto.personal_finance_category?.confidence_level || undefined;
-    transaction.personalFinanceCategoryIconUrl = dto.personal_finance_category_icon_url || undefined;
-    transaction.name = dto.name;
-    transaction.merchantName =
-      dto.merchant_name && typeof dto.merchant_name === 'string' ? dto.merchant_name : undefined;
-    transaction.merchantEntityId =
-      dto.merchant_entity_id && typeof dto.merchant_entity_id === 'string' ? dto.merchant_entity_id : undefined;
-    transaction.logoUrl = dto.logo_url && typeof dto.logo_url === 'string' ? dto.logo_url : undefined;
-    transaction.website = dto.website && typeof dto.website === 'string' ? dto.website : undefined;
-    transaction.pending = dto.pending;
-    transaction.transactionCode =
-      dto.transaction_code && typeof dto.transaction_code === 'string' ? dto.transaction_code : undefined;
-    transaction.counterparties =
-      dto.counterparties && Array.isArray(dto.counterparties) ? JSON.stringify(dto.counterparties) : undefined;
   }
 
   /**

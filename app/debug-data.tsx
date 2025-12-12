@@ -8,6 +8,7 @@ import Item from '@/model/models/item';
 import Transaction from '@/model/models/transaction';
 import Sync from '@/model/models/sync';
 import TransactionSync from '@/model/models/transaction-sync';
+import { TransactionSource } from '@/types/transaction';
 import { Header, ThemedText } from '@/components/shared';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import { BackgroundContainer } from '@/components/ui/background-container';
@@ -552,6 +553,7 @@ export default function DebugDataScreen() {
             transaction.pending = pending;
             transaction.transactionCode = transactionCode || undefined;
             transaction.counterparties = counterparties || undefined;
+            transaction.source = TransactionSource.Local;
           });
           Alert.alert('Success', 'Transaction created');
         }
