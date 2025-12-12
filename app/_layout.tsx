@@ -5,12 +5,14 @@ import '../global.css';
 import '../config/ReactotronConfig';
 import { View } from 'react-native';
 import { ColorSchemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
-import { DependencyProvider } from '@/context/dependencyContext';
+import { DependencyProvider, useDependency } from '@/context/dependencyContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { DemoProvider } from '@/context/demoContext';
 import { useEffect } from 'react';
 import { useLoadCategories } from '@/hooks/use-load-categories';
+import database from '@/model/database';
+import { CateogryService } from '@/services/category-service';
 
 // Conditionally import Auth0 - it requires native modules
 let Auth0Provider: React.ComponentType<{
@@ -68,9 +70,16 @@ export default function RootLayout() {
 function RootLayoutContent() {
   const { user } = useAuth0();
   const colorScheme = useColorScheme();
-  useLoadCategories();
+  const { categoryApi } = useDependency();
 
   useEffect(() => {
+    async function loadCategories() {
+      if (categoryApi) {
+        const categoryService = new CateogryService(categoryApi, database);
+        await categoryService.loadCategoriesToDatabase();
+      }
+    }
+
     if (__DEV__ && console.tron) {
       console.tron.log('Reactotron connected successfully!');
       console.tron.display({
@@ -79,6 +88,8 @@ function RootLayoutContent() {
         important: true,
       });
     }
+
+    loadCategories();
   }, []);
 
   return (

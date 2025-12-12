@@ -1,6 +1,7 @@
 import { Model } from '@nozbe/watermelondb';
 import { field, relation, readonly, date } from '@nozbe/watermelondb/decorators';
 import { TransactionSource } from '@/types/transaction';
+import Category from './category';
 
 export default class Transaction extends Model {
   static table = 'transactions';
@@ -10,7 +11,6 @@ export default class Transaction extends Model {
   @field('amount') amount!: number;
   @field('iso_currency_code') isoCurrencyCode?: string;
   @field('unofficial_currency_code') unofficialCurrencyCode?: string;
-  @field('category') category?: string;
   @field('category_id') categoryId?: string;
   @field('check_number') checkNumber?: string;
   @field('date') date!: string;
@@ -40,4 +40,5 @@ export default class Transaction extends Model {
   @readonly @date('updated_at') updatedAt!: Date;
 
   @relation('accounts', 'account_id') account!: any;
+  @relation('categories', 'category_id') category?: Category;
 }

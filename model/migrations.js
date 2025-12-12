@@ -11,5 +11,12 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 3,
+      steps: [
+        // Removed 'category' string field - now using relation via 'category_id'
+        // Columns are not physically removed, just not used
+      ],
+    },
   ],
 });

@@ -32,9 +32,14 @@ export class CateogryService {
         return;
       }
 
+      const categoriesToUpdate: { category: Category; data: (typeof categoriesFromServer)[0] }[] = [];
+      const categoriesToCreate: (typeof categoriesFromServer)[0][] = [];
+
       for (const category of categoriesFromServer) {
         const existingCategory = categoriesFromDatabase.find(c => c.name === category.name);
 
+        console.log('existingCategory', existingCategory);
+        console.log('category', category);
         if (
           existingCategory &&
           existingCategory.primary === category.primary &&
@@ -48,31 +53,40 @@ export class CateogryService {
         }
 
         if (existingCategory) {
-          await this.database.write(async () => {
-            await existingCategory.update(record => {
-              record.name = category.name;
-              record.primary = category.primary;
-              record.detailed = category.detailed;
-              record.description = category.description;
-              record.icon = category.icon;
-              record.color = category.color;
-              record.ignored = category.ignored;
-            });
-          });
-
-          continue;
+          categoriesToUpdate.push({ category: existingCategory, data: category });
+        } else {
+          categoriesToCreate.push(category);
         }
+      }
 
+      // Batch all updates and creates in a single write operation
+      if (categoriesToUpdate.length > 0 || categoriesToCreate.length > 0) {
         await this.database.write(async () => {
-          await this.database.get<Category>('categories').create(record => {
-            record.name = category.name;
-            record.primary = category.primary;
-            record.detailed = category.detailed;
-            record.description = category.description;
-            record.icon = category.icon;
-            record.color = category.color;
-            record.ignored = category.ignored;
-          });
+          // Update existing categories
+          for (const { category, data } of categoriesToUpdate) {
+            await category.update(record => {
+              record.name = data.name;
+              record.primary = data.primary;
+              record.detailed = data.detailed;
+              record.description = data.description;
+              record.icon = data.icon;
+              record.color = data.color;
+              record.ignored = data.ignored;
+            });
+          }
+
+          // Create new categories
+          for (const categoryData of categoriesToCreate) {
+            await this.database.get<Category>('categories').create(record => {
+              record.name = categoryData.name;
+              record.primary = categoryData.primary;
+              record.detailed = categoryData.detailed;
+              record.description = categoryData.description;
+              record.icon = categoryData.icon;
+              record.color = categoryData.color;
+              record.ignored = categoryData.ignored;
+            });
+          }
         });
       }
     } catch (error) {

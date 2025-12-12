@@ -1,3 +1,4 @@
+import { Database } from '@nozbe/watermelondb';
 import database from '@/model/database';
 import Account from '@/model/models/account';
 import Transaction from '@/model/models/transaction';
@@ -32,3 +33,37 @@ export async function clearDatabase(): Promise<void> {
   });
 }
 
+/**
+ * Executes an async function within a database write context.
+ * If already in a write context, executes directly. Otherwise, wraps in database.write().
+ *
+ * @param database - The WatermelonDB database instance
+ * @param fn - The async function to execute
+ * @param inWriteContext - If true, assumes we're already in a write context and executes directly
+ * @returns The result of the function execution
+ *
+ * @example
+ * // When called from within a write block
+ * await database.write(async () => {
+ *   await executeInWriteContext(database, async () => {
+ *     await record.update(r => { r.field = 'value'; });
+ *   }, true);
+ * });
+ *
+ * @example
+ * // When called standalone
+ * await executeInWriteContext(database, async () => {
+ *   await record.update(r => { r.field = 'value'; });
+ * });
+ */
+export async function executeInWriteContext<T>(
+  database: Database,
+  fn: () => Promise<T>,
+  inWriteContext: boolean = false
+): Promise<T> {
+  if (inWriteContext) {
+    return await fn();
+  } else {
+    return await database.write(fn);
+  }
+}

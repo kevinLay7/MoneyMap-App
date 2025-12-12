@@ -27,34 +27,61 @@ function UncategorizedTransactionItem({
 }) {
   const formatMoney = useMoneyFormatter();
   const cardOpacity = useSharedValue(1);
-  const multiplier = zIndex * WIDTH_MULTIPLIER;
+  const overlayOpacity = useSharedValue(0);
+  const animatedTop = useSharedValue(10 + -zIndex * 5);
+  const animatedLeft = useSharedValue(-(zIndex * WIDTH_MULTIPLIER) / 2);
+  const animatedWidth = useSharedValue(width);
+  const animatedBottom = useSharedValue(-zIndex * 10);
+  const animatedZIndex = useSharedValue(zIndex);
+
+  // Animate when zIndex changes
+  useEffect(() => {
+    animatedTop.value = withTiming(10 + -zIndex * 5, { duration: 300 });
+    animatedLeft.value = withTiming(-(zIndex * WIDTH_MULTIPLIER) / 2, { duration: 300 });
+    animatedWidth.value = withTiming(width, { duration: 300 });
+    animatedBottom.value = withTiming(-zIndex * 10, { duration: 300 });
+    animatedZIndex.value = zIndex;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zIndex, width]);
 
   const cardStyle = useAnimatedStyle(() => {
     return {
       opacity: cardOpacity.value,
       position: 'absolute',
-      top: `${10 + -zIndex * 5}%`,
-      left: -multiplier / 2,
-      bottom: -zIndex * 10,
-      width: width,
-      zIndex: zIndex,
+      top: `${animatedTop.value}%`,
+      left: animatedLeft.value,
+      bottom: animatedBottom.value,
+      width: animatedWidth.value,
+      zIndex: animatedZIndex.value,
+    };
+  });
+
+  const overlayStyle = useAnimatedStyle(() => {
+    return {
+      opacity: overlayOpacity.value,
     };
   });
 
   async function categorizeTransaction() {
     await transactionService?.categorizeTransaction(transaction);
+    overlayOpacity.value = withTiming(1, { duration: 400 });
     cardOpacity.value = withTiming(0, { duration: 400 }, () => scheduleOnRN(onCategorized));
   }
 
   return (
     <Animated.View style={cardStyle}>
-      <Card variant="elevated" rounded="xl" backgroundColor="tertiary" className="w-full h-36 px-4">
+      <Card variant="elevated" rounded="xl" backgroundColor="tertiary" className="w-full h-52 px-4">
         <View className="flex-row items-center">
-          <View className="flex-col">
-            <ThemedText>{transaction.name}</ThemedText>
+          <View className="flex-col flex-1 mr-2">
+            <ThemedText numberOfLines={2} ellipsizeMode="tail">
+              {transaction.name}
+            </ThemedText>
             <ThemedText type="subText">{transaction.date}</ThemedText>
           </View>
-          <ThemedText className="ml-auto">{formatMoney(transaction.amount)}</ThemedText>
+          <ThemedText className="ml-auto w-1/3 text-right">{formatMoney(transaction.amount)}</ThemedText>
+        </View>
+        <View className="flex-row items-center">
+          <ThemedText type="subText">{transaction.category?.name || 'Uncategorized'}</ThemedText>
         </View>
         <View className="flex-row mt-auto">
           <Button title="Categorize" size="sm" width="w-1/3" color="white" onPress={() => {}} />
@@ -67,6 +94,21 @@ function UncategorizedTransactionItem({
             onPress={categorizeTransaction}
           />
         </View>
+        <Animated.View
+          style={[
+            overlayStyle,
+            {
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(32, 177, 151, 0.8)',
+              borderRadius: 12,
+            },
+          ]}
+          pointerEvents="none"
+        />
       </Card>
     </Animated.View>
   );
@@ -137,6 +179,7 @@ export function UncategorizedTransactionsCard() {
     };
 
     fetchUncategorizedTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -152,7 +195,7 @@ export function UncategorizedTransactionsCard() {
       <ThemedText type="subtitle">Review Transactions</ThemedText>
 
       <View
-        className="h-48"
+        className="h-64"
         onLayout={event => {
           const { width } = event.nativeEvent.layout;
           if (viewWidth === 0) {
@@ -174,7 +217,7 @@ export function UncategorizedTransactionsCard() {
         ))}
       </View>
 
-      <View className="flex-row mt-4 h-6 px-4">
+      <View className="flex-row mt-6 h-6 px-4">
         {position.min > 0 && (
           <Pressable onPress={moveLeft}>
             <ThemedText type="subText">Back</ThemedText>

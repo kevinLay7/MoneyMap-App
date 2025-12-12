@@ -4,6 +4,7 @@ import { Database, Q } from '@nozbe/watermelondb';
 import { Observable } from '@nozbe/watermelondb/utils/rx';
 import { TransactionDto } from '@/api/gen/data-contracts';
 import { TransactionSource } from '@/types/transaction';
+import { executeInWriteContext } from '@/helpers/database-helpers';
 
 export class TransactionService {
   constructor(private database: Database) {}
@@ -27,55 +28,59 @@ export class TransactionService {
    * to categorize the transaction.
    *
    * @param transaction - The transaction to categorize.
+   * @param category - Optional category to assign directly.
+   * @param inWriteContext - If true, assumes we're already in a write context and won't create a new one.
    */
-  async categorizeTransaction(transaction: Transaction, category?: Category): Promise<void> {
-    if (category) {
-      await this.database.write(async () => {
-        await transaction.update(t => {
-          t.category = category.name;
-          t.categoryId = category.id;
-          t.personalFinanceCategoryConfidenceLevel = 'HIGH';
-        });
-      });
+  async categorizeTransaction(
+    transaction: Transaction,
+    category?: Category,
+    inWriteContext: boolean = false
+  ): Promise<void> {
+    await executeInWriteContext(
+      this.database,
+      async () => {
+        if (category) {
+          await transaction.update(t => {
+            t.categoryId = category.id;
+            t.personalFinanceCategoryConfidenceLevel = 'HIGH';
+          });
+          return;
+        }
 
-      return;
-    }
+        const categories = await this.database.get<Category>('categories').query().fetch();
 
-    const categories = await this.database.get<Category>('categories').query().fetch();
+        const primaryCategory = transaction.personalFinanceCategoryPrimary
+          ? transaction.personalFinanceCategoryPrimary.toLowerCase()
+          : undefined;
+        const detailedCategory = transaction.personalFinanceCategoryDetailed
+          ? transaction.personalFinanceCategoryDetailed.toLowerCase()
+          : undefined;
 
-    const primaryCategory = transaction.personalFinanceCategoryPrimary
-      ? transaction.personalFinanceCategoryPrimary.toLowerCase()
-      : undefined;
-    const detailedCategory = transaction.personalFinanceCategoryDetailed
-      ? transaction.personalFinanceCategoryDetailed.toLowerCase()
-      : undefined;
+        let newCategory: Category | undefined;
 
-    let newCategory: Category | undefined;
+        if (detailedCategory) {
+          console.log('Detailed category found:', detailedCategory);
+          newCategory = categories.find(c => c.detailed.toLowerCase() === detailedCategory);
+        }
 
-    if (detailedCategory) {
-      console.log('Detailed category found:', detailedCategory);
-      newCategory = categories.find(c => c.detailed.toLowerCase() === detailedCategory);
-    }
+        if (!newCategory && primaryCategory) {
+          console.log('Primary category found:', primaryCategory);
+          newCategory = categories.find(c => c.primary.toLowerCase() === primaryCategory);
+        }
 
-    if (!newCategory && primaryCategory) {
-      console.log('Primary category found:', primaryCategory);
-      newCategory = categories.find(c => c.primary.toLowerCase() === primaryCategory);
-    }
+        if (!newCategory) {
+          console.log('No category found, using uncategorized');
+          newCategory = categories.find(c => c.name.toLowerCase() === 'uncategorized');
+        }
 
-    if (!newCategory) {
-      console.log('No category found, using uncategorized');
-      newCategory = categories.find(c => c.name.toLowerCase() === 'uncategorized');
-    }
-
-    if (newCategory) {
-      await this.database.write(async () => {
-        await transaction.update(t => {
-          t.category = newCategory.name;
-          t.categoryId = newCategory.id;
-          t.personalFinanceCategoryConfidenceLevel = 'HIGH';
-        });
-      });
-    }
+        if (newCategory) {
+          await transaction.update(t => {
+            t.categoryId = newCategory.id;
+          });
+        }
+      },
+      inWriteContext
+    );
   }
 
   /**
@@ -99,7 +104,7 @@ export class TransactionService {
         this.mapTransactionDtoToModel(transaction, transactionDto, source);
       });
 
-      await this.categorizeTransaction(insertedTransaction);
+      await this.categorizeTransaction(insertedTransaction, undefined, true);
       return insertedTransaction;
     });
   }
@@ -121,14 +126,14 @@ export class TransactionService {
         const updatedTransaction = await existingTransaction.update(transaction => {
           this.mapTransactionDtoToModel(transaction, transactionDto, TransactionSource.Plaid);
         });
-        await this.categorizeTransaction(updatedTransaction);
+        await this.categorizeTransaction(updatedTransaction, undefined, true);
         return updatedTransaction;
       } else {
         // If not found, create it
         const insertedTransaction = await this.database.get<Transaction>('transactions').create(transaction => {
           this.mapTransactionDtoToModel(transaction, transactionDto, TransactionSource.Plaid);
         });
-        await this.categorizeTransaction(insertedTransaction);
+        await this.categorizeTransaction(insertedTransaction, undefined, true);
         return insertedTransaction;
       }
     });
@@ -194,7 +199,6 @@ export class TransactionService {
       dto.unofficial_currency_code && typeof dto.unofficial_currency_code === 'string'
         ? dto.unofficial_currency_code
         : undefined;
-    transaction.category = dto.category && Array.isArray(dto.category) ? dto.category.join(', ') : undefined;
     transaction.categoryId = dto.category_id && typeof dto.category_id === 'string' ? dto.category_id : undefined;
     transaction.checkNumber = dto.check_number && typeof dto.check_number === 'string' ? dto.check_number : undefined;
     transaction.date = dto.date;

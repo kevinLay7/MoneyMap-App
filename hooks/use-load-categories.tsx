@@ -12,7 +12,9 @@ export function useLoadCategories() {
     async function fetchCategories() {
       await categoryService.loadCategoriesToDatabase();
     }
-    fetchCategories();
+
+    if (categoryApi) {
+      fetchCategories();
+    }
   }, [categoryApi]);
 }
-

@@ -5,6 +5,7 @@ import { PlaidItemResponseDto, PlaidAccountDto, TransactionsSyncResponseDto } fr
 import Item from '@/model/models/item';
 import Account from '@/model/models/account';
 import { TransactionService } from './transaction-service';
+import { WriterInterface } from '@nozbe/watermelondb/Database/WorkQueue';
 
 export class PlaidService {
   private transactionService: TransactionService;
@@ -80,7 +81,7 @@ export class PlaidService {
    * Stores a Plaid item in the database
    */
   private async storeItem(plaidItem: PlaidItemResponseDto): Promise<void> {
-    await this.database.write(async () => {
+    await this.database.write(async (writer: WriterInterface) => {
       // Check if item already exists
       const existingItems = await this.database.get<Item>('items').query().fetch();
 
