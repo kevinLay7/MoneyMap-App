@@ -1,4 +1,4 @@
-import { Model } from '@nozbe/watermelondb';
+import { Model, Relation } from '@nozbe/watermelondb';
 import { field, relation, readonly, date } from '@nozbe/watermelondb/decorators';
 import { TransactionSource } from '@/types/transaction';
 import Category from './category';
@@ -40,5 +40,5 @@ export default class Transaction extends Model {
   @readonly @date('updated_at') updatedAt!: Date;
 
   @relation('accounts', 'account_id') account!: any;
-  @relation('categories', 'category_id') category?: Category;
+  @relation('categories', 'category_id') category?: Category | undefined;
 }

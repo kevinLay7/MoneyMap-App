@@ -5,14 +5,27 @@ import { Observable } from '@nozbe/watermelondb/utils/rx';
 /**
  * Generic hook to observe a WatermelonDB model
  */
-export function useObservable<T extends Model>(observable: Observable<T>): T | null {
+export function useObservable<T extends Model>(observable: Observable<T> | undefined | null): T | null {
   const [value, setValue] = useState<T | null>(null);
 
   useEffect(() => {
+    if (!observable) {
+      return;
+    }
+
     const subscription = observable.subscribe({
       next: setValue,
       error: error => {
-        console.warn('Error observing model:', error);
+        // Silently handle "Record not found" errors
+        // This is expected when observing models that reference non-existent records
+        const isRecordNotFound = 
+          error?.message?.includes('Record not found') ||
+          error?.message?.includes('not found');
+        
+        if (!isRecordNotFound) {
+          console.warn('Error observing model:', error);
+        }
+        
         setValue(null);
       },
     });
@@ -32,7 +45,15 @@ export function useObservableCollection<T extends Model>(observable: Observable<
     const subscription = observable.subscribe({
       next: setValue,
       error: error => {
-        console.warn('Error observing collection:', error);
+        // Silently handle "Record not found" errors
+        const isRecordNotFound = 
+          error?.message?.includes('Record not found') ||
+          error?.message?.includes('not found');
+        
+        if (!isRecordNotFound) {
+          console.warn('Error observing collection:', error);
+        }
+        
         setValue([]);
       },
     });
@@ -41,4 +62,3 @@ export function useObservableCollection<T extends Model>(observable: Observable<
 
   return value;
 }
-

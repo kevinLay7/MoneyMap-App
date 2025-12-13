@@ -16,6 +16,19 @@ export class TransactionService {
       transaction => transaction.personalFinanceCategoryConfidenceLevel === 'LOW'
     );
 
+    // Fetch category relationships for each transaction
+    // Collect unique category IDs and fetch them in batch to ensure they're available
+    const categoryIds = new Set(
+      lowConfidenceTransactions.map(t => t.categoryId).filter((id): id is string => id !== undefined)
+    );
+
+    if (categoryIds.size > 0) {
+      await this.database
+        .get<Category>('categories')
+        .query(Q.where('id', Q.oneOf(Array.from(categoryIds))))
+        .fetch();
+    }
+
     return lowConfidenceTransactions;
   }
 
