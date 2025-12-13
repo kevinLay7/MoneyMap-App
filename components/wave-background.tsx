@@ -38,18 +38,27 @@ export default function WaveBackground({ height }: WaveBackgroundProps) {
     );
   }, []);
 
-  const animatedStyles = useAnimatedStyle(() => ({
-    height: height?.value ?? 100,
-  }));
+  const animatedStyles = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      height: height?.value ?? 100,
+    };
+  });
 
   const waveStyle = { position: "absolute", width: "200%", height: "100%" };
 
-  const animatedTranslate1 = useAnimatedStyle(() => ({
-    transform: [{ translateX: translate1.value }],
-  }));
-  const animatedTranslate2 = useAnimatedStyle(() => ({
-    transform: [{ translateX: translate2.value }],
-  }));
+  const animatedTranslate1 = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateX: translate1.value }],
+    };
+  });
+  const animatedTranslate2 = useAnimatedStyle(() => {
+    'worklet';
+    return {
+      transform: [{ translateX: translate2.value }],
+    };
+  });
 
   return (
     <Animated.View
