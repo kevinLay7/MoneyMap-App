@@ -5,12 +5,12 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import Modal from 'react-native-modal';
 import WaveBackground from '@/components/wave-background';
 import { useNavigation } from '@react-navigation/native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Button } from '@/components/ui/button';
 import { Colors } from '@/constants/colors';
+import { SharedModal } from '@/components/shared/shared-modal';
 
 type HeaderProps = {
   scrollOffset: SharedValue<number>;
@@ -239,24 +239,20 @@ export default function Header({
       </Animated.View>
 
       {/* Side drawer for settings etc. */}
-      <Modal
-        isVisible={showSettingsDrawer}
-        onBackdropPress={() => setShowSettingsDrawer(false)}
-        onSwipeComplete={() => setShowSettingsDrawer(false)}
+      <SharedModal
+        visible={showSettingsDrawer}
+        onClose={() => setShowSettingsDrawer(false)}
+        position="left"
+        width="80%"
+        swipeToClose
         swipeDirection="left"
-        animationIn="slideInLeft"
-        animationOut="slideOutLeft"
-        style={{ margin: 0, justifyContent: 'flex-start' }}
         backdropOpacity={0}
         backdropColor={Colors.dark.backgroundSecondary}
+        borderColor={Colors.dark.backgroundTertiary}
+        borderWidth={2}
       >
-        <View className="w-full h-full flex-row">
-          <View className="w-4/6 h-full bg-background-secondary border-r-2 border-background-tertiary">
-            {drawerContent}
-          </View>
-          <Pressable className="flex-1 h-full" onPress={() => setShowSettingsDrawer(false)} />
-        </View>
-      </Modal>
+        <View className="flex-1 h-full bg-background-secondary">{drawerContent}</View>
+      </SharedModal>
     </View>
   );
 }

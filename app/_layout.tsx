@@ -4,13 +4,13 @@ import 'react-native-reanimated';
 import '../global.css';
 import '../config/ReactotronConfig';
 import { View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ColorSchemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
 import { DependencyProvider, useDependency } from '@/context/dependencyContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { DemoProvider } from '@/context/demoContext';
 import { useEffect } from 'react';
-import { useLoadCategories } from '@/hooks/use-load-categories';
 import database from '@/model/database';
 import { CateogryService } from '@/services/category-service';
 
@@ -93,18 +93,20 @@ function RootLayoutContent() {
   }, []);
 
   return (
-    <View className={`w-full h-full ${colorScheme === 'dark' ? 'dark' : ''}`}>
-      <Stack>
-        <Stack.Protected guard={!!user}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          {__DEV__ && <Stack.Screen name="debug-data" options={{ headerShown: false }} />}
-        </Stack.Protected>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View className={`w-full h-full ${colorScheme === 'dark' ? 'dark' : ''}`}>
+        <Stack>
+          <Stack.Protected guard={!!user}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            {__DEV__ && <Stack.Screen name="debug-data" options={{ headerShown: false }} />}
+          </Stack.Protected>
 
-        <Stack.Protected guard={!user}>
-          <Stack.Screen name="(public)/login" options={{ headerShown: false }} />
-        </Stack.Protected>
-      </Stack>
-      <StatusBar style="auto" />
-    </View>
+          <Stack.Protected guard={!user}>
+            <Stack.Screen name="(public)/login" options={{ headerShown: false }} />
+          </Stack.Protected>
+        </Stack>
+        <StatusBar style="auto" />
+      </View>
+    </GestureHandlerRootView>
   );
 }

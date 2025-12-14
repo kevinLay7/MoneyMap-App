@@ -1,4 +1,4 @@
-import { Model } from '@nozbe/watermelondb';
+import { Model, Relation } from '@nozbe/watermelondb';
 import { field, relation, children, readonly, date } from '@nozbe/watermelondb/decorators';
 import Item from './item';
 import Transaction from './transaction';
@@ -21,6 +21,6 @@ export default class Account extends Model {
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
 
-  @relation('items', 'item_id') item!: Item;
+  @relation('items', 'item_id') item!: Relation<Item>;
   @children('transactions') transactions!: Transaction[];
 }

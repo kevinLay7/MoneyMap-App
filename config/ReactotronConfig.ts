@@ -1,5 +1,10 @@
 import Reactotron from 'reactotron-react-native';
-import { Platform } from 'react-native';
+import { Platform, LogBox } from 'react-native';
+
+// Suppress SafeAreaView deprecation warning from dependencies
+// Configure LogBox early, before any components render
+
+LogBox.ignoreLogs([/SafeAreaView has been deprecated/, /Please use 'react-native-safe-area-context'/]);
 
 if (__DEV__) {
   try {
@@ -35,13 +40,13 @@ if (__DEV__) {
     console.tron = tron;
 
     // Log connection status
-    console.log('🔌 Reactotron configured:', { 
-      host, 
+    console.log('🔌 Reactotron configured:', {
+      host,
       port: 9090,
       platform: Platform.OS,
       connected: !!tron,
     });
-    
+
     // Test connection
     setTimeout(() => {
       if (console.tron) {
@@ -57,4 +62,3 @@ if (__DEV__) {
 }
 
 export default {};
-

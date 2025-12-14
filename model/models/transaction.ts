@@ -2,6 +2,7 @@ import { Model, Relation } from '@nozbe/watermelondb';
 import { field, relation, readonly, date } from '@nozbe/watermelondb/decorators';
 import { TransactionSource } from '@/types/transaction';
 import Category from './category';
+import Account from './account';
 
 export default class Transaction extends Model {
   static table = 'transactions';
@@ -39,6 +40,6 @@ export default class Transaction extends Model {
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
 
-  @relation('accounts', 'account_id') account!: any;
-  @relation('categories', 'category_id') category?: Category | undefined;
+  @relation('accounts', 'account_id') account!: Relation<Account>;
+  @relation('categories', 'category_id') category!: Relation<Category>;
 }

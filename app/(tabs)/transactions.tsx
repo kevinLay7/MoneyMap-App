@@ -1,65 +1,131 @@
-import { useState, useCallback, useMemo } from 'react';
-import { View, TextInput, ActivityIndicator } from 'react-native';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { View, Pressable, ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
-import { FontAwesome6 } from '@expo/vector-icons';
 import { ThemedText, Header } from '@/components/shared';
 import { BackgroundContainer } from '@/components/ui/background-container';
-import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import IconCircle from '@/components/ui/icon-circle';
 import { useMoneyFormatter } from '@/hooks/format-money';
 import { useObservableCollection } from '@/hooks/use-observable';
 import { useModelWithRelations } from '@/hooks/use-model-with-relations';
 import database from '@/model/database';
 import Transaction from '@/model/models/transaction';
-import dayjs, { parseDateOnly, formatDateOnly } from '@/helpers/dayjs';
+import Item from '@/model/models/item';
+import dayjs from '@/helpers/dayjs';
 import { Colors } from '@/constants/colors';
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Q } from '@nozbe/watermelondb';
+import { FlashList } from '@shopify/flash-list';
+import Account from '@/model/models/account';
+import Category from '@/model/models/category';
 
-interface GroupedTransaction {
-  date: string;
-  dateLabel: string;
-  transactions: Transaction[];
-  total: number;
-}
+type ListItem =
+  | { type: 'pending-header' }
+  | { type: 'pending-transaction'; transaction: Transaction }
+  | { type: 'date-header'; date: string; dateLabel: string; total: number; formatMoney: (amount: number) => string }
+  | { type: 'transaction'; transaction: Transaction };
 
 interface TransactionRowProps {
   transaction: Transaction;
 }
 
 function TransactionRow({ transaction }: TransactionRowProps) {
-  const {
-    model: observedTransaction,
-    relations: { account },
-  } = useModelWithRelations(transaction, ['account'] as const);
   const formatMoney = useMoneyFormatter();
+  const { model: observedTransaction, relations } = useModelWithRelations(transaction, ['category']);
 
-  const merchantName = observedTransaction.merchantName || observedTransaction.name;
-  const iconInput =
-    observedTransaction.logoUrl || observedTransaction.personalFinanceCategoryIconUrl || merchantName?.[0] || '?';
+  const [category, setCategory] = useState<Category | undefined>(undefined);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [item, setItem] = useState<Item | null>(null);
 
-  // Get account mask for display
-  const accountMask = account?.mask ? `(...${account.mask})` : '';
-  const accountType = account?.type?.toUpperCase().replace('_', ' ') || 'ACCOUNT';
+  useEffect(() => {
+    async function loadItem() {
+      const acc = await observedTransaction.account.fetch();
+      if (acc) {
+        const item = await acc.item.fetch();
+        setItem(item as Item);
+      }
+      const cat = await observedTransaction.category.fetch();
+      if (cat) {
+        setCategory(cat as Category);
+      }
+    }
+
+    loadItem();
+  }, [observedTransaction]);
+
+  const isNegative = observedTransaction.amount < 0;
+  const amountColor = isNegative ? 'text-red-500' : 'text-green-500';
+
+  const icon = useMemo(() => {
+    return (
+      observedTransaction.logoUrl ??
+      item?.institutionLogo ??
+      category?.icon ??
+      observedTransaction.merchantName?.[0] ??
+      observedTransaction.name[0] ??
+      '?'
+    );
+  }, [item, category, observedTransaction]);
 
   return (
-    <View className="flex-row items-center py-3 px-4 border-b border-border">
-      <IconCircle
-        input={iconInput}
-        size={40}
-        color="white"
-        backgroundColor="bg-myColors-Colors-primary"
-        borderSize={0}
-        opacity={100}
-      />
-      <View className="flex-1 ml-3">
-        <ThemedText numberOfLines={1} ellipsizeMode="tail">
-          {merchantName}
-        </ThemedText>
-        <ThemedText type="subText" className="mt-1">
-          {accountType} {accountMask}
-        </ThemedText>
+    <Pressable
+      className="flex-row bg-background-tertiary border-t-background-secondary h-16"
+      style={{ borderTopWidth: 1 }}
+    >
+      <View className="w-full flex-row items-center px-3">
+        <View className="mr-3">
+          <IconCircle input={icon} size={32} borderSize={1} />
+        </View>
+        <View className="flex-1 flex-col justify-center mr-2">
+          <ThemedText type="defaultSemiBold" numberOfLines={1} ellipsizeMode="tail">
+            {observedTransaction.name}
+          </ThemedText>
+          <ThemedText type="subText" numberOfLines={1} ellipsizeMode="tail">
+            {category?.name ?? 'Uncategorized'}
+            {observedTransaction.pending && ' • Pending'}
+          </ThemedText>
+        </View>
+        <View className="items-end">
+          <ThemedText type="defaultSemiBold" className={amountColor}>
+            {formatMoney(observedTransaction.amount)}
+          </ThemedText>
+          {account && (
+            <ThemedText type="subText" numberOfLines={1} ellipsizeMode="tail">
+              {account.name}
+              {item?.institutionName ? ` • ${item.institutionName}` : ''}
+            </ThemedText>
+          )}
+        </View>
       </View>
-      <ThemedText className="ml-2 text-right min-w-[80px]">{formatMoney(observedTransaction.amount)}</ThemedText>
+    </Pressable>
+  );
+}
+
+function DateHeader({
+  dateLabel,
+  total,
+  formatMoney,
+}: {
+  dateLabel: string;
+  total: number;
+  formatMoney: (amount: number) => string;
+}) {
+  return (
+    <View className="bg-background-secondary px-4 py-2 flex-row w-full">
+      <ThemedText type="subtitle" className="text-text-secondary">
+        {dateLabel}
+      </ThemedText>
+      <ThemedText type="subtitle" className="ml-auto">
+        {formatMoney(total)}
+      </ThemedText>
+    </View>
+  );
+}
+
+function PendingHeader() {
+  return (
+    <View className="bg-background-secondary px-4 py-2">
+      <ThemedText type="subtitle" className="text-text-secondary">
+        Pending
+      </ThemedText>
     </View>
   );
 }
@@ -67,157 +133,125 @@ function TransactionRow({ transaction }: TransactionRowProps) {
 export default function TransactionsScreen() {
   const animatedRef = useAnimatedRef<any>();
   const scrollOffset = useScrollOffset(animatedRef);
-  const colorScheme = useColorScheme();
+
+  const [oldestDate, setOldestDate] = useState(() => dayjs().subtract(2, 'month').startOf('day'));
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
   const formatMoney = useMoneyFormatter();
 
-  const [searchQuery, setSearchQuery] = useState('');
-  const [startDate, setStartDate] = useState(() => dayjs().subtract(2, 'month').startOf('day'));
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMoreData, setHasMoreData] = useState(true);
-  const [previousOldestDate, setPreviousOldestDate] = useState<string | null>(null);
+  // Query transactions from oldestDate to today, sorted by date descending (newest first)
+  const transactions = useObservableCollection(
+    database
+      .get<Transaction>('transactions')
+      .query(
+        Q.where('date', Q.gte(oldestDate.toISOString())),
+        Q.where('date', Q.lte(dayjs().endOf('day').toISOString())),
+        Q.sortBy('date', Q.desc)
+      )
+      .observe()
+  );
 
-  // Query transactions - fetch all and filter in memory for now
-  // In production, you might want to use WatermelonDB's Q.where with date comparisons
-  const allTransactions = useObservableCollection(database.get<Transaction>('transactions').query().observe());
+  // Group transactions by day and separate pending transactions
+  const groupedData = useMemo(() => {
+    const items: ListItem[] = [];
+    const pending: Transaction[] = [];
+    const byDate = new Map<string, Transaction[]>();
 
-  // Filter and process transactions
-  const { pendingTransactions, groupedTransactions, oldestDate } = useMemo(() => {
-    const endDate = dayjs().endOf('day');
-
-    // Filter transactions by date range and search
-    const filtered = allTransactions.filter(tx => {
-      const txDate = parseDateOnly(tx.date);
-      if (!txDate) return false;
-
-      // Check if transaction is within our date range
-      const isInRange = txDate.isSameOrAfter(startDate) && txDate.isSameOrBefore(endDate);
-
-      // Check search query
-      const matchesSearch =
-        !searchQuery ||
-        tx.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.merchantName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        tx.accountId.toLowerCase().includes(searchQuery.toLowerCase());
-
-      return isInRange && matchesSearch;
-    });
-
-    // Separate pending and posted
-    const pending = filtered
-      .filter(tx => tx.pending)
-      .sort((a, b) => {
-        const dateA = parseDateOnly(a.date);
-        const dateB = parseDateOnly(b.date);
-        if (!dateA || !dateB) return 0;
-        return dateB.valueOf() - dateA.valueOf(); // Most recent first
-      });
-
-    const posted = filtered
-      .filter(tx => !tx.pending)
-      .sort((a, b) => {
-        const dateA = parseDateOnly(a.date);
-        const dateB = parseDateOnly(b.date);
-        if (!dateB || !dateA) return 0;
-        return dateB.valueOf() - dateA.valueOf(); // Most recent first
-      });
-
-    // Group posted transactions by date
-    const grouped: GroupedTransaction[] = [];
-    const dateMap = new Map<string, Transaction[]>();
-
-    posted.forEach(tx => {
-      const txDate = parseDateOnly(tx.date);
-      if (!txDate) return;
-
-      const dateKey = formatDateOnly(txDate);
-      if (!dateMap.has(dateKey)) {
-        dateMap.set(dateKey, []);
+    // Separate pending and group by date
+    transactions.forEach(tx => {
+      if (tx.pending) {
+        pending.push(tx);
+      } else {
+        const dateKey = dayjs(tx.date).format('YYYY-MM-DD');
+        if (!byDate.has(dateKey)) {
+          byDate.set(dateKey, []);
+        }
+        byDate.get(dateKey)!.push(tx);
       }
-      dateMap.get(dateKey)!.push(tx);
     });
 
-    // Convert to array and format
-    dateMap.forEach((transactions, dateKey) => {
-      const txDate = parseDateOnly(dateKey);
-      if (!txDate) return;
+    // Sort pending by date descending
+    pending.sort((a, b) => dayjs(b.date).valueOf() - dayjs(a.date).valueOf());
 
-      const total = transactions.reduce((sum, tx) => sum + tx.amount, 0);
-      const dateLabel = txDate.format('dddd, MMMM D');
+    // Add pending section if there are pending transactions
+    if (pending.length > 0) {
+      items.push({ type: 'pending-header' });
+      pending.forEach(tx => {
+        items.push({ type: 'pending-transaction', transaction: tx });
+      });
+    }
 
-      grouped.push({
+    // Sort dates descending (newest first)
+    const sortedDates = Array.from(byDate.keys()).sort((a, b) => {
+      return dayjs(b).valueOf() - dayjs(a).valueOf();
+    });
+
+    // Add date headers and transactions
+    sortedDates.forEach(dateKey => {
+      const date = dayjs(dateKey);
+      const isToday = date.isSame(dayjs(), 'day');
+      const isYesterday = date.isSame(dayjs().subtract(1, 'day'), 'day');
+
+      let dateLabel: string;
+      if (isToday) {
+        dateLabel = 'Today';
+      } else if (isYesterday) {
+        dateLabel = 'Yesterday';
+      } else if (date.isSame(dayjs(), 'year')) {
+        dateLabel = date.format('MMMM D');
+      } else {
+        dateLabel = date.format('MMMM D, YYYY');
+      }
+      items.push({
+        type: 'date-header',
         date: dateKey,
         dateLabel,
-        transactions,
-        total,
+        total: byDate.get(dateKey)!.reduce((acc, tx) => acc + tx.amount, 0),
+        formatMoney,
+      });
+
+      const dayTransactions = byDate.get(dateKey)!;
+      dayTransactions.forEach(tx => {
+        items.push({ type: 'transaction', transaction: tx });
       });
     });
 
-    // Sort by date descending
-    grouped.sort((a, b) => {
-      const dateA = parseDateOnly(a.date);
-      const dateB = parseDateOnly(b.date);
-      if (!dateA || !dateB) return 0;
-      return dateB.valueOf() - dateA.valueOf();
-    });
+    return items;
+  }, [transactions, formatMoney]);
 
-    // Find oldest date in filtered results
-    const dates = filtered.map(tx => parseDateOnly(tx.date)).filter(Boolean) as dayjs.Dayjs[];
-    const oldest =
-      dates.length > 0 ? dates.reduce((oldest, current) => (current.isBefore(oldest) ? current : oldest)) : null;
+  const handleLoadMore = useCallback(() => {
+    if (loadingMoreRef.current || isLoadingMore) return;
 
-    return {
-      pendingTransactions: pending,
-      groupedTransactions: grouped,
-      oldestDate: oldest,
-    };
-  }, [allTransactions, startDate, searchQuery]);
-
-  // Calculate pending total
-  const pendingTotal = useMemo(() => {
-    return pendingTransactions.reduce((sum, tx) => sum + tx.amount, 0);
-  }, [pendingTransactions]);
-
-  // Load more transactions (extend date range backwards)
-  const loadMore = useCallback(async () => {
-    if (isLoadingMore || !hasMoreData || !oldestDate) return;
-
-    const oldestDateStr = formatDateOnly(oldestDate);
-    // If oldestDate hasn't changed, we didn't find new transactions, so stop loading
-    if (previousOldestDate === oldestDateStr) {
-      setHasMoreData(false);
-      return;
-    }
-
+    loadingMoreRef.current = true;
     setIsLoadingMore(true);
-    try {
-      // Extend the start date backwards by 2 more months
-      const newStartDate = oldestDate.subtract(2, 'month').startOf('day');
-      setStartDate(newStartDate);
-      setPreviousOldestDate(oldestDateStr);
 
-      // Check if we've reached a reasonable limit (e.g., 2 years back)
-      const twoYearsAgo = dayjs().subtract(2, 'year');
-      if (newStartDate.isBefore(twoYearsAgo)) {
-        setHasMoreData(false);
-      }
-    } finally {
-      setIsLoadingMore(false);
-    }
-  }, [isLoadingMore, hasMoreData, oldestDate, previousOldestDate]);
+    // Extend the date range by 1 more month going back in time
+    setOldestDate(prev => {
+      const newDate = dayjs(prev).subtract(1, 'month').startOf('day');
+      // Reset loading state after a short delay to allow query to update
+      setTimeout(() => {
+        loadingMoreRef.current = false;
+        setIsLoadingMore(false);
+      }, 500);
+      return newDate;
+    });
+  }, [isLoadingMore]);
 
-  // Handle scroll to end
   const handleScroll = useCallback(
-    (event: any) => {
-      const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-      const paddingToBottom = 200;
-      const isCloseToBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - paddingToBottom;
-
-      if (isCloseToBottom && hasMoreData && !isLoadingMore) {
-        loadMore();
-      }
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      scrollOffset.value = event.nativeEvent.contentOffset.y;
     },
-    [hasMoreData, isLoadingMore, loadMore]
+    [scrollOffset]
   );
+
+  const ListFooter = useMemo(() => {
+    if (!isLoadingMore) return null;
+    return (
+      <View className="py-4 items-center">
+        <ActivityIndicator size="small" color={Colors.primary} />
+      </View>
+    );
+  }, [isLoadingMore]);
 
   return (
     <BackgroundContainer>
@@ -227,91 +261,36 @@ export default function TransactionsScreen() {
         centerComponent={<ThemedText type="subtitle">Transactions</ThemedText>}
       />
 
-      <AnimatedScrollView animatedRef={animatedRef} onScroll={handleScroll} scrollEventThrottle={400}>
-        <View className="h-full p-4">
-          {/* Search Bar */}
-          <View className="mb-4">
-            <View className="flex-row items-center bg-background-secondary rounded-lg px-4 py-3 border border-border">
-              <TextInput
-                className="flex-1 text-text"
-                placeholder="Search"
-                placeholderTextColor={colorScheme === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                style={{ fontSize: 16 }}
-              />
-              <FontAwesome6
-                name="magnifying-glass"
-                size={20}
-                color={colorScheme === 'light' ? Colors.light.icon : Colors.dark.icon}
-              />
-            </View>
-          </View>
-
-          {/* Pending Transactions Section */}
-          {pendingTransactions.length > 0 && (
-            <View className="mb-6">
-              <View className="flex-row items-center justify-between mb-3">
-                <ThemedText type="subtitle" className="font-bold">
-                  Pending Transactions
-                </ThemedText>
-                <ThemedText type="subtitle" className="font-bold">
-                  {formatMoney(pendingTotal)}
-                </ThemedText>
-              </View>
-              <View className="bg-background-secondary rounded-xl overflow-hidden">
-                {pendingTransactions.map(transaction => (
-                  <TransactionRow key={transaction.id} transaction={transaction} />
-                ))}
-              </View>
-            </View>
-          )}
-
-          {/* Grouped Transactions by Date */}
-          {groupedTransactions.map(group => (
-            <View key={group.date} className="mb-6">
-              <View className="flex-row items-center justify-between mb-3">
-                <ThemedText type="subtitle" className="font-bold">
-                  {group.dateLabel}
-                </ThemedText>
-                <ThemedText type="subtitle" className="font-bold">
-                  {formatMoney(group.total)}
-                </ThemedText>
-              </View>
-              <View className="bg-background-secondary rounded-xl overflow-hidden">
-                {group.transactions.map(transaction => (
-                  <TransactionRow key={transaction.id} transaction={transaction} />
-                ))}
-              </View>
-            </View>
-          ))}
-
-          {/* Loading More Indicator */}
-          {isLoadingMore && (
-            <View className="py-4 items-center">
-              <ActivityIndicator size="small" color={Colors.primary} />
-            </View>
-          )}
-
-          {/* No More Data Indicator */}
-          {!hasMoreData && groupedTransactions.length > 0 && (
-            <View className="py-4 items-center">
-              <ThemedText type="subText" className="opacity-60">
-                No more transactions
-              </ThemedText>
-            </View>
-          )}
-
-          {/* Empty State */}
-          {!isLoadingMore && pendingTransactions.length === 0 && groupedTransactions.length === 0 && (
-            <View className="py-12 items-center">
-              <ThemedText type="subText" className="opacity-60">
-                {searchQuery ? 'No transactions found' : 'No transactions yet'}
-              </ThemedText>
-            </View>
-          )}
-        </View>
-      </AnimatedScrollView>
+      <FlashList
+        ref={animatedRef}
+        data={groupedData}
+        keyExtractor={(item, index) => {
+          if (item.type === 'pending-header') return 'pending-header';
+          if (item.type === 'pending-transaction') return `pending-${item.transaction.id}`;
+          if (item.type === 'date-header') return `date-${item.date}`;
+          return item.transaction.id;
+        }}
+        renderItem={({ item }) => {
+          if (item.type === 'pending-header') {
+            return <PendingHeader />;
+          }
+          if (item.type === 'pending-transaction' || item.type === 'transaction') {
+            return <TransactionRow transaction={item.transaction} />;
+          }
+          if (item.type === 'date-header') {
+            return <DateHeader dateLabel={item.dateLabel} total={item.total} formatMoney={formatMoney} />;
+          }
+          return null;
+        }}
+        getItemType={item => item.type}
+        onEndReachedThreshold={0.5}
+        onEndReached={handleLoadMore}
+        ListFooterComponent={ListFooter}
+        contentContainerStyle={{ paddingTop: 100 }}
+        onScroll={handleScroll}
+        scrollEventThrottle={16}
+        style={{ marginBottom: 48 }}
+      />
     </BackgroundContainer>
   );
 }
