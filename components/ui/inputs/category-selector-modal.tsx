@@ -1,12 +1,13 @@
-import { Modal, Pressable, View, Dimensions, TextInput } from 'react-native';
+import { Modal, Pressable, View, Dimensions } from 'react-native';
 import database from '@/model/database';
 import Category from '@/model/models/category';
-import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ThemedText } from '@/components/shared';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import IconCircle from '../icon-circle';
+import { SearchInput } from './search-input';
 
 interface CategoryParent {
   category: Category;
@@ -106,9 +107,6 @@ export function CategorySlectorModal({
   const [categories, setCategories] = useState<CategoryParent[] | undefined>(undefined);
   const [shouldExpand, setShouldExpand] = useState(false);
   const [debouncedQuery, setDebouncedQuery] = useState('');
-  const [isPending, startTransition] = useTransition();
-  const inputTextRef = useRef('');
-  const debounceHandleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -140,14 +138,6 @@ export function CategorySlectorModal({
   const selectCategory = (category: Category) => {
     onSelectCategory(category);
     onClose();
-  };
-
-  const handleChangeText = (text: string) => {
-    inputTextRef.current = text;
-    if (debounceHandleRef.current) clearTimeout(debounceHandleRef.current);
-    debounceHandleRef.current = setTimeout(() => {
-      startTransition(() => setDebouncedQuery(inputTextRef.current));
-    }, 500);
   };
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -191,17 +181,8 @@ export function CategorySlectorModal({
               <ThemedText type="link">Close</ThemedText>
             </Pressable>
           </View>
-          <View className="">
-            <View className="h-10 rounded-full border border-background-tertiary bg-background-secondary flex-row items-center px-3 mb-4">
-              <TextInput
-                onChangeText={handleChangeText}
-                placeholder="Search categories"
-                autoCapitalize="none"
-                autoCorrect={false}
-                returnKeyType="search"
-                className="flex-1 text-white"
-              />
-            </View>
+          <View className="mb-4">
+            <SearchInput onQueryChange={setDebouncedQuery} placeholder="Search categories" />
           </View>
           <View className="mb-20">
             {filteredCategories?.map(parent => (

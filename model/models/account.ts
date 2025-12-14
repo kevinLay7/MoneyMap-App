@@ -21,6 +21,6 @@ export default class Account extends Model {
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
 
-  @relation('items', 'item_id') item!: Relation<Item>;
+  @relation('items', 'item_id') item!: Item;
   @children('transactions') transactions!: Transaction[];
 }

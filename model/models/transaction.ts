@@ -40,6 +40,6 @@ export default class Transaction extends Model {
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
 
-  @relation('accounts', 'account_id') account!: Relation<Account>;
-  @relation('categories', 'category_id') category!: Relation<Category>;
+  @relation('accounts', 'account_id') account!: Account;
+  @relation('categories', 'category_id') category!: Category;
 }
