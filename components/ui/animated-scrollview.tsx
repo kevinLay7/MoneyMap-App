@@ -38,8 +38,8 @@ export default function AnimatedScrollView({
   return (
     <Animated.ScrollView
       ref={animatedRef}
-      scrollEventThrottle={16}
-      removeClippedSubviews={true}
+      scrollEventThrottle={0}
+      removeClippedSubviews={false}
       refreshControl={
         onRefresh && (
           <RefreshControl

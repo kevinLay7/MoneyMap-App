@@ -78,19 +78,15 @@ export default function Header({
     setShowSettingsDrawer(false);
   }, [navigator]);
 
-  // Combine animated styles - use clamp to avoid unnecessary calculations
+  // Combine animated styles
   const combinedHeaderStyles = useAnimatedStyle(
-    () => {
-      'worklet';
-      const clampedOffset = Math.max(0, scrollOffset.value);
-      return {
-        width: '100%',
-        position: 'absolute',
-        transform: [{ translateY: -clampedOffset }],
-        height: 100,
-        zIndex: 1,
-      };
-    },
+    () => ({
+      width: '100%',
+      position: 'absolute',
+      transform: [{ translateY: scrollOffset.value <= 0 ? 0 : -scrollOffset.value }],
+      height: 100,
+      zIndex: 1,
+    }),
     []
   );
 
@@ -175,48 +171,40 @@ export default function Header({
   );
 
   const bgHeight = useDerivedValue(() => {
-    'worklet';
-    return Math.max(0, 275 - scrollOffset.value);
-  }, []);
-
-  const shadowOpacity = useDerivedValue(() => {
-    'worklet';
-    return scrollOffset.value > 50 ? 1 : scrollOffset.value / 50;
+    return 275 - scrollOffset.value;
   }, []);
 
   const bgStyles = useAnimatedStyle(
-    () => {
-      'worklet';
-      return {
-        height: bgHeight.value,
-        width: '100%',
-        backgroundColor: backgroundHex,
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        zIndex: 0,
-        shadowColor: backgroundHex,
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 5,
-        opacity: backgroundHex ? 1 : 0,
-      };
-    },
+    () => ({
+      height: bgHeight.value,
+      width: '100%',
+      backgroundColor: backgroundHex,
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      zIndex: 0,
+      shadowColor: backgroundHex,
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.3,
+      shadowRadius: 5,
+      elevation: 5,
+      opacity: backgroundHex ? 1 : 0,
+    }),
     [backgroundHex]
   );
 
+  const shadowOpacity = useDerivedValue(() => {
+    return scrollOffset.value > 50 ? 1 : scrollOffset.value / 50;
+  }, []);
+
   const shadowStyles = useAnimatedStyle(
-    () => {
-      'worklet';
-      return {
-        height: 70,
-        position: 'absolute',
-        width: '100%',
-        zIndex: 300,
-        opacity: shadowOpacity.value,
-      };
-    },
+    () => ({
+      height: 70,
+      position: 'absolute',
+      width: '100%',
+      zIndex: 300,
+      opacity: shadowOpacity.value,
+    }),
     []
   );
 
