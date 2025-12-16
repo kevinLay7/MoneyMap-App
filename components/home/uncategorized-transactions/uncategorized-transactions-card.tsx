@@ -30,11 +30,11 @@ interface Position {
 }
 
 interface UncategorizedTransactionItemProps {
-  transaction: Transaction;
-  zIndex: number;
-  width: number;
-  onCategorized: () => void;
-  transactionService?: TransactionService;
+  readonly transaction: Transaction;
+  readonly zIndex: number;
+  readonly width: number;
+  readonly onCategorized: () => void;
+  readonly transactionService?: TransactionService;
 }
 
 // Components

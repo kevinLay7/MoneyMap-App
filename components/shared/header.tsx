@@ -251,7 +251,7 @@ export default function Header({
         borderColor={Colors.dark.backgroundTertiary}
         borderWidth={2}
       >
-        <View className="flex-1 h-full bg-background-secondary">{drawerContent}</View>
+        <View className="flex-1 bg-background-secondary">{drawerContent}</View>
       </SharedModal>
     </View>
   );

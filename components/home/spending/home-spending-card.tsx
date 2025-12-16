@@ -6,6 +6,7 @@ import { useMoneyFormatter } from '@/hooks/format-money';
 import { useObservableCollection } from '@/hooks/use-observable';
 import database from '@/model/database';
 import Transaction from '@/model/models/transaction';
+import Account from '@/model/models/account';
 import { Q } from '@nozbe/watermelondb';
 import { useMemo, memo } from 'react';
 import dayjs, { getCurrentDate, getMonthRange, getMonthInfo, formatDateOnly, isDateBetween } from '@/helpers/dayjs';
@@ -29,31 +30,42 @@ type ComparisonStatus = 'above' | 'below' | 'same as';
 type ComparisonIcon = 'circle-up' | 'circle-down' | 'circle-check';
 
 interface ComparisonMetrics {
-  vsLastMonth: number;
-  aboveBelow: ComparisonStatus;
-  vsLastMonthIcon: ComparisonIcon;
-  vsLastMonthColor: string;
+  readonly vsLastMonth: number;
+  readonly aboveBelow: ComparisonStatus;
+  readonly vsLastMonthIcon: ComparisonIcon;
+  readonly vsLastMonthColor: string;
 }
 
 // Helper functions
 function calculateComparisonMetrics(currentTotal: number, previousTotalAtSameDay: number): ComparisonMetrics {
   const vsLastMonth = currentTotal - previousTotalAtSameDay;
-  const aboveBelow: ComparisonStatus = vsLastMonth > 0 ? 'above' : vsLastMonth < 0 ? 'below' : 'same as';
-  const vsLastMonthIcon: ComparisonIcon =
-    vsLastMonth > 0 ? 'circle-up' : vsLastMonth < 0 ? 'circle-down' : 'circle-check';
-  const vsLastMonthColor =
-    vsLastMonth > 0 ? COMPARISON_COLORS.above : vsLastMonth < 0 ? COMPARISON_COLORS.below : COMPARISON_COLORS.same;
+
+  let aboveBelow: ComparisonStatus;
+  let vsLastMonthIcon: ComparisonIcon;
+  let vsLastMonthColor: string;
+
+  if (vsLastMonth > 0) {
+    aboveBelow = 'above';
+    vsLastMonthIcon = 'circle-up';
+    vsLastMonthColor = COMPARISON_COLORS.above;
+  } else if (vsLastMonth < 0) {
+    aboveBelow = 'below';
+    vsLastMonthIcon = 'circle-down';
+    vsLastMonthColor = COMPARISON_COLORS.below;
+  } else {
+    aboveBelow = 'same as';
+    vsLastMonthIcon = 'circle-check';
+    vsLastMonthColor = COMPARISON_COLORS.same;
+  }
 
   return { vsLastMonth, aboveBelow, vsLastMonthIcon, vsLastMonthColor };
 }
 
-function buildCumulativeData(dailyTotals: Map<number, number>, daysInMonth: number): DataPoint[] {
+function buildCumulativeData(cumulativeTotals: Map<number, number>, daysInMonth: number): DataPoint[] {
   const data: DataPoint[] = [];
-  let cumulative = 0;
 
   for (let day = 1; day <= daysInMonth; day++) {
-    cumulative += dailyTotals.get(day) || 0;
-    data.push({ dayOfMonth: day, value: cumulative });
+    data.push({ dayOfMonth: day, value: cumulativeTotals.get(day) || 0 });
   }
 
   return data;
@@ -86,19 +98,39 @@ function processTransactions(
   let currentTotal = 0;
   let previousTotal = 0;
 
-  for (const transaction of transactions) {
-    if (transaction.amount <= 0) continue;
+  function calculateDayTotal(date: dayjs.Dayjs, transactions: Transaction[]) {
+    const dayTransactions = transactions.filter(transaction =>
+      isDateBetween(dayjs(transaction.date), date, date.endOf('day'))
+    );
 
-    const date = dayjs(transaction.date);
     const dayOfMonth = date.date();
+    const previousDay = dayOfMonth === 1 ? date : date.subtract(1, 'day');
+    const isCurrentMonth = isDateBetween(date, currentMonthRange.start, currentMonthRange.end);
+    const previousDayTotal = isCurrentMonth
+      ? currentMonthTotals.get(previousDay.date()) || 0
+      : previousMonthTotals.get(previousDay.date()) || 0;
 
-    if (isDateBetween(date, currentMonthRange.start, currentMonthRange.end)) {
-      currentMonthTotals.set(dayOfMonth, (currentMonthTotals.get(dayOfMonth) || 0) + transaction.amount);
-      currentTotal += transaction.amount;
-    } else if (isDateBetween(date, previousMonthRange.start, previousMonthRange.end)) {
-      previousMonthTotals.set(dayOfMonth, (previousMonthTotals.get(dayOfMonth) || 0) + transaction.amount);
-      previousTotal += transaction.amount;
+    // Set date value to previous day total + day transactions total
+    if (isCurrentMonth) {
+      currentMonthTotals.set(
+        dayOfMonth,
+        previousDayTotal + (dayTransactions?.reduce((acc, transaction) => acc + transaction.amount, 0) || 0)
+      );
+      currentTotal += dayTransactions?.reduce((acc, transaction) => acc + transaction.amount, 0) || 0;
+    } else {
+      previousMonthTotals.set(
+        dayOfMonth,
+        previousDayTotal + (dayTransactions?.reduce((acc, transaction) => acc + transaction.amount, 0) || 0)
+      );
+      previousTotal += dayTransactions?.reduce((acc, transaction) => acc + transaction.amount, 0) || 0;
     }
+  }
+
+  for (let day = 1; day <= currentMonthRange.end.date(); day++) {
+    calculateDayTotal(dayjs(currentMonthRange.start).add(day - 1, 'day'), transactions);
+  }
+  for (let day = 1; day <= previousMonthRange.end.date(); day++) {
+    calculateDayTotal(dayjs(previousMonthRange.start).add(day - 1, 'day'), transactions);
   }
 
   return { currentMonthTotals, previousMonthTotals, currentTotal, previousTotal };
@@ -151,7 +183,6 @@ export const HomeSpendingGraphCard = memo(function HomeSpendingGraphCard() {
     const now = getCurrentDate();
     const currentMonth = getMonthRange(now);
     const previousMonth = getMonthRange(now, -1);
-    const currentMonthInfo = getMonthInfo(now);
     const previousMonthInfo = getMonthInfo(now, -1);
 
     return {
@@ -163,13 +194,29 @@ export const HomeSpendingGraphCard = memo(function HomeSpendingGraphCard() {
     };
   }, []);
 
+  const accountsQuery = useMemo(
+    () =>
+      database
+        .get<Account>('accounts')
+        .query(Q.where('type', Q.oneOf(['depository', 'credit'])))
+        .observe(),
+    []
+  );
+
+  const accounts = useObservableCollection(accountsQuery);
+  const accountIds = useMemo(() => accounts.map(account => account.id), [accounts]);
+
   const transactionsQuery = useMemo(
     () =>
       database
         .get<Transaction>('transactions')
-        .query(Q.where('date', Q.gte(dateRanges.beginningOfPreviousMonth)))
+        .query(
+          Q.where('date', Q.gte(dateRanges.beginningOfPreviousMonth)),
+          Q.where('account_id', Q.oneOf(accountIds)),
+          Q.where('amount', Q.gt(0))
+        )
         .observe(),
-    [dateRanges.beginningOfPreviousMonth]
+    [dateRanges.beginningOfPreviousMonth, accountIds]
   );
 
   const data = useObservableCollection(transactionsQuery);
@@ -186,14 +233,16 @@ export const HomeSpendingGraphCard = memo(function HomeSpendingGraphCard() {
     );
     const previousMonthData = buildCumulativeData(previousMonthTotals, dateRanges.previousMonthDays);
 
-    const comparisonDay = Math.min(dateRanges.currentMonthDays, previousMonthData.length - 1);
-    const previousTotalAtSameDay = previousMonthData[comparisonDay]?.value || 0;
-    const comparisonMetrics = calculateComparisonMetrics(currentTotal, previousTotalAtSameDay);
+    // Compare the same day number (e.g., day 16 of current month vs day 16 of previous month)
+    // If the current day doesn't exist in previous month (e.g., day 31 vs month with 30 days), use the last day of previous month
+    const currentDayOfMonth = dateRanges.currentMonthDays;
+    const currentDayData = currentMonthData.find(d => d.dayOfMonth === currentDayOfMonth);
+    const previousDayData = previousMonthData.find(d => d.dayOfMonth === currentDayOfMonth) || previousMonthData.at(-1); // Fallback to last day if current day doesn't exist
+    const currentTotalAtSameDay = currentDayData?.value || 0;
+    const previousTotalAtSameDay = previousDayData?.value || 0;
+    const comparisonMetrics = calculateComparisonMetrics(currentTotalAtSameDay, previousTotalAtSameDay);
 
-    const maxValue = Math.max(
-      previousMonthData[previousMonthData.length - 1]?.value || 0,
-      currentMonthData[currentMonthData.length - 1]?.value || 0
-    );
+    const maxValue = Math.max(previousMonthData.at(-1)?.value || 0, currentMonthData.at(-1)?.value || 0);
 
     return {
       currentMonthData,

@@ -14,10 +14,10 @@ import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeabl
 import { FontAwesome6 } from '@expo/vector-icons';
 
 export interface TransactionRowProps {
-  transaction: Transaction;
-  category?: Category;
-  account?: Account;
-  item?: Item;
+  readonly transaction: Transaction;
+  readonly category?: Category;
+  readonly account?: Account;
+  readonly item?: Item;
 }
 
 function RightAction() {

@@ -9,6 +9,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 type ModalPosition = 'left' | 'right' | 'bottom' | 'center';
 type SwipeDirection = 'left' | 'right' | 'up' | 'down';
@@ -131,7 +132,7 @@ export function SharedModal({
         duration: animationDurationMs,
         easing: Easing.in(Easing.cubic),
       },
-      (finished) => {
+      finished => {
         if (finished) runOnJS(setMounted)(false);
       }
     );
@@ -185,7 +186,7 @@ export function SharedModal({
     const shouldHandleVertical = position === 'bottom' || position === 'center';
 
     return Gesture.Pan()
-      .onUpdate((e) => {
+      .onUpdate(e => {
         if (shouldHandleHorizontal) {
           const dx = e.translationX;
           if (position === 'left') {
@@ -202,14 +203,13 @@ export function SharedModal({
           translate.value = next;
         }
       })
-      .onEnd((e) => {
+      .onEnd(e => {
         const thresholdClosePct = 0.25;
         const fastVelocity = 650;
 
         if (shouldHandleHorizontal) {
           if (position === 'left') {
-            const shouldClose =
-              translate.value < -panelW * thresholdClosePct || e.velocityX < -fastVelocity;
+            const shouldClose = translate.value < -panelW * thresholdClosePct || e.velocityX < -fastVelocity;
             if (shouldClose && effectiveSwipeDirection === 'left') runOnJS(closeIfAllowed)();
             else translate.value = withTiming(0, { duration: animationDurationMs, easing: Easing.out(Easing.cubic) });
           } else {
@@ -223,16 +223,7 @@ export function SharedModal({
           else translate.value = withTiming(0, { duration: animationDurationMs, easing: Easing.out(Easing.cubic) });
         }
       });
-  }, [
-    animationDurationMs,
-    closeIfAllowed,
-    effectiveSwipeDirection,
-    panelH,
-    panelW,
-    position,
-    swipeToClose,
-    translate,
-  ]);
+  }, [animationDurationMs, closeIfAllowed, effectiveSwipeDirection, panelH, panelW, position, swipeToClose, translate]);
 
   if (!mounted) return null;
 
@@ -306,5 +297,3 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
 });
-
-

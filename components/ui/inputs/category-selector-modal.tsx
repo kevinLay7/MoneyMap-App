@@ -18,11 +18,11 @@ function ParentCategoryRow({
   parent,
   setSelectedCategory,
   shouldExpand,
-}: {
+}: Readonly<{
   parent: CategoryParent;
   setSelectedCategory: (category: Category) => void;
   shouldExpand: boolean;
-}) {
+}>) {
   const [isExpanded, setIsExpanded] = useState(shouldExpand);
 
   const onSelectCategory = (category: Category) => {
@@ -95,11 +95,11 @@ export function CategorySlectorModal({
   isVisible,
   onClose,
   onSelectCategory,
-}: {
-  isVisible: boolean;
-  onClose: () => void;
-  onSelectCategory: (category: Category) => void;
-}) {
+}: Readonly<{
+  readonly isVisible: boolean;
+  readonly onClose: () => void;
+  readonly onSelectCategory: (category: Category) => void;
+}>) {
   const [visible, setVisible] = useState(isVisible);
   const screenWidth = Dimensions.get('window').width;
   const translateX = useSharedValue(-screenWidth);
@@ -116,7 +116,7 @@ export function CategorySlectorModal({
       const parents = categories.filter(cat => cat.detailed === '');
 
       const sortedParents = parents
-        .sort((a, b) => a.name.localeCompare(b.name))
+        .toSorted((a, b) => a.name.localeCompare(b.name))
         .map(parent => {
           return {
             category: parent,
