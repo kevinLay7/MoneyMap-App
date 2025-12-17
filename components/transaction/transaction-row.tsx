@@ -4,7 +4,7 @@ import { ThemedText } from '@/components/shared';
 import IconCircle from '@/components/ui/icon-circle';
 import { useMoneyFormatter } from '@/hooks/format-money';
 import { withObservables } from '@nozbe/watermelondb/react';
-import { switchMap } from 'rxjs/operators';
+import { switchMap, catchError } from 'rxjs/operators';
 import { of } from 'rxjs';
 import Transaction from '@/model/models/transaction';
 import Account from '@/model/models/account';
@@ -89,9 +89,14 @@ export function TransactionRow({ transaction, category, account, item }: Transac
 
 const enhancedTransactionRow = withObservables(['transaction'], ({ transaction }: { transaction: Transaction }) => ({
   transaction,
-  category: transaction.category,
-  account: transaction.account,
-  item: transaction.account.observe().pipe(switchMap(account => (account ? account.item.observe() : of(undefined)))),
+  category: transaction.category.observe().pipe(catchError(() => of(undefined))),
+  account: transaction.account.observe().pipe(catchError(() => of(undefined))),
+  item: transaction.account
+    .observe()
+    .pipe(
+      catchError(() => of(undefined)),
+      switchMap(account => (account ? account.item.observe().pipe(catchError(() => of(undefined))) : of(undefined)))
+    ),
 }));
 
 export const EnhancedTransactionRow = enhancedTransactionRow(TransactionRow);

@@ -8,6 +8,7 @@ import Item from '@/model/models/item';
 import Transaction from '@/model/models/transaction';
 import Sync from '@/model/models/sync';
 import TransactionSync from '@/model/models/transaction-sync';
+import Budget from '@/model/models/budget';
 import { Header, ThemedText } from '@/components/shared';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import { BackgroundContainer } from '@/components/ui/background-container';
@@ -15,10 +16,10 @@ import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import { Button } from '@/components/ui/button';
 import { DataTable, TableColumn } from '@/components/ui/data-table';
 import { Colors } from '@/constants/colors';
-import { clearDatabase } from '@/helpers/database-helpers';
+import { clearDatabase, deleteDatabaseFile } from '@/helpers/database-helpers';
 import { useObservableCollection } from '@/hooks/use-observable';
 
-type TabType = 'account' | 'category' | 'item' | 'transaction' | 'sync' | 'transactionSync';
+type TabType = 'account' | 'category' | 'item' | 'transaction' | 'sync' | 'transactionSync' | 'budget';
 
 export default function DebugDataScreen() {
   const animatedRef = useAnimatedRef<any>();
@@ -35,6 +36,7 @@ export default function DebugDataScreen() {
   const transactionSyncs = useObservableCollection(
     database.get<TransactionSync>('transaction_syncs').query().observe()
   );
+  const budgets = useObservableCollection(database.get<Budget>('budgets').query().observe());
 
   const handleClearDatabase = async () => {
     Alert.alert('Clear Database', 'This will permanently delete all data. Are you sure?', [
@@ -53,6 +55,32 @@ export default function DebugDataScreen() {
         },
       },
     ]);
+  };
+
+  const handleDeleteDatabase = async () => {
+    Alert.alert(
+      'Delete Database',
+      'This will delete the database file and force a fresh database creation on next app start. The app will need to be restarted. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteDatabaseFile();
+              Alert.alert(
+                'Success',
+                'Database file deleted. Please restart the app to recreate the database with the latest schema.'
+              );
+            } catch (error: any) {
+              console.error('Failed to delete database:', error);
+              Alert.alert('Error', error.message || 'Failed to delete database file.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const accountColumns: TableColumn<Account>[] = [
@@ -330,6 +358,108 @@ export default function DebugDataScreen() {
     </View>
   );
 
+  const budgetColumns: TableColumn<Budget>[] = [
+    {
+      key: 'startDate',
+      label: 'Start Date',
+      width: 120,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          {item.startDate?.toLocaleDateString() || '-'}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'endDate',
+      label: 'End Date',
+      width: 120,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          {item.endDate?.toLocaleDateString() || '-'}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'balance',
+      label: 'Balance',
+      width: 120,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          ${item.balance.toFixed(2)}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'totalSpent',
+      label: 'Total Spent',
+      width: 120,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          ${item.totalSpent.toFixed(2)}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'totalRemaining',
+      label: 'Remaining',
+      width: 120,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          ${item.totalRemaining.toFixed(2)}
+        </ThemedText>
+      ),
+    },
+    { key: 'balanceSource', label: 'Balance Source', width: 130 },
+    { key: 'accountBalanceSource', label: 'Account Source', width: 130 },
+    { key: 'duration', label: 'Duration', width: 100 },
+    {
+      key: 'accountId',
+      label: 'Account ID',
+      width: 150,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          {item.accountId || '-'}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'account',
+      label: 'Account Name',
+      width: 150,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary" numberOfLines={1}>
+          {item.account?.name || '-'}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      width: 120,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          {item.createdAt?.toLocaleDateString() || '-'}
+        </ThemedText>
+      ),
+    },
+  ];
+
+  const renderBudgetList = () => (
+    <View className="flex-1">
+      <View className="flex-row justify-between items-center p-4">
+        <ThemedText type="subtitle">Budgets ({budgets.length})</ThemedText>
+      </View>
+      <View className="flex-1 px-2">
+        <DataTable
+          data={budgets}
+          columns={budgetColumns}
+          keyExtractor={item => item.id}
+          emptyMessage="No budgets found."
+        />
+      </View>
+    </View>
+  );
+
   const renderContent = () => {
     switch (activeTab) {
       case 'account':
@@ -344,6 +474,8 @@ export default function DebugDataScreen() {
         return renderSyncList();
       case 'transactionSync':
         return renderTransactionSyncList();
+      case 'budget':
+        return renderBudgetList();
       default:
         return null;
     }
@@ -360,7 +492,7 @@ export default function DebugDataScreen() {
       <AnimatedScrollView animatedRef={animatedRef}>
         <SafeAreaView className="flex-1">
           <View className="p-4 border-b border-border">
-            <View className="mb-4">
+            <View className="mb-4 flex-row gap-2">
               <Button title="Clear All Data" onPress={handleClearDatabase} color="error" />
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 16 }}>
@@ -373,6 +505,7 @@ export default function DebugDataScreen() {
                     { key: 'transaction', label: 'Transaction' },
                     { key: 'sync', label: 'Sync' },
                     { key: 'transactionSync', label: 'Transaction Sync' },
+                    { key: 'budget', label: 'Budget' },
                   ] as const
                 ).map(tab => (
                   <Pressable

@@ -48,7 +48,7 @@ const queryClient = new QueryClient({
 });
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: '(auth)',
 };
 
 export default function RootLayout() {
@@ -70,35 +70,13 @@ export default function RootLayout() {
 function RootLayoutContent() {
   const { user } = useAuth0();
   const colorScheme = useColorScheme();
-  const { categoryApi } = useDependency();
-
-  useEffect(() => {
-    async function loadCategories() {
-      if (categoryApi) {
-        const categoryService = new CateogryService(categoryApi, database);
-        await categoryService.loadCategoriesToDatabase();
-      }
-    }
-
-    if (__DEV__ && console.tron) {
-      console.tron.log('Reactotron connected successfully!');
-      console.tron.display({
-        name: 'App Started',
-        value: { platform: 'React Native', framework: 'Expo' },
-        important: true,
-      });
-    }
-
-    loadCategories();
-  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View className={`w-full h-full ${colorScheme === 'dark' ? 'dark' : ''}`}>
         <Stack>
           <Stack.Protected guard={!!user}>
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            {__DEV__ && <Stack.Screen name="debug-data" options={{ headerShown: false }} />}
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           </Stack.Protected>
 
           <Stack.Protected guard={!user}>

@@ -116,7 +116,7 @@ export function CategorySlectorModal({
       const parents = categories.filter(cat => cat.detailed === '');
 
       const sortedParents = parents
-        .toSorted((a, b) => a.name.localeCompare(b.name))
+        .sort((a, b) => a.name.localeCompare(b.name))
         .map(parent => {
           return {
             category: parent,

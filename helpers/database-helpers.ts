@@ -6,6 +6,8 @@ import Item from '@/model/models/item';
 import Sync from '@/model/models/sync';
 import Category from '@/model/models/category';
 import TransactionSync from '@/model/models/transaction-sync';
+import Budget from '@/model/models/budget';
+import BudgetItem from '@/model/models/budget-item';
 
 /**
  * Clears all data from the WatermelonDB database
@@ -20,6 +22,7 @@ export async function clearDatabase(): Promise<void> {
     const syncs = await database.get<Sync>('syncs').query().fetch();
     const categories = await database.get<Category>('categories').query().fetch();
     const transactionSyncs = await database.get<TransactionSync>('transaction_syncs').query().fetch();
+    const budgets = await database.get<Budget>('budgets').query().fetch();
 
     // Delete all records permanently
     await Promise.all([
@@ -29,6 +32,7 @@ export async function clearDatabase(): Promise<void> {
       ...syncs.map(record => record.destroyPermanently()),
       ...categories.map(record => record.destroyPermanently()),
       ...transactionSyncs.map(record => record.destroyPermanently()),
+      ...budgets.map(record => record.destroyPermanently()),
     ]);
   });
 }
@@ -65,5 +69,75 @@ export async function executeInWriteContext<T>(
     return await fn();
   } else {
     return await database.write(fn);
+  }
+}
+
+/**
+ * Deletes the local database file to force a fresh database creation on next app start.
+ * This will clear all data and reset the database schema version.
+ *
+ * Note: This requires the app to be restarted after deletion.
+ */
+export async function deleteDatabaseFile(): Promise<void> {
+  try {
+    // Access the adapter to get the database path
+    const adapter = (database as any).adapter;
+    const underlyingAdapter = (adapter as any).underlyingAdapter;
+
+    if (!underlyingAdapter) {
+      throw new Error('Unable to access database adapter');
+    }
+
+    // Get the database path from the adapter
+    const dbPath = underlyingAdapter.dbName || underlyingAdapter.databasePath || underlyingAdapter.path;
+
+    if (!dbPath) {
+      throw new Error(
+        'Unable to determine database file path. Check the logs for the database path and delete it manually.'
+      );
+    }
+
+    // Try to delete the file using available file system libraries
+    let deleted = false;
+
+    // Try expo-file-system
+    try {
+      const FileSystem = require('expo-file-system');
+      if (FileSystem?.deleteAsync) {
+        await FileSystem.deleteAsync(dbPath, { idempotent: true });
+        console.log('✅ Database file deleted using expo-file-system');
+        deleted = true;
+      }
+    } catch (e) {
+      // expo-file-system not available or failed
+    }
+
+    // Try react-native-fs if expo-file-system didn't work
+    if (!deleted) {
+      try {
+        const RNFS = require('react-native-fs');
+        if (RNFS?.unlink) {
+          await RNFS.unlink(dbPath);
+          console.log('✅ Database file deleted using react-native-fs');
+          deleted = true;
+        }
+      } catch (e) {
+        // react-native-fs not available or failed
+      }
+    }
+
+    // If we couldn't delete programmatically, provide the path and instructions
+    if (!deleted) {
+      throw new Error(
+        `Database file path:\n${dbPath}\n\n` +
+          'Unable to delete programmatically. Please delete the file manually:\n' +
+          '1. Close the app completely\n' +
+          '2. Delete the file at the path above (or delete the app from simulator)\n' +
+          '3. Restart the app'
+      );
+    }
+  } catch (error: any) {
+    console.error('Failed to delete database file:', error);
+    throw error;
   }
 }

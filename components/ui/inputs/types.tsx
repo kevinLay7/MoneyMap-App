@@ -1,6 +1,6 @@
 export interface BaseInputProps {
-  icon: string;
-  label: string;
-  error?: string;
-  infoText?: string;
+  readonly icon: string;
+  readonly label: string;
+  readonly error?: string;
+  readonly infoText?: string;
 }
