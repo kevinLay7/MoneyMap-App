@@ -169,8 +169,6 @@ export class PlaidService {
               account.type = accountDto.type;
               account.subtype = accountDto.subtype;
               account.mask = accountDto.mask && typeof accountDto.mask === 'string' ? accountDto.mask : undefined;
-              account.balanceCurrent = balanceCurrent;
-              account.balanceAvailable = balanceAvailable;
               account.isoCurrencyCode =
                 accountDto.balances.iso_currency_code && typeof accountDto.balances.iso_currency_code === 'string'
                   ? accountDto.balances.iso_currency_code
@@ -186,6 +184,8 @@ export class PlaidService {
                     ? String(accountDto.balances.unofficial_currency_code)
                     : undefined;
             });
+
+            await existingAccount.updateBalance(balanceCurrent, balanceAvailable);
           } else {
             // Create new account
             await this.database.get<Account>('accounts').create(account => {

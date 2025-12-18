@@ -1,10 +1,14 @@
-import { Model, Relation } from '@nozbe/watermelondb';
-import { field, relation, children, readonly, date } from '@nozbe/watermelondb/decorators';
+import { Model } from '@nozbe/watermelondb';
+import { field, relation, children, readonly, date, writer } from '@nozbe/watermelondb/decorators';
 import Item from './item';
 import Transaction from './transaction';
 
 export default class Account extends Model {
   static table = 'accounts';
+  static associations = {
+    items: { type: 'belongs_to', key: 'item_id' },
+    transactions: { type: 'has_many', foreignKey: 'account_id' },
+  } as const;
 
   @field('account_id') accountId!: string;
   @field('item_id') itemId!: string;
@@ -23,4 +27,16 @@ export default class Account extends Model {
 
   @relation('items', 'item_id') item!: Item;
   @children('transactions') transactions!: Transaction[];
+
+  @writer async updateBalance(currentBalance: number, availableBalance: number) {
+    await this.update(account => {
+      account.balanceCurrent = currentBalance;
+      account.balanceAvailable = availableBalance;
+    });
+
+    // Use dynamic import to avoid circular dependency: Account -> BudgetService -> Account
+    const { BudgetService } = await import('@/services/budget-service');
+    const budgetService = new BudgetService(this.database);
+    await budgetService.updateBudgetBalancesForAccount(this);
+  }
 }

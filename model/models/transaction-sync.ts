@@ -8,6 +8,9 @@ import {
 
 export default class TransactionSync extends Model {
   static table = "transaction_syncs";
+  static associations = {
+    items: { type: 'belongs_to', key: 'plaid_item_id' },
+  } as const;
 
   @field("plaid_item_id") plaidItemId!: string;
   @field("transactions_update_status") transactionsUpdateStatus!: string;

@@ -6,6 +6,10 @@ import Account from './account';
 
 export default class Transaction extends Model {
   static table = 'transactions';
+  static associations = {
+    accounts: { type: 'belongs_to', key: 'account_id' },
+    categories: { type: 'belongs_to', key: 'category_id' },
+  } as const;
 
   @field('transaction_id') transactionId!: string;
   @field('account_id') accountId!: string;

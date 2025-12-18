@@ -56,5 +56,18 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 6,
+      steps: [
+        addColumns({
+          table: 'budget_items',
+          columns: [
+            { name: 'funding_account_id', type: 'string', isOptional: true },
+            { name: 'amount', type: 'number' },
+            { name: 'type', type: 'string' },
+          ],
+        }),
+      ],
+    },
   ],
 });

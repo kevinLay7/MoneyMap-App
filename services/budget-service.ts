@@ -1,3 +1,5 @@
+import { isDateBetween } from '@/helpers/dayjs';
+import Account from '@/model/models/account';
 import Budget from '@/model/models/budget';
 import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { Database, Q } from '@nozbe/watermelondb';
@@ -15,6 +17,11 @@ export interface CreateBudgetDto {
 export class BudgetService {
   constructor(private readonly database: Database) {}
 
+  /**
+   * Creates a new budget.
+   * @param createBudgetDto - The data to create a new budget.
+   * @returns The created budget.
+   */
   async createBudget(createBudgetDto: CreateBudgetDto) {
     return await this.database.write(async () => {
       const insertedBudget = await this.database.get<Budget>('budgets').create(budget => {
@@ -31,6 +38,10 @@ export class BudgetService {
     });
   }
 
+  /**
+   * Gets the latest budget.
+   * @returns The latest budget.
+   */
   async getLatestBudget(): Promise<Budget | null> {
     const latestBudget = await this.database
       .get<Budget>('budgets')
@@ -38,5 +49,34 @@ export class BudgetService {
       .fetch();
 
     return latestBudget?.[0] ?? null;
+  }
+
+  /**
+   * Updates the balances for all budgets associated with an account.
+   * @param account - The account to update the balances for.
+   */
+  async updateBudgetBalancesForAccount(account: Account) {
+    const budgets = await this.database
+      .get<Budget>('budgets')
+      .query(Q.where('account_id', account.id), Q.where('balance_source', BudgetBalanceSource.Account))
+      .fetch();
+
+    const currentBudgets = budgets.filter(budget => isDateBetween(budget.startDate, budget.endDate, new Date()));
+
+    for (const budget of currentBudgets) {
+      if (budget.accountBalanceSource === AccountBalanceSrouce.Current) {
+        await budget.update(budget => {
+          budget.balance = account.balanceCurrent;
+        });
+      } else if (budget.accountBalanceSource === AccountBalanceSrouce.Available) {
+        await budget.update(budget => {
+          budget.balance = account.balanceAvailable ?? 0;
+        });
+      } else {
+        await budget.update(budget => {
+          budget.balance = 0;
+        });
+      }
+    }
   }
 }

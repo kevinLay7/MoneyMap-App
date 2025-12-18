@@ -4,6 +4,11 @@ import dayjs from '@/helpers/dayjs';
 
 export default class Item extends Model {
   static table = 'items';
+  static associations = {
+    accounts: { type: 'belongs_to', key: 'account_id' },
+    syncs: { type: 'has_many', foreignKey: 'plaid_item_id' },
+    transaction_syncs: { type: 'has_many', foreignKey: 'plaid_item_id' },
+  } as const;
 
   @field('account_id') accountId!: string;
   @field('plaid_item_id') plaidItemId!: string;

@@ -8,6 +8,10 @@ import {
 
 export default class Sync extends Model {
   static table = "syncs";
+  static associations = {
+    accounts: { type: 'belongs_to', key: 'account_id' },
+    items: { type: 'belongs_to', key: 'plaid_item_id' },
+  } as const;
 
   @field("account_id") accountId!: string;
   @field("user_id") userId!: string;
