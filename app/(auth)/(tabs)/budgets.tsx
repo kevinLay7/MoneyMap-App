@@ -1,11 +1,9 @@
 import { Header } from '@/components/shared';
 import { ThemedText } from '@/components/shared/themed-text';
 import { BackgroundContainer } from '@/components/ui/background-container';
-import { Button } from '@/components/ui/button';
 import { Colors } from '@/constants/colors';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
-import { FontAwesome6 } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import { View } from 'react-native';
 import { BudgetSelectHeader } from '@/components/budgets/budget-select-header';

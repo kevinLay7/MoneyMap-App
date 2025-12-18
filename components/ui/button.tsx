@@ -45,6 +45,7 @@ interface ButtonProps {
   variant?: 'contained' | 'outlined' | 'underlined';
   hapticWeight?: HapticWeight;
   circular?: boolean;
+  position?: 'left' | 'center' | 'right';
 }
 
 const bgColorMap: Record<string, string> = {
@@ -171,6 +172,7 @@ export function Button({
   variant = 'contained',
   hapticWeight = 'light',
   circular = false,
+  position = 'center',
 }: ButtonProps) {
   const { impact } = useHaptics();
 
@@ -226,7 +228,7 @@ export function Button({
     borderClasses = '';
   }
 
-  const buttonBaseClasses = `flex-row justify-center items-center ${finalWidth} ${bgColor} ${borderClasses}`;
+  const buttonBaseClasses = `flex-row justify-${position} items-center ${finalWidth} ${bgColor} ${borderClasses}`;
   const textBaseClasses = `${finalTextColor} font-semibold ${
     variant === 'underlined' ? 'underline underline-offset-4' : ''
   }`;

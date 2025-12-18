@@ -213,7 +213,7 @@ export default function TransactionsScreen() {
           contentContainerStyle={{ paddingTop: 100 }}
           onScroll={handleScroll}
           scrollEventThrottle={16}
-          style={{ marginBottom: 48 }}
+          style={{ paddingBottom: 60 }}
         />
       </View>
     </BackgroundContainer>

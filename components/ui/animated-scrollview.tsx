@@ -1,12 +1,6 @@
-import { useHaptics } from "@/hooks/useHaptics";
-import {
-  Animated,
-  RefreshControl,
-  ScrollView,
-  ScrollViewProps,
-  View,
-} from "react-native";
-import { AnimatedRef } from "react-native-reanimated";
+import { useHaptics } from '@/hooks/useHaptics';
+import { Animated, RefreshControl, ScrollView, ScrollViewProps, View } from 'react-native';
+import { AnimatedRef } from 'react-native-reanimated';
 
 interface AnimatedScrollViewProps extends ScrollViewProps {
   children: React.ReactNode;
@@ -45,7 +39,7 @@ export default function AnimatedScrollView({
           <RefreshControl
             refreshing={isPending || isRefreshing || false}
             onRefresh={() => {
-              impact("light");
+              impact('light');
               onRefresh?.();
             }}
             progressViewOffset={100}
@@ -54,7 +48,7 @@ export default function AnimatedScrollView({
       }
       {...props}
     >
-      <View className="pt-28">{children}</View>
+      <View className="pt-28 pb-40">{children}</View>
     </Animated.ScrollView>
   );
 }
