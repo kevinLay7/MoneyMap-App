@@ -1,12 +1,37 @@
-import { View } from 'react-native';
+import { View, Alert } from 'react-native';
 import { Button } from '../ui/button';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { SharedModal, ThemedText } from '../shared';
+import { SharedModal } from '../shared';
 import { useState } from 'react';
 import { Colors } from '@/constants/colors';
+import { useNavigation } from 'expo-router';
+import database from '@/model/database';
+import { BudgetService } from '@/services/budget-service';
 
-export function BudgetMenu() {
+export function BudgetMenu({ selectedBudgetId }: { selectedBudgetId: string | null }) {
   const [showMenu, setShowMenu] = useState(false);
+  const navigator = useNavigation<any>();
+  const budgetService = new BudgetService(database);
+
+  const handleDeletePress = () => {
+    setShowMenu(false);
+    Alert.alert('Delete Budget?', 'This action cannot be undone.', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          if (selectedBudgetId) {
+            await budgetService.deleteBudget(selectedBudgetId);
+          }
+        },
+      },
+    ]);
+  };
+
   return (
     <>
       <Button
@@ -41,7 +66,10 @@ export function BudgetMenu() {
               title="  Create Budget"
               iconLeft={<FontAwesome6 name="plus" size={18} color="white" />}
               width="w-1/2"
-              onPress={() => {}}
+              onPress={() => {
+                setShowMenu(false);
+                navigator.navigate('create-budget');
+              }}
             />
             <Button
               color="negative"
@@ -59,7 +87,7 @@ export function BudgetMenu() {
               color="negative"
               iconLeft={<FontAwesome6 name="trash" size={18} color="white" />}
               width="w-1/2"
-              onPress={() => {}}
+              onPress={handleDeletePress}
             />
             <View className="h-1 bg-text-secondary rounded-full my-6"></View>
 

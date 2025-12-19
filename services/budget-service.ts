@@ -1,6 +1,7 @@
 import { isDateBetween } from '@/helpers/dayjs';
 import Account from '@/model/models/account';
 import Budget from '@/model/models/budget';
+import BudgetItem from '@/model/models/budget-item';
 import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { Database, Q } from '@nozbe/watermelondb';
 
@@ -34,7 +35,32 @@ export class BudgetService {
         budget.duration = createBudgetDto.duration;
       });
 
+      if (insertedBudget.balanceSource === BudgetBalanceSource.Account) {
+        await this.updateBudgetBalancesForAccount(insertedBudget.accountId!);
+      }
+
       return insertedBudget;
+    });
+  }
+
+  /**
+   * Deletes a budget and all its associated budget items.
+   * @param budgetId - The id of the budget to delete.
+   */
+  async deleteBudget(budgetId: string) {
+    await this.database.write(async () => {
+      const budget = await this.database.get<Budget>('budgets').find(budgetId);
+      if (budget) {
+        await budget.markAsDeleted();
+      }
+
+      const budgetItems = await this.database
+        .get<BudgetItem>('budget_items')
+        .query(Q.where('budget_id', budgetId))
+        .fetch();
+      for (const budgetItem of budgetItems) {
+        await budgetItem.markAsDeleted();
+      }
     });
   }
 
@@ -55,10 +81,21 @@ export class BudgetService {
    * Updates the balances for all budgets associated with an account.
    * @param account - The account to update the balances for.
    */
-  async updateBudgetBalancesForAccount(account: Account) {
+  async updateBudgetBalancesForAccount(account: Account | string) {
+    const accountId = typeof account === 'string' ? account : account.accountId;
+    if (!accountId) {
+      return;
+    }
+    let internalAccount: Account | null = null;
+    if (typeof account === 'string') {
+      internalAccount = await this.database.get<Account>('accounts').find(accountId);
+    } else {
+      internalAccount = account;
+    }
+
     const budgets = await this.database
       .get<Budget>('budgets')
-      .query(Q.where('account_id', account.id), Q.where('balance_source', BudgetBalanceSource.Account))
+      .query(Q.where('account_id', internalAccount.id), Q.where('balance_source', BudgetBalanceSource.Account))
       .fetch();
 
     const currentBudgets = budgets.filter(budget => isDateBetween(budget.startDate, budget.endDate, new Date()));
@@ -66,11 +103,11 @@ export class BudgetService {
     for (const budget of currentBudgets) {
       if (budget.accountBalanceSource === AccountBalanceSrouce.Current) {
         await budget.update(budget => {
-          budget.balance = account.balanceCurrent;
+          budget.balance = internalAccount.balanceCurrent;
         });
       } else if (budget.accountBalanceSource === AccountBalanceSrouce.Available) {
         await budget.update(budget => {
-          budget.balance = account.balanceAvailable ?? 0;
+          budget.balance = internalAccount.balanceAvailable ?? 0;
         });
       } else {
         await budget.update(budget => {
