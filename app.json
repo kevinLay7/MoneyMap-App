@@ -15,7 +15,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.condenest.moneymap"
+      "bundleIdentifier": "com.condenest.moneymap",
+      "backgroundModes": ["background-fetch"]
     },
     "android": {
       "adaptiveIcon": {
@@ -52,6 +53,12 @@
         "react-native-auth0",
         {
           "domain": "dev-obyd3bj5h2tzmml3.us.auth0.com"
+        }
+      ],
+      [
+        "expo-background-fetch",
+        {
+          "mode": "remote-notification"
         }
       ]
     ],

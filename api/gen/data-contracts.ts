@@ -25,6 +25,14 @@ export interface CreateUserDto {
   salt: string;
 }
 
+export interface CreateLinkTokenDto {
+  /**
+   * Optional: The Plaid item ID (database UUID or Plaid item ID) to update. If not provided, a new item will be created.
+   * @example "123e4567-e89b-12d3-a456-426614174000"
+   */
+  plaidItemId?: string;
+}
+
 export interface PublicTokenDto {
   /**
    * The public token received from Plaid Link

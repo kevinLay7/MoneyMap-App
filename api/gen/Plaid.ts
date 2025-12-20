@@ -11,6 +11,7 @@
  */
 
 import {
+  CreateLinkTokenDto,
   PlaidAccountDto,
   PlaidItemResponseDto,
   PlaidSyncDto,
@@ -31,10 +32,13 @@ export class Plaid<SecurityDataType = unknown> {
    *
    * @tags Plaid
    * @name PlaidControllerCreateLinkToken
-   * @summary Create a Plaid Link token for client-side initialization
+   * @summary Create a Plaid Link token for client-side initialization. Can be used to add a new item or update an existing one.
    * @request POST:/plaid/create-link-token
    */
-  plaidControllerCreateLinkToken = (params: RequestParams = {}) =>
+  plaidControllerCreateLinkToken = (
+    data?: CreateLinkTokenDto,
+    params: RequestParams = {},
+  ) =>
     this.http.request<
       {
         /** The Plaid Link token */
@@ -44,6 +48,8 @@ export class Plaid<SecurityDataType = unknown> {
     >({
       path: `/plaid/create-link-token`,
       method: "POST",
+      body: data,
+      type: ContentType.Json,
       format: "json",
       ...params,
     });

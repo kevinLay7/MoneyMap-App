@@ -98,6 +98,10 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
       async error => {
         const { response, config } = error;
 
+        if (!response) {
+          return Promise.reject(error);
+        }
+
         if (response.status !== 401) {
           return Promise.reject(error);
         }

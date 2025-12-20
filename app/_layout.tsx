@@ -13,6 +13,7 @@ import { DemoProvider } from '@/context/demoContext';
 import { useEffect } from 'react';
 import database from '@/model/database';
 import { CateogryService } from '@/services/category-service';
+import { useBackgroundTasks } from '@/hooks/use-background-tasks';
 
 // Conditionally import Auth0 - it requires native modules
 let Auth0Provider: React.ComponentType<{
@@ -70,6 +71,9 @@ export default function RootLayout() {
 function RootLayoutContent() {
   const { user } = useAuth0();
   const colorScheme = useColorScheme();
+
+  // Initialize background tasks when user is authenticated
+  useBackgroundTasks();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

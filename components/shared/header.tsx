@@ -12,6 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Colors } from '@/constants/colors';
 import { SharedModal } from '@/components/shared/shared-modal';
 
+import { getDeviceClientId } from '@/utils/device-client-id';
+import { ThemedText } from './themed-text';
+
 type HeaderProps = {
   scrollOffset: SharedValue<number>;
   centerComponent?: ReactNode;
@@ -163,6 +166,7 @@ export default function Header({
           <Pressable className="flex-1 h-full" onPress={() => setShowSettingsDrawer(false)} />
         </View>
         <View className="p-4 border-t border-border">
+          <ThemedText>{getDeviceClientId()}</ThemedText>
           <Button title="Logout" onPress={async () => await clearCredentials()} color="error" />
         </View>
       </SafeAreaView>
