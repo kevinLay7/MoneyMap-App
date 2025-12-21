@@ -6,14 +6,11 @@ import '../config/ReactotronConfig';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ColorSchemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
-import { DependencyProvider, useDependency } from '@/context/dependencyContext';
+import { DependencyProvider } from '@/context/dependencyContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { DemoProvider } from '@/context/demoContext';
-import { useEffect } from 'react';
-import database from '@/model/database';
-import { CateogryService } from '@/services/category-service';
-import { useBackgroundTasks } from '@/hooks/use-background-tasks';
+import { useUserCreationFlag } from '@/hooks/use-user-creation-flag';
 
 // Conditionally import Auth0 - it requires native modules
 let Auth0Provider: React.ComponentType<{
@@ -72,19 +69,16 @@ function RootLayoutContent() {
   const { user } = useAuth0();
   const colorScheme = useColorScheme();
 
-  // Initialize background tasks when user is authenticated
-  useBackgroundTasks();
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <View className={`w-full h-full ${colorScheme === 'dark' ? 'dark' : ''}`}>
         <Stack>
-          <Stack.Protected guard={!!user}>
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          </Stack.Protected>
-
           <Stack.Protected guard={!user}>
             <Stack.Screen name="(public)/login" options={{ headerShown: false }} />
+          </Stack.Protected>
+
+          <Stack.Protected guard={!!user}>
+            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           </Stack.Protected>
         </Stack>
         <StatusBar style="auto" />
