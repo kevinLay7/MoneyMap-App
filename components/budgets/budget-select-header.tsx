@@ -86,6 +86,10 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
     return endDate < today;
   };
 
+  if (allBudgetsForDropdown.length === 0) {
+    return null;
+  }
+
   return (
     <>
       {showDropdown && (

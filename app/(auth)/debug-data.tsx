@@ -119,6 +119,7 @@ export default function DebugDataScreen() {
   );
 
   const categoryColumns: TableColumn<Category>[] = [
+    { key: 'id', label: 'ID', width: 150 },
     { key: 'name', label: 'Name', width: 150 },
     { key: 'primary', label: 'Primary', width: 120 },
     { key: 'detailed', label: 'Detailed', width: 150 },

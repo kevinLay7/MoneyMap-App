@@ -106,7 +106,27 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
           return Promise.reject(error);
         }
 
-        console.log('received 401 response, attempting token refresh');
+        // Prevent infinite retry loops - if this request has already been retried, reject immediately
+        const retryCount = (config as any).__retryCount || 0;
+        const MAX_RETRIES = 1;
+
+        if (retryCount >= MAX_RETRIES) {
+          console.warn(`Max retries (${MAX_RETRIES}) reached for 401 response, clearing session`, {
+            url: config.url,
+            method: config.method,
+          });
+          await clearCredentials();
+          return Promise.reject(error);
+        }
+
+        // Mark this request as retried
+        (config as any).__retryCount = retryCount + 1;
+
+        console.log('received 401 response, attempting token refresh', {
+          url: config.url,
+          method: config.method,
+          retryCount: retryCount + 1,
+        });
         // logger.warn(
         //   'Received 401 response, attempting token refresh',
         //   {

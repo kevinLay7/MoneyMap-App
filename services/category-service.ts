@@ -36,10 +36,8 @@ export class CateogryService {
       const categoriesToCreate: (typeof categoriesFromServer)[0][] = [];
 
       for (const category of categoriesFromServer) {
-        const existingCategory = categoriesFromDatabase.find(c => c.name === category.name);
+        const existingCategory = categoriesFromDatabase.find(c => c.id === 'sys_' + category.id);
 
-        console.log('existingCategory', existingCategory);
-        console.log('category', category);
         if (
           existingCategory &&
           existingCategory.primary === category.primary &&
@@ -77,15 +75,21 @@ export class CateogryService {
 
           // Create new categories
           for (const categoryData of categoriesToCreate) {
-            await this.database.get<Category>('categories').create(record => {
-              record.name = categoryData.name;
-              record.primary = categoryData.primary;
-              record.detailed = categoryData.detailed;
-              record.description = categoryData.description;
-              record.icon = categoryData.icon;
-              record.color = categoryData.color;
-              record.ignored = categoryData.ignored;
+            const category = this.database.get<Category>('categories').prepareCreateFromDirtyRaw({
+              id: 'sys_' + categoryData.id,
+              name: categoryData.name,
+              primary: categoryData.primary,
+              detailed: categoryData.detailed,
+              description: categoryData.description,
+              icon: categoryData.icon || null,
+              color: categoryData.color || null,
+              ignored: categoryData.ignored,
+              children: categoryData.children || null,
+              created_at: Date.now(),
+              updated_at: Date.now(),
             });
+
+            await this.database.batch([category]);
           }
         });
       }

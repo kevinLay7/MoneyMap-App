@@ -3,7 +3,7 @@ import * as BackgroundFetch from 'expo-background-fetch';
 import { Sync } from '@/api/gen/Sync';
 import { Plaid } from '@/api/gen/Plaid';
 import { HttpClient } from '@/api/gen/http-client';
-import { databaseSynchronize } from '@/model/synchronize';
+import { databaseSynchronize, pushOnlyChanges } from '@/model/synchronize';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Auth0 from 'react-native-auth0';
 import { getDeviceClientId } from '@/utils/device-client-id';
@@ -173,25 +173,53 @@ export class BackgroundTaskService {
   }
 
   /**
+   * Acquire sync lock. Returns true if lock was acquired, false if already locked.
+   */
+  static acquireSyncLock(): boolean {
+    if (syncInProgress) {
+      return false;
+    }
+    syncInProgress = true;
+    return true;
+  }
+
+  /**
+   * Release sync lock.
+   */
+  static releaseSyncLock(): void {
+    syncInProgress = false;
+  }
+
+  /**
    * Execute sync with lock to prevent concurrent calls
    */
   static async executeSyncWithLock(syncApi: Sync): Promise<void> {
-    const logger = new SyncLogger(1000);
-
-    // Check if sync is already in progress
-    if (syncInProgress) {
+    if (!this.acquireSyncLock()) {
       console.log('Sync already in progress, skipping');
       return;
     }
 
-    syncInProgress = true;
+    const logger = new SyncLogger(1000);
     try {
       await databaseSynchronize(syncApi, logger);
     } finally {
-      console.log('--------------------------------');
-      console.log(logger.logs);
-      console.log('--------------------------------');
-      syncInProgress = false;
+      this.releaseSyncLock();
+    }
+  }
+
+  /**
+   * Execute push-only sync with lock to prevent concurrent calls
+   */
+  static async executePushOnlyWithLock(syncApi: Sync): Promise<void> {
+    if (!this.acquireSyncLock()) {
+      console.log('Sync already in progress, skipping push-only');
+      return;
+    }
+
+    try {
+      await pushOnlyChanges(syncApi);
+    } finally {
+      this.releaseSyncLock();
     }
   }
 

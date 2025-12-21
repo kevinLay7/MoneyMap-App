@@ -4,6 +4,7 @@ import { useDependency } from '@/context/dependencyContext';
 import { backgroundTaskService, BackgroundTaskService } from '@/services/background-task-service';
 
 const FOREGROUND_SYNC_INTERVAL = 30 * 1000; // 30 seconds
+const PUSH_ONLY_INTERVAL = 10 * 1000; // 10 seconds
 
 /**
  * Hook to manage background tasks and foreground polling
@@ -14,6 +15,7 @@ export function useBackgroundTasks() {
   const { syncApi, plaidApi } = useDependency();
   const appState = useRef(AppState.currentState);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isInitializedRef = useRef(false);
 
   // Initialize background task service
@@ -54,11 +56,15 @@ export function useBackgroundTasks() {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      if (pushIntervalRef.current) {
+        clearInterval(pushIntervalRef.current);
+        pushIntervalRef.current = null;
+      }
     };
   }, [syncApi, plaidApi]);
 
   /**
-   * Execute sync operation
+   * Execute sync operation (full sync: pull + push)
    */
   const executeSync = useCallback(async () => {
     try {
@@ -67,11 +73,25 @@ export function useBackgroundTasks() {
         return;
       }
 
-      console.log('Executing foreground sync...');
       await BackgroundTaskService.executeSyncWithLock(syncApi);
-      console.log('Foreground sync completed successfully');
     } catch (error) {
       console.error('Foreground sync failed:', error);
+    }
+  }, [syncApi]);
+
+  /**
+   * Execute push-only operation (push local changes without pulling)
+   */
+  const executePushOnly = useCallback(async () => {
+    try {
+      if (!backgroundTaskService.isInitialized()) {
+        console.warn('Background task service not initialized, skipping push-only');
+        return;
+      }
+
+      await BackgroundTaskService.executePushOnlyWithLock(syncApi);
+    } catch (error) {
+      console.error('Push-only sync failed:', error);
     }
   }, [syncApi]);
 
@@ -103,22 +123,52 @@ export function useBackgroundTasks() {
     }
   }, []);
 
+  /**
+   * Start push-only polling (10 second interval)
+   */
+  const startPushOnlyPolling = useCallback(() => {
+    // Clear any existing interval
+    if (pushIntervalRef.current) {
+      clearInterval(pushIntervalRef.current);
+    }
+
+    // Execute push-only immediately
+    executePushOnly();
+
+    // Set up interval for subsequent push-only syncs
+    pushIntervalRef.current = setInterval(() => {
+      executePushOnly();
+    }, PUSH_ONLY_INTERVAL);
+  }, [executePushOnly]);
+
+  /**
+   * Stop push-only polling
+   */
+  const stopPushOnlyPolling = useCallback(() => {
+    if (pushIntervalRef.current) {
+      clearInterval(pushIntervalRef.current);
+      pushIntervalRef.current = null;
+    }
+  }, []);
+
   // Handle foreground polling and app state changes
   useEffect(() => {
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       const wasActive = appState.current === 'active';
       const isActive = nextAppState === 'active';
 
-      // App became active - start foreground polling
+      // App became active - start foreground polling and push-only polling
       if (!wasActive && isActive) {
-        console.log('App became active, starting foreground polling');
+        console.log('App became active, starting foreground polling and push-only polling');
         startForegroundPolling();
+        startPushOnlyPolling();
       }
 
-      // App went to background - stop foreground polling
+      // App went to background - stop foreground polling and push-only polling
       if (wasActive && !isActive) {
-        console.log('App went to background, stopping foreground polling');
+        console.log('App went to background, stopping foreground polling and push-only polling');
         stopForegroundPolling();
+        stopPushOnlyPolling();
       }
 
       appState.current = nextAppState;
@@ -127,11 +177,13 @@ export function useBackgroundTasks() {
     // Start polling if app is already active
     if (appState.current === 'active') {
       startForegroundPolling();
+      startPushOnlyPolling();
     }
 
     return () => {
       subscription.remove();
       stopForegroundPolling();
+      stopPushOnlyPolling();
     };
-  }, [startForegroundPolling, stopForegroundPolling]);
+  }, [startForegroundPolling, stopForegroundPolling, startPushOnlyPolling, stopPushOnlyPolling]);
 }

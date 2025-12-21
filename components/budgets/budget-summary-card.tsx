@@ -1,6 +1,6 @@
 import { Card } from '../ui/card';
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
-import { Keyboard, Pressable, TextInput as RNTextInput, useColorScheme, View } from 'react-native';
+import { Keyboard, Pressable, TextInput as RNTextInput, View } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { ThemedText } from '../shared/themed-text';
 import database from '@/model/database';
@@ -9,6 +9,7 @@ import { useMoneyFormatter } from '@/hooks/format-money';
 import Animated from 'react-native-reanimated';
 import { BudgetBalanceSource } from '@/types/budget';
 import { useCallback, useEffect, useState } from 'react';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export function BudgetSummaryCard({ budgetViewModel }: { readonly budgetViewModel: BudgetViewModel }) {
   const formatMoney = useMoneyFormatter();

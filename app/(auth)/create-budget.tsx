@@ -63,15 +63,23 @@ export default function CreateBudget() {
   }, [duration, startDate]);
 
   const createBudget = useCallback(async () => {
-    if (!balanceSource || !accountBalanceSource || !selectedAccountId || !duration) return;
+    if (
+      !balanceSource ||
+      !startDate ||
+      !endDate ||
+      !balanceSource ||
+      (balanceSource === BudgetBalanceSource.Account && !accountBalanceSource) ||
+      !duration
+    )
+      return;
 
     const newBudgetDto: CreateBudgetDto = {
       startDate: startDate,
       endDate: endDate,
       balance: 0,
       balanceSource: balanceSource,
-      accountBalanceSource: accountBalanceSource,
-      accountId: selectedAccountId,
+      accountBalanceSource: accountBalanceSource ?? AccountBalanceSrouce.Default,
+      accountId: selectedAccountId ?? '',
       duration: duration!,
     };
 
@@ -151,7 +159,13 @@ export default function CreateBudget() {
           <Button
             title="Create Budget"
             onPress={createBudget}
-            disabled={!duration || !startDate || !endDate || !balanceSource || !accountBalanceSource}
+            disabled={
+              !duration ||
+              !startDate ||
+              !endDate ||
+              !balanceSource ||
+              (balanceSource === BudgetBalanceSource.Account && !accountBalanceSource)
+            }
           />
         </Card>
       </AnimatedScrollView>

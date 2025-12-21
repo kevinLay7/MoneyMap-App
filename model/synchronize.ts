@@ -1,23 +1,23 @@
-import { SyncDatabaseChangeSet, synchronize } from '@nozbe/watermelondb/sync';
+import { SyncDatabaseChangeSet, synchronize, SyncConflictResolver } from '@nozbe/watermelondb/sync';
+import { fetchLocalChanges, markLocalChangesAsSynced, getLastPulledAt } from '@nozbe/watermelondb/sync/impl';
 import database from './database';
 import { Sync } from '@/api/gen/Sync';
 import SyncLogger from '@nozbe/watermelondb/sync/SyncLogger';
-import dayjs from 'dayjs';
 
 /**
  * Table dependency order for sync operations.
  * Tables must be synced in this order to maintain referential integrity.
  *
  * Dependency hierarchy:
- * 1. items, accounts (circular dependency - must be synced together)
- * 2. transactions (depends on accounts)
- * 3. budgets (depends on accounts)
- * 4. budget_items (depends on budgets)
- * 5. syncs, transaction_syncs (depend on items/accounts)
- *
- * Note: categories are NOT synced - they are loaded locally via CategoryService
+ * 1. categories (synced first, but system categories excluded)
+ * 2. items, accounts (circular dependency - must be synced together)
+ * 3. transactions (depends on accounts)
+ * 4. budgets (depends on accounts)
+ * 5. budget_items (depends on budgets)
+ * 6. syncs, transaction_syncs (depend on items/accounts)
  */
 const SYNC_TABLE_ORDER = [
+  'categories',
   'items',
   'accounts',
   'transactions',
@@ -30,7 +30,7 @@ const SYNC_TABLE_ORDER = [
 /**
  * Tables that should be excluded from sync operations
  */
-const EXCLUDED_TABLES = ['categories'] as const;
+const EXCLUDED_TABLES: readonly string[] = [];
 
 /**
  * Filters out excluded tables from changes object.
@@ -39,8 +39,53 @@ function filterExcludedTables(changes: SyncDatabaseChangeSet): SyncDatabaseChang
   const filtered: Record<string, any> = {};
 
   for (const [tableName, tableChanges] of Object.entries(changes)) {
-    if (!EXCLUDED_TABLES.includes(tableName as any)) {
+    if (!EXCLUDED_TABLES.includes(tableName)) {
       filtered[tableName] = tableChanges;
+    }
+  }
+
+  return filtered as SyncDatabaseChangeSet;
+}
+
+/**
+ * Filters out categories whose id starts with "sys" from changes.
+ * System categories should not be synced.
+ */
+function filterSystemCategories(changes: SyncDatabaseChangeSet): SyncDatabaseChangeSet {
+  const filtered = { ...changes } as Record<string, any>;
+
+  if (filtered.categories) {
+    const categoryChanges = filtered.categories as { created?: any[]; updated?: any[]; deleted?: any[] };
+    const filteredCategoryChanges: { created?: any[]; updated?: any[]; deleted?: any[] } = {};
+
+    // Filter created categories
+    if (categoryChanges.created) {
+      filteredCategoryChanges.created = categoryChanges.created.filter(
+        (item: any) => !item.id || !item.id.startsWith('sys')
+      );
+    }
+
+    // Filter updated categories
+    if (categoryChanges.updated) {
+      filteredCategoryChanges.updated = categoryChanges.updated.filter(
+        (item: any) => !item.id || !item.id.startsWith('sys')
+      );
+    }
+
+    // Filter deleted categories
+    if (categoryChanges.deleted) {
+      filteredCategoryChanges.deleted = categoryChanges.deleted.filter((id: string) => !id.startsWith('sys'));
+    }
+
+    // Only include categories table if there are changes after filtering
+    if (
+      filteredCategoryChanges.created?.length ||
+      filteredCategoryChanges.updated?.length ||
+      filteredCategoryChanges.deleted?.length
+    ) {
+      filtered.categories = filteredCategoryChanges;
+    } else {
+      delete filtered.categories;
     }
   }
 
@@ -70,7 +115,7 @@ function reorderChangesByDependencies(changes: SyncDatabaseChangeSet): SyncDatab
   // Include any tables not in our ordered list (for future-proofing)
   // But exclude tables that are in the excluded list
   for (const [tableName, tableChanges] of Object.entries(changes)) {
-    if (!orderedChanges[tableName] && !EXCLUDED_TABLES.includes(tableName as any)) {
+    if (!orderedChanges[tableName] && !EXCLUDED_TABLES.includes(tableName)) {
       orderedChanges[tableName] = tableChanges;
     }
   }
@@ -78,10 +123,211 @@ function reorderChangesByDependencies(changes: SyncDatabaseChangeSet): SyncDatab
   return orderedChanges as SyncDatabaseChangeSet;
 }
 
-export async function databaseSynchronize(syncApi: Sync, logger: SyncLogger) {
-  await synchronize({
+/**
+ * Conflict resolver that handles cross-device conflicts.
+ * Always accepts remote version, overwriting local changes.
+ * This ensures that server state (from other devices) takes precedence.
+ */
+const conflictResolver: SyncConflictResolver = (table, local, remote, resolved) => {
+  // If local record was deleted, keep local (deletion wins)
+  if (local._status === 'deleted') {
+    return local;
+  }
+
+  // Always accept remote version, overwriting local changes
+  // Keep local id, but use all remote field values and mark as synced
+  return {
+    ...remote,
+    id: local.id, // ID cannot change
+    _status: 'synced',
+    _chagned: '',
+  };
+};
+
+/**
+ * Helper function to push changes to the server.
+ * Handles filtering, batching, and normalization of changes.
+ */
+async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet, lastPulledAt: number): Promise<void> {
+  // Filter out excluded tables before pushing
+  const filteredChanges = filterExcludedTables(changes);
+
+  // Filter out system categories (ids starting with "sys") before pushing
+  const filteredCategoryChanges = filterSystemCategories(filteredChanges);
+
+  const BATCH_SIZE = 50;
+
+  // Count total items across all tables
+  let totalItems = 0;
+  for (const tableChanges of Object.values(filteredCategoryChanges)) {
+    const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+    totalItems += typedTableChanges.created?.length || 0;
+    totalItems += typedTableChanges.updated?.length || 0;
+    totalItems += typedTableChanges.deleted?.length || 0;
+  }
+
+  // If total items <= BATCH_SIZE, send as-is
+  if (totalItems <= BATCH_SIZE) {
+    // Ensure all tables have created, updated, and deleted arrays
+    const normalizedChanges: Record<string, any> = {};
+    for (const [tableName, tableChanges] of Object.entries(filteredCategoryChanges)) {
+      const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+      normalizedChanges[tableName] = {
+        created: typedTableChanges.created || [],
+        updated: typedTableChanges.updated || [],
+        deleted: typedTableChanges.deleted || [],
+      };
+    }
+    await syncApi.syncControllerPushChanges({
+      changes: normalizedChanges,
+      lastPulledAt: String(lastPulledAt || 0),
+      migrations: 1,
+    });
+    return;
+  }
+
+  // Flatten all changes into a list of operations
+  type ChangeOperation = {
+    table: string;
+    type: 'created' | 'updated' | 'deleted';
+    items: any[];
+  };
+
+  const operations: ChangeOperation[] = [];
+  for (const [tableName, tableChanges] of Object.entries(filteredCategoryChanges)) {
+    const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+    if (typedTableChanges.created?.length) {
+      operations.push({
+        table: tableName,
+        type: 'created',
+        items: typedTableChanges.created,
+      });
+    }
+    if (typedTableChanges.updated?.length) {
+      operations.push({
+        table: tableName,
+        type: 'updated',
+        items: typedTableChanges.updated,
+      });
+    }
+    if (typedTableChanges.deleted?.length) {
+      operations.push({
+        table: tableName,
+        type: 'deleted',
+        items: typedTableChanges.deleted,
+      });
+    }
+  }
+
+  // Split operations into batches of BATCH_SIZE items
+  const batches: ChangeOperation[][] = [];
+  let currentBatch: ChangeOperation[] = [];
+  let currentBatchSize = 0;
+
+  for (const operation of operations) {
+    let remainingItems = operation.items;
+
+    while (remainingItems.length > 0) {
+      const spaceInBatch = BATCH_SIZE - currentBatchSize;
+      const itemsToAdd = remainingItems.slice(0, spaceInBatch);
+      const remaining = remainingItems.slice(spaceInBatch);
+
+      const lastOp = currentBatch.at(-1);
+      if (!lastOp || lastOp.table !== operation.table || lastOp.type !== operation.type) {
+        // New operation in batch
+        currentBatch.push({
+          table: operation.table,
+          type: operation.type,
+          items: itemsToAdd,
+        });
+      } else {
+        // Append to existing operation in batch
+        const lastOp = currentBatch.at(-1);
+        if (lastOp) {
+          lastOp.items.push(...itemsToAdd);
+        }
+      }
+
+      currentBatchSize += itemsToAdd.length;
+      remainingItems = remaining;
+
+      // If batch is full, start a new one
+      if (currentBatchSize >= BATCH_SIZE) {
+        batches.push(currentBatch);
+        currentBatch = [];
+        currentBatchSize = 0;
+      }
+    }
+  }
+
+  // Add remaining items as final batch
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  // Send each batch sequentially
+  for (const batch of batches) {
+    // Reconstruct changes object for this batch
+    const batchChanges: Record<string, any> = {};
+    for (const operation of batch) {
+      if (!batchChanges[operation.table]) {
+        batchChanges[operation.table] = {
+          created: [],
+          updated: [],
+          deleted: [],
+        };
+      }
+      batchChanges[operation.table][operation.type] = operation.items;
+    }
+
+    console.log('--------------------------------');
+    console.log('batchChanges', batchChanges);
+    console.log('--------------------------------');
+
+    await syncApi.syncControllerPushChanges({
+      changes: batchChanges,
+      lastPulledAt: String(lastPulledAt || 0),
+      migrations: 1,
+    });
+  }
+}
+
+/**
+ * Push-only sync function that sends local changes to the server without pulling.
+ * This allows for more frequent pushes while keeping full syncs at longer intervals.
+ */
+export async function pushOnlyChanges(syncApi: Sync): Promise<void> {
+  try {
+    // Get local changes from WatermelonDB
+    const localChanges = await fetchLocalChanges(database);
+
+    // Return early if no changes exist
+    if (!localChanges.changes || Object.keys(localChanges.changes).length === 0) {
+      return;
+    }
+
+    // Get lastPulledAt from WatermelonDB's internal storage
+    const lastPulledAt = (await getLastPulledAt(database)) || 0;
+
+    // Push changes to server
+    await pushChangesToServer(syncApi, localChanges.changes, lastPulledAt);
+
+    // Mark changes as synced after successful push
+    await markLocalChangesAsSynced(database, localChanges);
+  } catch (error) {
+    console.error('Push-only sync failed:', error);
+    // Don't throw - allow the app to continue even if push fails
+    // The changes will be retried on the next push or full sync
+  }
+}
+
+/**
+ * Creates the sync configuration object
+ */
+function createSyncConfig(syncApi: Sync, logger: SyncLogger) {
+  return {
     database,
-    pullChanges: async ({ lastPulledAt, schemaVersion, migration }) => {
+    pullChanges: async ({ lastPulledAt, schemaVersion, migration }: any) => {
       // Convert migration columns from WatermelonDB format to API format
       // WatermelonDB migration.columns is an array of {table: string, columns: string[]}
       // API expects Record<string, string[]>
@@ -115,169 +361,65 @@ export async function databaseSynchronize(syncApi: Sync, logger: SyncLogger) {
       // Extract data from axios response
       const { changes, timestamp } = (response as any).data as { changes: any; timestamp: number };
 
-      // Filter out excluded tables (e.g., categories)
+      // Filter out excluded tables
       const filteredChanges = filterExcludedTables(changes);
 
+      // Filter out system categories (ids starting with "sys")
+      const filteredCategoryChanges = filterSystemCategories(filteredChanges);
+
       // Reorder changes to ensure dependency order is maintained
-      // This ensures parent records (items, accounts) are synced before children (transactions, budgets)
-      const orderedChanges = reorderChangesByDependencies(filteredChanges);
+      // This ensures parent records (categories, items, accounts) are synced before children (transactions, budgets)
+      const orderedChanges = reorderChangesByDependencies(filteredCategoryChanges);
 
       return { changes: orderedChanges, timestamp };
     },
     pushChanges: async ({ changes, lastPulledAt }: { changes: SyncDatabaseChangeSet; lastPulledAt: number }) => {
-      // Filter out excluded tables (e.g., categories) before pushing
-      const filteredChanges = filterExcludedTables(changes);
-
-      const BATCH_SIZE = 50;
-
-      // Count total items across all tables
-      let totalItems = 0;
-      for (const tableChanges of Object.values(filteredChanges)) {
-        const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
-        totalItems += typedTableChanges.created?.length || 0;
-        totalItems += typedTableChanges.updated?.length || 0;
-        totalItems += typedTableChanges.deleted?.length || 0;
-      }
-
-      // If total items <= BATCH_SIZE, send as-is
-      if (totalItems <= BATCH_SIZE) {
-        // Ensure all tables have created, updated, and deleted arrays
-        const normalizedChanges: Record<string, any> = {};
-        for (const [tableName, tableChanges] of Object.entries(filteredChanges)) {
-          const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
-          normalizedChanges[tableName] = {
-            created: typedTableChanges.created || [],
-            updated: typedTableChanges.updated || [],
-            deleted: typedTableChanges.deleted || [],
-          };
-        }
-        await syncApi.syncControllerPushChanges({
-          changes: normalizedChanges,
-          lastPulledAt: String(lastPulledAt || 0),
-          migrations: 1,
-        });
-        return;
-      }
-
-      // Flatten all changes into a list of operations
-      type ChangeOperation = {
-        table: string;
-        type: 'created' | 'updated' | 'deleted';
-        items: any[];
-      };
-
-      const operations: ChangeOperation[] = [];
-      for (const [tableName, tableChanges] of Object.entries(filteredChanges)) {
-        const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
-        if (typedTableChanges.created?.length) {
-          operations.push({
-            table: tableName,
-            type: 'created',
-            items: typedTableChanges.created,
-          });
-        }
-        if (typedTableChanges.updated?.length) {
-          operations.push({
-            table: tableName,
-            type: 'updated',
-            items: typedTableChanges.updated,
-          });
-        }
-        if (typedTableChanges.deleted?.length) {
-          operations.push({
-            table: tableName,
-            type: 'deleted',
-            items: typedTableChanges.deleted,
-          });
-        }
-      }
-
-      // Split operations into batches of BATCH_SIZE items
-      const batches: ChangeOperation[][] = [];
-      let currentBatch: ChangeOperation[] = [];
-      let currentBatchSize = 0;
-
-      for (const operation of operations) {
-        let remainingItems = operation.items;
-
-        while (remainingItems.length > 0) {
-          const spaceInBatch = BATCH_SIZE - currentBatchSize;
-          const itemsToAdd = remainingItems.slice(0, spaceInBatch);
-          const remaining = remainingItems.slice(spaceInBatch);
-
-          const lastOp = currentBatch.at(-1);
-          if (!lastOp || lastOp.table !== operation.table || lastOp.type !== operation.type) {
-            // New operation in batch
-            currentBatch.push({
-              table: operation.table,
-              type: operation.type,
-              items: itemsToAdd,
-            });
-          } else {
-            // Append to existing operation in batch
-            const lastOp = currentBatch.at(-1);
-            if (lastOp) {
-              lastOp.items.push(...itemsToAdd);
-            }
-          }
-
-          currentBatchSize += itemsToAdd.length;
-          remainingItems = remaining;
-
-          // If batch is full, start a new one
-          if (currentBatchSize >= BATCH_SIZE) {
-            batches.push(currentBatch);
-            currentBatch = [];
-            currentBatchSize = 0;
-          }
-        }
-      }
-
-      // Add remaining items as final batch
-      if (currentBatch.length > 0) {
-        batches.push(currentBatch);
-      }
-
-      // Send each batch sequentially
-      for (const batch of batches) {
-        // Reconstruct changes object for this batch
-        const batchChanges: Record<string, any> = {};
-        for (const operation of batch) {
-          if (!batchChanges[operation.table]) {
-            batchChanges[operation.table] = {
-              created: [],
-              updated: [],
-              deleted: [],
-            };
-          }
-          batchChanges[operation.table][operation.type] = operation.items;
-        }
-
-        console.log('--------------------------------');
-        console.log('batchChanges', batchChanges);
-        console.log('--------------------------------');
-
-        await syncApi.syncControllerPushChanges({
-          changes: batchChanges,
-          lastPulledAt: String(lastPulledAt || 0),
-          migrations: 1,
-        });
-      }
+      await pushChangesToServer(syncApi, changes, lastPulledAt);
     },
     migrationsEnabledAtVersion: 1,
+    conflictResolver,
     log: logger.newLog(),
     onWillApplyRemoteChanges: async (info: { remoteChangeCount: number }) => {
-      console.log('--------------------------------');
-      console.log('onWillApplyRemoteChanges', info.remoteChangeCount);
-      console.log('--------------------------------');
-      return Promise.resolve();
-    },
-    onDidPullChanges: async ({ messages }) => {
-      if (messages) {
-        messages.forEach(message => {
-          alert(message);
-        });
+      if (info.remoteChangeCount > 0) {
+        console.log('onWillApplyRemoteChanges', info.remoteChangeCount);
       }
     },
-  });
+  };
+}
+
+export async function databaseSynchronize(syncApi: Sync, logger: SyncLogger) {
+  // Wrap sync in try-catch to handle "Cannot update a record with pending changes" errors
+  // This can happen if a record is being edited elsewhere while sync is running
+  try {
+    await synchronize(createSyncConfig(syncApi, logger));
+  } catch (error: any) {
+    // Handle "Cannot update a record with pending changes" error
+    // This can happen if a record is being edited while sync is running
+    const isPendingChangesError =
+      error?.message?.includes('Cannot update a record with pending changes') || error?.name === 'Diagnostic error';
+
+    if (isPendingChangesError) {
+      console.warn('Sync failed due to pending changes, retrying after marking changes as synced...');
+
+      // Wait a moment for any active write transactions to complete
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Try to mark all local changes as synced again
+      try {
+        const localChanges = await fetchLocalChanges(database);
+        if (localChanges.changes && Object.keys(localChanges.changes).length > 0) {
+          await markLocalChangesAsSynced(database, localChanges);
+        }
+      } catch (markError) {
+        console.error('Error marking local changes as synced on retry:', markError);
+      }
+
+      // Retry sync once
+      console.log('Retrying sync after marking changes as synced');
+      await synchronize(createSyncConfig(syncApi, logger));
+    } else {
+      // Re-throw other errors
+      throw error;
+    }
+  }
 }

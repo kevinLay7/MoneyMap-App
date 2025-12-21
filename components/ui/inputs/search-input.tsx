@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, startTransition } from 'react';
-import { View, TextInput, TextInputProps, Pressable, useColorScheme } from 'react-native';
+import { View, TextInput, TextInputProps, Pressable } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
+import { ColorSchemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
 
 interface SearchInputProps extends Omit<TextInputProps, 'onChangeText' | 'value'> {
   onQueryChange: (query: string) => void;
