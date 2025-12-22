@@ -25,6 +25,66 @@ export interface CreateUserDto {
   salt: string;
 }
 
+export interface AccountResponseDto {
+  /**
+   * The unique identifier for the account
+   * @format uuid
+   */
+  id: string;
+  /**
+   * The creation timestamp
+   * @format date-time
+   */
+  created_at: string;
+  /**
+   * The last update timestamp
+   * @format date-time
+   */
+  updated_at: string;
+  /** Whether the account is active */
+  is_active: boolean;
+  /** The salt used for encryption password hashing */
+  salt: string;
+}
+
+export interface UserResponseDto {
+  /**
+   * The unique identifier for the user
+   * @format uuid
+   */
+  id: string;
+  /**
+   * The account ID for the user
+   * @format uuid
+   */
+  account_id: string;
+  /** User email address */
+  email: string;
+  /** User first name */
+  first_name: string;
+  /** User last name */
+  last_name: string;
+  /**
+   * User role in the account
+   * @default "member"
+   */
+  role: UserResponseDtoRoleEnum;
+  /**
+   * The creation timestamp
+   * @format date-time
+   */
+  created_at: string;
+  /**
+   * The last update timestamp
+   * @format date-time
+   */
+  updated_at: string;
+  /** Whether the user is active */
+  is_active: boolean;
+  /** The account information */
+  account: AccountResponseDto | null;
+}
+
 export interface CreateLinkTokenDto {
   /**
    * Optional: The Plaid item ID (database UUID or Plaid item ID) to update. If not provided, a new item will be created.
@@ -433,6 +493,16 @@ export interface PushChangesDto {
    * @default 0
    */
   migrations: number;
+}
+
+/**
+ * User role in the account
+ * @default "member"
+ */
+export enum UserResponseDtoRoleEnum {
+  Owner = "owner",
+  Admin = "admin",
+  Member = "member",
 }
 
 /** The status of the Plaid item */

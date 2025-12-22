@@ -16,11 +16,8 @@ export function useUserCreationFlag() {
   }, []);
 
   const setNeedsUserCreation = async (value: boolean) => {
-    if (value) {
-      await database.localStorage.set(NEEDS_USER_CREATION_KEY, true);
-    } else {
-      await database.localStorage.remove(NEEDS_USER_CREATION_KEY);
-    }
+    await database.localStorage.set(NEEDS_USER_CREATION_KEY, value);
+
     setNeedsUserCreationState(value);
   };
 

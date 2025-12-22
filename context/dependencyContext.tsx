@@ -4,8 +4,7 @@ import { HttpClient } from '@/api/gen/http-client';
 import { Plaid } from '@/api/gen/Plaid';
 import { Sync } from '@/api/gen/Sync';
 import { Users } from '@/api/gen/Users';
-import { AxiosError, AxiosResponse } from 'axios';
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, useContext, useMemo, useState } from 'react';
 import { useAuth0 } from 'react-native-auth0';
 import { getDeviceClientId } from '@/utils/device-client-id';
 export const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -49,28 +48,16 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
     const setupInitialAuth = async () => {
       if (user) {
         try {
-          // logger.info('Setting up initial authentication for user', { userId: user.sub }, 'DependencyContext');
           const credentials = await getCredentials();
           if (credentials?.accessToken) {
             httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
-            // logger.debug(
-            //   'Authentication header set successfully',
-            //   { hasToken: !!credentials.accessToken },
-            //   'DependencyContext'
-            // );
           }
         } catch (error) {
           console.error('error setting up initial auth', error);
-          // logger.error(
-          //   'Failed to get credentials during initial auth setup',
-          //   { error: error instanceof Error ? error.message : String(error) },
-          //   'DependencyContext'
-          // );
         }
       } else {
         console.warn('clearing auth header');
         // Clear authorization header when user is not authenticated
-        // logger.info('Clearing authentication header - no user', {}, 'DependencyContext');
         delete httpClient.instance.defaults.headers.common.Authorization;
       }
     };
@@ -115,26 +102,12 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
             url: config.url,
             method: config.method,
           });
-          await clearCredentials();
+          // await clearCredentials();
           return Promise.reject(error);
         }
 
         // Mark this request as retried
         (config as any).__retryCount = retryCount + 1;
-
-        console.log('received 401 response, attempting token refresh', {
-          url: config.url,
-          method: config.method,
-          retryCount: retryCount + 1,
-        });
-        // logger.warn(
-        //   'Received 401 response, attempting token refresh',
-        //   {
-        //     url: config.url,
-        //     method: config.method,
-        //   },
-        //   'DependencyContext'
-        // );
 
         try {
           const credentials = await getCredentials();
@@ -142,31 +115,16 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
           if (credentials?.accessToken) {
             httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
             config.headers['Authorization'] = `Bearer ${credentials.accessToken}`;
-            // logger.info(
-            //   'Token refresh successful, retrying request',
-            //   {
-            //     url: config.url,
-            //     method: config.method,
-            //   },
-            //   'DependencyContext'
-            // );
+
             return httpClient.instance(config);
           } else {
             console.log('no credentials available during token refresh, clearing session');
-            // logger.warn('No credentials available during token refresh, clearing session', {}, 'DependencyContext');
-            await clearCredentials();
+            //wait clearCredentials();
             return Promise.reject(error);
           }
         } catch (refreshError) {
           console.error('token refresh failed, clearing session', refreshError);
-          // logger.error(
-          //   'Token refresh failed, clearing session',
-          //   {
-          //     error: refreshError instanceof Error ? refreshError.message : String(refreshError),
-          //   },
-          //   'DependencyContext'
-          // );
-          await clearCredentials();
+
           return Promise.reject(error);
         }
       }

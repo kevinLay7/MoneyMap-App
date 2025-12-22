@@ -8,12 +8,13 @@ import { useUserCreationFlag } from '@/hooks/use-user-creation-flag';
 import { useCreateUser } from '@/hooks/api/user-api';
 import { useState, useEffect } from 'react';
 import { TextInput } from '@/components/ui/inputs/text-input';
-import { CreateUserDto } from '@/api/gen/data-contracts';
+import { CreateUserDto, UserResponseDto } from '@/api/gen/data-contracts';
 import { Card } from '@/components/ui/card';
 import { useRouter } from 'expo-router';
+import { encryptionCredentialsService } from '@/services';
 
 export default function CreateProfile() {
-  const { getCredentials, user } = useAuth0();
+  const { user } = useAuth0();
   const { needsUserCreation, setNeedsUserCreation } = useUserCreationFlag();
   const createUserMutation = useCreateUser();
   const router = useRouter();
@@ -27,21 +28,11 @@ export default function CreateProfile() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Redirect if user creation is not needed
-  useEffect(() => {
-    if (!needsUserCreation && !isLoading) {
-      router.replace('/(auth)/(tabs)');
-    }
-  }, [needsUserCreation, isLoading, router]);
-
   // Load user data from Auth0 credentials
   useEffect(() => {
     async function loadUserData() {
       try {
         if (user) {
-          console.log('--------------------------------');
-          console.log('User', user);
-          console.log('--------------------------------');
           setCreateUserDto({
             auth0_id: user.sub || '',
             first_name: user.given_name || '',
@@ -58,7 +49,7 @@ export default function CreateProfile() {
       }
     }
     loadUserData();
-  }, [getCredentials]);
+  }, [user]);
 
   const handleCreateUser = async () => {
     if (
@@ -72,7 +63,19 @@ export default function CreateProfile() {
     }
 
     try {
-      await createUserMutation.mutateAsync(createUserDto);
+      const responseDto: UserResponseDto = await createUserMutation.mutateAsync(createUserDto);
+
+      // Store the encryption password and salt in secure storage
+      const salt = responseDto.account?.salt;
+      if (!salt) {
+        throw new Error('Salt not returned from server');
+      }
+
+      await encryptionCredentialsService.setCredentials({
+        password: createUserDto.encryption_password,
+        salt,
+      });
+
       await setNeedsUserCreation(false);
       // Navigate to tabs after user creation
       router.replace('/(auth)/(tabs)');
@@ -112,6 +115,7 @@ export default function CreateProfile() {
                 icon="user"
                 label="First Name"
                 placeholder="Enter your first name"
+                tabIndex={0}
               />
               <TextInput
                 value={createUserDto.last_name}
@@ -119,13 +123,15 @@ export default function CreateProfile() {
                 icon="user"
                 label="Last Name"
                 placeholder="Enter your last name"
+                tabIndex={1}
               />
               <TextInput
                 value={createUserDto.email}
                 onChangeText={text => setCreateUserDto({ ...createUserDto, email: text })}
-                icon="email"
+                icon="envelope"
                 label="Email"
                 placeholder="Enter your email"
+                tabIndex={2}
               />
               <TextInput
                 value={createUserDto.encryption_password}
@@ -133,6 +139,8 @@ export default function CreateProfile() {
                 icon="lock"
                 label="Encryption Password"
                 placeholder="Enter encryption password"
+                tabIndex={3}
+                type="password"
               />
             </View>
 

@@ -9,7 +9,6 @@ export default function AuthLayout() {
     return null;
   }
 
-  console.log('needsUserCreation', needsUserCreation);
   return (
     <Stack screenOptions={{ headerShown: false }}>
       {needsUserCreation ? (

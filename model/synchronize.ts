@@ -3,6 +3,7 @@ import { fetchLocalChanges, markLocalChangesAsSynced, getLastPulledAt } from '@n
 import database from './database';
 import { Sync } from '@/api/gen/Sync';
 import SyncLogger from '@nozbe/watermelondb/sync/SyncLogger';
+import { syncEncryptionService } from '@/services';
 
 /**
  * Table dependency order for sync operations.
@@ -145,8 +146,86 @@ const conflictResolver: SyncConflictResolver = (table, local, remote, resolved) 
 };
 
 /**
+ * Encrypts records in changes before sending to server.
+ * Only encrypts created and updated records (not deleted IDs).
+ */
+async function encryptChanges(changes: SyncDatabaseChangeSet): Promise<SyncDatabaseChangeSet> {
+  const encryptedChanges: Record<string, any> = {};
+
+  for (const [tableName, tableChanges] of Object.entries(changes)) {
+    const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+    const encryptedTableChanges: { created?: string[]; updated?: string[]; deleted?: any[] } = {};
+
+    // Encrypt created records
+    if (typedTableChanges.created?.length) {
+      encryptedTableChanges.created = await syncEncryptionService.encryptRecords(typedTableChanges.created);
+    }
+
+    // Encrypt updated records
+    if (typedTableChanges.updated?.length) {
+      encryptedTableChanges.updated = await syncEncryptionService.encryptRecords(typedTableChanges.updated);
+    }
+
+    // Deleted items are just IDs, don't encrypt them
+    if (typedTableChanges.deleted?.length) {
+      encryptedTableChanges.deleted = typedTableChanges.deleted;
+    }
+
+    // Only include table if it has changes
+    if (
+      encryptedTableChanges.created?.length ||
+      encryptedTableChanges.updated?.length ||
+      encryptedTableChanges.deleted?.length
+    ) {
+      encryptedChanges[tableName] = encryptedTableChanges;
+    }
+  }
+
+  return encryptedChanges as SyncDatabaseChangeSet;
+}
+
+/**
+ * Decrypts records in changes received from server.
+ * Only decrypts created and updated records (not deleted IDs).
+ */
+async function decryptChanges(changes: SyncDatabaseChangeSet): Promise<SyncDatabaseChangeSet> {
+  const decryptedChanges: Record<string, any> = {};
+
+  for (const [tableName, tableChanges] of Object.entries(changes)) {
+    const typedTableChanges = tableChanges as { created?: string[]; updated?: string[]; deleted?: any[] };
+    const decryptedTableChanges: { created?: any[]; updated?: any[]; deleted?: any[] } = {};
+
+    // Decrypt created records (expecting encrypted strings)
+    if (typedTableChanges.created?.length) {
+      decryptedTableChanges.created = await syncEncryptionService.decryptRecords(typedTableChanges.created);
+    }
+
+    // Decrypt updated records (expecting encrypted strings)
+    if (typedTableChanges.updated?.length) {
+      decryptedTableChanges.updated = await syncEncryptionService.decryptRecords(typedTableChanges.updated);
+    }
+
+    // Deleted items are just IDs, don't decrypt them
+    if (typedTableChanges.deleted?.length) {
+      decryptedTableChanges.deleted = typedTableChanges.deleted;
+    }
+
+    // Only include table if it has changes
+    if (
+      decryptedTableChanges.created?.length ||
+      decryptedTableChanges.updated?.length ||
+      decryptedTableChanges.deleted?.length
+    ) {
+      decryptedChanges[tableName] = decryptedTableChanges;
+    }
+  }
+
+  return decryptedChanges as SyncDatabaseChangeSet;
+}
+
+/**
  * Helper function to push changes to the server.
- * Handles filtering, batching, and normalization of changes.
+ * Handles filtering, batching, normalization, and encryption of changes.
  */
 async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet, lastPulledAt: number): Promise<void> {
   // Filter out excluded tables before pushing
@@ -155,12 +234,15 @@ async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet
   // Filter out system categories (ids starting with "sys") before pushing
   const filteredCategoryChanges = filterSystemCategories(filteredChanges);
 
+  // Encrypt records before sending to server
+  const encryptedChanges = await encryptChanges(filteredCategoryChanges);
+
   const BATCH_SIZE = 50;
 
   // Count total items across all tables
   let totalItems = 0;
-  for (const tableChanges of Object.values(filteredCategoryChanges)) {
-    const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+  for (const tableChanges of Object.values(encryptedChanges)) {
+    const typedTableChanges = tableChanges as { created?: string[]; updated?: string[]; deleted?: any[] };
     totalItems += typedTableChanges.created?.length || 0;
     totalItems += typedTableChanges.updated?.length || 0;
     totalItems += typedTableChanges.deleted?.length || 0;
@@ -170,8 +252,8 @@ async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet
   if (totalItems <= BATCH_SIZE) {
     // Ensure all tables have created, updated, and deleted arrays
     const normalizedChanges: Record<string, any> = {};
-    for (const [tableName, tableChanges] of Object.entries(filteredCategoryChanges)) {
-      const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+    for (const [tableName, tableChanges] of Object.entries(encryptedChanges)) {
+      const typedTableChanges = tableChanges as { created?: string[]; updated?: string[]; deleted?: any[] };
       normalizedChanges[tableName] = {
         created: typedTableChanges.created || [],
         updated: typedTableChanges.updated || [],
@@ -194,8 +276,8 @@ async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet
   };
 
   const operations: ChangeOperation[] = [];
-  for (const [tableName, tableChanges] of Object.entries(filteredCategoryChanges)) {
-    const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+  for (const [tableName, tableChanges] of Object.entries(encryptedChanges)) {
+    const typedTableChanges = tableChanges as { created?: string[]; updated?: string[]; deleted?: any[] };
     if (typedTableChanges.created?.length) {
       operations.push({
         table: tableName,
@@ -361,8 +443,11 @@ function createSyncConfig(syncApi: Sync, logger: SyncLogger) {
       // Extract data from axios response
       const { changes, timestamp } = (response as any).data as { changes: any; timestamp: number };
 
+      // Decrypt records received from server
+      const decryptedChanges = await decryptChanges(changes);
+
       // Filter out excluded tables
-      const filteredChanges = filterExcludedTables(changes);
+      const filteredChanges = filterExcludedTables(decryptedChanges);
 
       // Filter out system categories (ids starting with "sys")
       const filteredCategoryChanges = filterSystemCategories(filteredChanges);

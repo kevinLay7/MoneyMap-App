@@ -6,9 +6,9 @@ import '../config/ReactotronConfig';
 import { View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ColorSchemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
-import { DependencyProvider } from '@/context/dependencyContext';
+import { DependencyProvider, useDependency } from '@/context/dependencyContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { DemoProvider } from '@/context/demoContext';
 import { useUserCreationFlag } from '@/hooks/use-user-creation-flag';
 

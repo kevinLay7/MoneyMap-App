@@ -1,13 +1,8 @@
-import React, { useState, useCallback, useEffect } from "react";
-import {
-  TextInput as RNTextInput,
-  useColorScheme,
-  View,
-  Text,
-} from "react-native";
-import { BaseInputProps } from "./types";
-import { InputHeader } from "./input-header";
-import { Colors } from "@/constants/colors";
+import React, { useState, useCallback, useEffect } from 'react';
+import { TextInput as RNTextInput, useColorScheme, View, Text } from 'react-native';
+import { BaseInputProps } from './types';
+import { InputHeader } from './input-header';
+import { Colors } from '@/constants/colors';
 
 interface TextInputProps extends BaseInputProps {
   value: string;
@@ -15,6 +10,8 @@ interface TextInputProps extends BaseInputProps {
   placeholder?: string;
   disabled?: boolean;
   infoText?: string;
+  type?: 'text' | 'password' | 'email' | 'phone';
+  tabIndex?: number;
 }
 
 export function TextInput({
@@ -26,10 +23,11 @@ export function TextInput({
   placeholder,
   disabled = false,
   infoText,
+  type = 'text',
+  tabIndex = 0,
 }: TextInputProps) {
   const theme = useColorScheme();
-  const placeholderTextColor =
-    theme === "light" ? Colors.light.textSecondary : Colors.dark.textSecondary;
+  const placeholderTextColor = theme === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary;
   const inputRef = React.useRef<RNTextInput>(null);
   const containerRef = React.useRef<View>(null);
   const measureTextRef = React.useRef<Text>(null);
@@ -80,10 +78,16 @@ export function TextInput({
   // Determine if multiline is needed based on actual text width vs available width
   // Add a small buffer (10px) to account for measurement inaccuracies
   // Also check if text contains newlines
-  const hasNewlines = value.includes("\n");
-  const wouldOverflow =
-    availableWidth !== null && textWidth > 0 && textWidth > availableWidth - 10;
+  const hasNewlines = value.includes('\n');
+  const wouldOverflow = availableWidth !== null && textWidth > 0 && textWidth > availableWidth - 10;
   const multiLine = hasNewlines || wouldOverflow;
+
+  let keyboardType: 'default' | 'email-address' | 'phone-pad' = 'default';
+  if (type === 'email') {
+    keyboardType = 'email-address';
+  } else if (type === 'phone') {
+    keyboardType = 'phone-pad';
+  }
 
   return (
     <View
@@ -92,16 +96,9 @@ export function TextInput({
       onTouchEnd={handlePress}
       onLayout={handleContainerLayout}
     >
-      <View
-        className={` ${multiLine ? "flex-col items-start" : "flex-row items-center"}`}
-      >
+      <View className={` ${multiLine ? 'flex-col items-start' : 'flex-row items-center'}`}>
         <View onLayout={handleHeaderLayout}>
-          <InputHeader
-            icon={icon}
-            label={label}
-            infoText={infoText}
-            disabled={disabled}
-          />
+          <InputHeader icon={icon} label={label} infoText={infoText} disabled={disabled} />
         </View>
         <RNTextInput
           ref={inputRef}
@@ -115,6 +112,8 @@ export function TextInput({
           numberOfLines={multiLine ? 4 : 1}
           enablesReturnKeyAutomatically
           textAlign="right"
+          keyboardType={keyboardType}
+          tabIndex={tabIndex as unknown as 0 | -1 | undefined}
         />
       </View>
       {/* Hidden text for measuring width - matches TextInput styling */}
@@ -123,7 +122,7 @@ export function TextInput({
           ref={measureTextRef}
           className="text-text"
           style={{
-            position: "absolute",
+            position: 'absolute',
             opacity: 0,
             fontSize: 16, // Match default TextInput font size
             // Don't constrain width - we want to measure the actual text width

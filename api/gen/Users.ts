@@ -10,7 +10,7 @@
  * ---------------------------------------------------------------
  */
 
-import { CreateUserDto } from "./data-contracts";
+import { CreateUserDto, UserResponseDto } from "./data-contracts";
 import { ContentType, HttpClient, RequestParams } from "./http-client";
 
 export class Users<SecurityDataType = unknown> {
@@ -32,11 +32,12 @@ export class Users<SecurityDataType = unknown> {
     data: CreateUserDto,
     params: RequestParams = {},
   ) =>
-    this.http.request<void, void>({
+    this.http.request<UserResponseDto, void>({
       path: `/users/create`,
       method: "POST",
       body: data,
       type: ContentType.Json,
+      format: "json",
       ...params,
     });
   /**
@@ -49,10 +50,11 @@ export class Users<SecurityDataType = unknown> {
    * @secure
    */
   userControllerGetCurrentUser = (params: RequestParams = {}) =>
-    this.http.request<void, any>({
+    this.http.request<UserResponseDto, void>({
       path: `/users/self`,
       method: "GET",
       secure: true,
+      format: "json",
       ...params,
     });
 }
