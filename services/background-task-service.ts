@@ -377,7 +377,6 @@ export class BackgroundTaskService {
     try {
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
       if (isRegistered) {
-        console.log('Sync task already registered');
         return true;
       }
 
@@ -387,7 +386,6 @@ export class BackgroundTaskService {
         startOnBoot: true,
       });
 
-      console.log('Sync background task registered');
       return true;
     } catch (error) {
       console.error('Failed to register sync background task:', error);
@@ -402,7 +400,6 @@ export class BackgroundTaskService {
     try {
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_CHECK_TASK);
       if (isRegistered) {
-        console.log('Check task already registered');
         return true;
       }
 

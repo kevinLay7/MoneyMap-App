@@ -16,6 +16,7 @@ export default function TabLayout() {
     async function loadCategories() {
       if (categoryApi) {
         const categoryService = new CateogryService(categoryApi, database);
+
         await categoryService.loadCategoriesToDatabase();
       }
     }

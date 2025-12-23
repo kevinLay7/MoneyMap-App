@@ -1,4 +1,5 @@
 import CryptoJS from 'crypto-js';
+import * as Crypto from 'expo-crypto';
 import { encryptionCredentialsService } from './encryption-credentials-service';
 
 /**
@@ -9,6 +10,28 @@ class SyncEncryptionService {
   private readonly PBKDF2_ITERATIONS = 10000;
   private readonly KEY_SIZE = 256 / 32; // 256 bits = 32 bytes
   private readonly IV_SIZE = 128 / 32; // 128 bits = 16 bytes
+
+  /**
+   * Generates a secure random WordArray using expo-crypto.
+   * @param size Size in 32-bit words (4 bytes each)
+   * @returns WordArray with random bytes
+   */
+  private async generateRandomWordArray(size: number): Promise<CryptoJS.lib.WordArray> {
+    const byteLength = size * 4; // Convert words to bytes
+    const randomBytes = await Crypto.getRandomBytesAsync(byteLength);
+
+    // Convert Uint8Array to WordArray
+    const words: number[] = [];
+    for (let i = 0; i < randomBytes.length; i += 4) {
+      let word = 0;
+      for (let j = 0; j < 4 && i + j < randomBytes.length; j++) {
+        word |= (randomBytes[i + j] & 0xff) << (24 - j * 8);
+      }
+      words.push(word);
+    }
+
+    return CryptoJS.lib.WordArray.create(words, byteLength);
+  }
 
   /**
    * Derives an encryption key from password and salt using PBKDF2.
@@ -25,7 +48,7 @@ class SyncEncryptionService {
    * @param record The record object to encrypt
    * @returns Encrypted record as a string
    */
-  async encryptRecord(record: any): Promise<string> {
+  async encryptRecord(record: { id: string; record: any }): Promise<{ id: string; record: string }> {
     const credentials = await encryptionCredentialsService.getCredentials();
     if (!credentials) {
       throw new Error('Encryption credentials not found. User must be authenticated.');
@@ -37,8 +60,8 @@ class SyncEncryptionService {
     // Derive encryption key from password and salt
     const key = await this.deriveKey(credentials.password, credentials.salt);
 
-    // Generate a random IV for each encryption
-    const iv = CryptoJS.lib.WordArray.random(this.IV_SIZE);
+    // Generate a random IV for each encryption using expo-crypto
+    const iv = await this.generateRandomWordArray(this.IV_SIZE);
 
     // Encrypt using AES-256-CBC
     const encrypted = CryptoJS.AES.encrypt(plaintext, key, {
@@ -49,7 +72,7 @@ class SyncEncryptionService {
 
     // Combine IV and ciphertext, then encode as base64
     const combined = iv.concat(encrypted.ciphertext);
-    return combined.toString(CryptoJS.enc.Base64);
+    return { id: record.id, record: combined.toString(CryptoJS.enc.Base64) };
   }
 
   /**
@@ -74,19 +97,18 @@ class SyncEncryptionService {
     const key = await this.deriveKey(credentials.password, credentials.salt);
 
     // Decrypt using AES-256-CBC
-    const decrypted = CryptoJS.AES.decrypt(
-      { ciphertext: ciphertext } as CryptoJS.lib.CipherParams,
-      key,
-      {
-        iv: iv,
-        mode: CryptoJS.mode.CBC,
-        padding: CryptoJS.pad.Pkcs7,
-      }
-    );
+    const decrypted = CryptoJS.AES.decrypt({ ciphertext: ciphertext } as CryptoJS.lib.CipherParams, key, {
+      iv: iv,
+      mode: CryptoJS.mode.CBC,
+      padding: CryptoJS.pad.Pkcs7,
+    });
 
     // Convert to string and parse JSON
     const plaintext = decrypted.toString(CryptoJS.enc.Utf8);
-    return JSON.parse(plaintext);
+    const record = JSON.parse(plaintext);
+    delete record.record._changed;
+    delete record.record._status;
+    return record.record;
   }
 
   /**
@@ -94,8 +116,8 @@ class SyncEncryptionService {
    * @param records Array of record objects to encrypt
    * @returns Array of encrypted record strings
    */
-  async encryptRecords(records: any[]): Promise<string[]> {
-    return Promise.all(records.map(record => this.encryptRecord(record)));
+  async encryptRecords(records: any[]): Promise<{ id: string; record: string }[]> {
+    return Promise.all(records.map(record => this.encryptRecord({ id: record.id, record: record })));
   }
 
   /**
@@ -109,4 +131,3 @@ class SyncEncryptionService {
 }
 
 export const syncEncryptionService = new SyncEncryptionService();
-

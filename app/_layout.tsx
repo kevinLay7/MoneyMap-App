@@ -3,14 +3,14 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import '../global.css';
 import '../config/ReactotronConfig';
-import { View } from 'react-native';
+import { View, ActivityIndicator } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { ColorSchemeProvider, useColorScheme } from '@/hooks/use-color-scheme';
-import { DependencyProvider, useDependency } from '@/context/dependencyContext';
+import { DependencyProvider } from '@/context/dependencyContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 import { DemoProvider } from '@/context/demoContext';
-import { useUserCreationFlag } from '@/hooks/use-user-creation-flag';
+import { useProfileCheck } from '@/hooks/use-profile-check';
 
 // Conditionally import Auth0 - it requires native modules
 let Auth0Provider: React.ComponentType<{
@@ -54,15 +54,46 @@ export default function RootLayout() {
     <Auth0Provider domain={'dev-obyd3bj5h2tzmml3.us.auth0.com'} clientId={'4bGS49O1FIBjgXBYE7ihdACyqpONNNi9'}>
       <QueryClientProvider client={queryClient}>
         <ColorSchemeProvider>
-          <DependencyProvider>
-            <DemoProvider>
-              <RootLayoutContent />
-            </DemoProvider>
-          </DependencyProvider>
+          <ProfileCheckWrapper>
+            <DependencyProvider>
+              <DemoProvider>
+                <RootLayoutContent />
+              </DemoProvider>
+            </DependencyProvider>
+          </ProfileCheckWrapper>
         </ColorSchemeProvider>
       </QueryClientProvider>
     </Auth0Provider>
   );
+}
+
+/**
+ * Wrapper component that checks if user has a profile.
+ * Shows loading state while checking, then always renders DependencyProvider
+ * (needed for create-profile to work). Background syncing is prevented
+ * by useBackgroundTasks hook checking the profile status.
+ */
+function ProfileCheckWrapper({ children }: { children: ReactNode }) {
+  const { user } = useAuth0();
+  const { data: profileCheck, isLoading } = useProfileCheck();
+
+  // If user is not authenticated, render children (DependencyProvider can handle no user)
+  if (!user) {
+    return <>{children}</>;
+  }
+
+  // While checking profile, show loading
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" />
+      </View>
+    );
+  }
+
+  // Always render children (DependencyProvider)
+  // Background syncing is prevented by useBackgroundTasks checking profileCheck.hasProfile
+  return <>{children}</>;
 }
 
 function RootLayoutContent() {

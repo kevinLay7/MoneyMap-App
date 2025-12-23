@@ -80,9 +80,9 @@ function filterSystemCategories(changes: SyncDatabaseChangeSet): SyncDatabaseCha
 
     // Only include categories table if there are changes after filtering
     if (
-      filteredCategoryChanges.created?.length ||
-      filteredCategoryChanges.updated?.length ||
-      filteredCategoryChanges.deleted?.length
+      filteredCategoryChanges?.created?.length ||
+      filteredCategoryChanges?.updated?.length ||
+      filteredCategoryChanges?.deleted?.length
     ) {
       filtered.categories = filteredCategoryChanges;
     } else {
@@ -154,7 +154,11 @@ async function encryptChanges(changes: SyncDatabaseChangeSet): Promise<SyncDatab
 
   for (const [tableName, tableChanges] of Object.entries(changes)) {
     const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
-    const encryptedTableChanges: { created?: string[]; updated?: string[]; deleted?: any[] } = {};
+    const encryptedTableChanges: {
+      created?: { id: string; record: string }[];
+      updated?: { id: string; record: string }[];
+      deleted?: any[];
+    } = {};
 
     // Encrypt created records
     if (typedTableChanges.created?.length) {
@@ -193,7 +197,11 @@ async function decryptChanges(changes: SyncDatabaseChangeSet): Promise<SyncDatab
 
   for (const [tableName, tableChanges] of Object.entries(changes)) {
     const typedTableChanges = tableChanges as { created?: string[]; updated?: string[]; deleted?: any[] };
-    const decryptedTableChanges: { created?: any[]; updated?: any[]; deleted?: any[] } = {};
+    const decryptedTableChanges: { created?: any[]; updated?: any[]; deleted?: any[] } = {
+      created: [],
+      updated: [],
+      deleted: [],
+    };
 
     // Decrypt created records (expecting encrypted strings)
     if (typedTableChanges.created?.length) {
@@ -361,11 +369,6 @@ async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet
       }
       batchChanges[operation.table][operation.type] = operation.items;
     }
-
-    console.log('--------------------------------');
-    console.log('batchChanges', batchChanges);
-    console.log('--------------------------------');
-
     await syncApi.syncControllerPushChanges({
       changes: batchChanges,
       lastPulledAt: String(lastPulledAt || 0),
@@ -452,11 +455,7 @@ function createSyncConfig(syncApi: Sync, logger: SyncLogger) {
       // Filter out system categories (ids starting with "sys")
       const filteredCategoryChanges = filterSystemCategories(filteredChanges);
 
-      // Reorder changes to ensure dependency order is maintained
-      // This ensures parent records (categories, items, accounts) are synced before children (transactions, budgets)
-      const orderedChanges = reorderChangesByDependencies(filteredCategoryChanges);
-
-      return { changes: orderedChanges, timestamp };
+      return { changes: filteredCategoryChanges, timestamp };
     },
     pushChanges: async ({ changes, lastPulledAt }: { changes: SyncDatabaseChangeSet; lastPulledAt: number }) => {
       await pushChangesToServer(syncApi, changes, lastPulledAt);

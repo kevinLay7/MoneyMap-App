@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { useDependency } from '@/context/dependencyContext';
 import { backgroundTaskService, BackgroundTaskService } from '@/services/background-task-service';
+import { useProfileCheck } from '@/hooks/use-profile-check';
 
 const FOREGROUND_SYNC_INTERVAL = 30 * 1000; // 30 seconds
 const PUSH_ONLY_INTERVAL = 10 * 1000; // 10 seconds
@@ -13,13 +14,24 @@ const PUSH_ONLY_INTERVAL = 10 * 1000; // 10 seconds
  */
 export function useBackgroundTasks() {
   const { syncApi, plaidApi } = useDependency();
+  const { data: profileCheck, isLoading: isProfileCheckLoading } = useProfileCheck();
   const appState = useRef(AppState.currentState);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pushIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const isInitializedRef = useRef(false);
 
+  // Don't initialize background tasks if:
+  // - Profile check is still loading, OR
+  // - User doesn't have a profile
+  const shouldInitialize = !isProfileCheckLoading && profileCheck?.hasProfile === true;
+
   // Initialize background task service
   useEffect(() => {
+    if (!shouldInitialize) {
+      console.log('Skipping background task initialization: user profile not created yet');
+      return;
+    }
+
     if (!isInitializedRef.current) {
       backgroundTaskService
         .initialize({
@@ -61,7 +73,7 @@ export function useBackgroundTasks() {
         pushIntervalRef.current = null;
       }
     };
-  }, [syncApi, plaidApi]);
+  }, [syncApi, plaidApi, shouldInitialize]);
 
   /**
    * Execute sync operation (full sync: pull + push)
@@ -153,6 +165,11 @@ export function useBackgroundTasks() {
 
   // Handle foreground polling and app state changes
   useEffect(() => {
+    // Don't start polling if user doesn't have a profile
+    if (!shouldInitialize) {
+      return;
+    }
+
     const subscription = AppState.addEventListener('change', (nextAppState: AppStateStatus) => {
       const wasActive = appState.current === 'active';
       const isActive = nextAppState === 'active';
@@ -185,5 +202,5 @@ export function useBackgroundTasks() {
       stopForegroundPolling();
       stopPushOnlyPolling();
     };
-  }, [startForegroundPolling, stopForegroundPolling, startPushOnlyPolling, stopPushOnlyPolling]);
+  }, [startForegroundPolling, stopForegroundPolling, startPushOnlyPolling, stopPushOnlyPolling, shouldInitialize]);
 }

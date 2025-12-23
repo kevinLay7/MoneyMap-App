@@ -3,7 +3,7 @@ import { ThemedText } from '@/components/shared/themed-text';
 import { BackgroundContainer } from '@/components/ui/background-container';
 import { Colors } from '@/constants/colors';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import { View } from 'react-native';
 import { BudgetSelectHeader } from '@/components/budgets/budget-select-header';
@@ -17,6 +17,8 @@ import BudgetItem from '@/model/models/budget-item';
 import { BudgetViewModel } from '@/model/view-models/budget.viewmodel';
 import { BudgetSummaryCard } from '@/components/budgets/budget-summary-card';
 import { BudgetMenu } from '@/components/budgets/budget-menu';
+import { Button } from '@/components/ui/button';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 export default function BudgetsScreen() {
   const animatedRef = useAnimatedRef<any>();
@@ -62,7 +64,19 @@ export default function BudgetsScreen() {
   const renderNoBudgetSelected = () => {
     return (
       <View className="flex-1 items-center justify-center">
-        <ThemedText type="subtitle">No budget selected</ThemedText>
+        <ThemedText type="subtitle" className="my-6">
+          You don&apos;t have any budgets yet
+        </ThemedText>
+        <Button
+          title="  Create a new budget"
+          size="sm"
+          color="white"
+          iconLeft={<FontAwesome6 name="plus" size={16} color="black" />}
+          onPress={() => {
+            router.push('/(auth)/create-budget');
+          }}
+          width="w-1/2"
+        />
       </View>
     );
   };

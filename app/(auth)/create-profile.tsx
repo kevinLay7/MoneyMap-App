@@ -4,7 +4,6 @@ import { useAuth0 } from 'react-native-auth0';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { BackgroundContainer } from '@/components/ui/background-container';
 import { ThemedText } from '@/components/shared';
-import { useUserCreationFlag } from '@/hooks/use-user-creation-flag';
 import { useCreateUser } from '@/hooks/api/user-api';
 import { useState, useEffect } from 'react';
 import { TextInput } from '@/components/ui/inputs/text-input';
@@ -12,12 +11,13 @@ import { CreateUserDto, UserResponseDto } from '@/api/gen/data-contracts';
 import { Card } from '@/components/ui/card';
 import { useRouter } from 'expo-router';
 import { encryptionCredentialsService } from '@/services';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function CreateProfile() {
   const { user } = useAuth0();
-  const { needsUserCreation, setNeedsUserCreation } = useUserCreationFlag();
   const createUserMutation = useCreateUser();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [createUserDto, setCreateUserDto] = useState<CreateUserDto>({
     auth0_id: '',
     first_name: '',
@@ -76,7 +76,10 @@ export default function CreateProfile() {
         salt,
       });
 
-      await setNeedsUserCreation(false);
+      // Invalidate profile check query to trigger re-check
+      // This will automatically update the auth layout routing
+      await queryClient.invalidateQueries({ queryKey: ['profileCheck', user?.sub] });
+      
       // Navigate to tabs after user creation
       router.replace('/(auth)/(tabs)');
     } catch (error) {

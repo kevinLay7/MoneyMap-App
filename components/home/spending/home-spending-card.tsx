@@ -198,13 +198,18 @@ export const HomeSpendingGraphCard = memo(function HomeSpendingGraphCard() {
     () =>
       database
         .get<Account>('accounts')
-        .query(Q.where('type', Q.oneOf(['depository', 'credit'])))
+        .query(
+          Q.where('type', Q.oneOf(['depository', 'credit'])),
+          Q.where('subtype', Q.oneOf(['checking', 'savings', 'credit card']))
+        )
         .observe(),
     []
   );
 
   const accounts = useObservableCollection(accountsQuery);
-  const accountIds = useMemo(() => accounts.map(account => account.id), [accounts]);
+  const accountIds = useMemo(() => accounts.map(account => account.accountId), [accounts]);
+
+  console.log('accountIds', accountIds);
 
   const transactionsQuery = useMemo(
     () =>

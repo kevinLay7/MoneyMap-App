@@ -18,14 +18,12 @@ export function useObservable<T extends Model>(observable: Observable<T> | undef
       error: error => {
         // Silently handle "Record not found" errors
         // This is expected when observing models that reference non-existent records
-        const isRecordNotFound = 
-          error?.message?.includes('Record not found') ||
-          error?.message?.includes('not found');
-        
+        const isRecordNotFound = error?.message?.includes('Record not found') || error?.message?.includes('not found');
+
         if (!isRecordNotFound) {
           console.warn('Error observing model:', error);
         }
-        
+
         setValue(null);
       },
     });
@@ -51,14 +49,12 @@ export function useObservableCollection<T extends Model>(observable: Observable<
       next: setValue,
       error: error => {
         // Silently handle "Record not found" errors
-        const isRecordNotFound = 
-          error?.message?.includes('Record not found') ||
-          error?.message?.includes('not found');
-        
+        const isRecordNotFound = error?.message?.includes('Record not found') || error?.message?.includes('not found');
+
         if (!isRecordNotFound) {
           console.warn('Error observing collection:', error);
         }
-        
+
         setValue([]);
       },
     });

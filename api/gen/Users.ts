@@ -57,4 +57,27 @@ export class Users<SecurityDataType = unknown> {
       format: "json",
       ...params,
     });
+  /**
+   * No description
+   *
+   * @tags Users
+   * @name UserControllerValidateEncryptionKey
+   * @summary Validate an encryption key against an account
+   * @request POST:/users/validate-encryption-key
+   * @secure
+   */
+  userControllerValidateEncryptionKey = (
+    data: {
+      encryption_key?: string;
+    },
+    params: RequestParams = {},
+  ) =>
+    this.http.request<void, void>({
+      path: `/users/validate-encryption-key`,
+      method: "POST",
+      body: data,
+      secure: true,
+      type: ContentType.Json,
+      ...params,
+    });
 }

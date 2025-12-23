@@ -18,6 +18,7 @@ import { DataTable, TableColumn } from '@/components/ui/data-table';
 import { Colors } from '@/constants/colors';
 import { clearDatabase, deleteDatabaseFile } from '@/helpers/database-helpers';
 import { useObservableCollection } from '@/hooks/use-observable';
+import { encryptionCredentialsService } from '@/services/encryption-credentials-service';
 
 type TabType = 'account' | 'category' | 'item' | 'transaction' | 'sync' | 'transactionSync' | 'budget';
 
@@ -81,6 +82,25 @@ export default function DebugDataScreen() {
         },
       ]
     );
+  };
+
+  const handleClearEncryptionCredentials = async () => {
+    Alert.alert('Clear Encryption Credentials', 'This will remove your encryption key and salt. Are you sure?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Clear',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await encryptionCredentialsService.removeCredentials();
+            Alert.alert('Success', 'Encryption credentials cleared successfully');
+          } catch (error: any) {
+            console.error('Failed to clear encryption credentials:', error);
+            Alert.alert('Error', error.message || 'Failed to clear encryption credentials');
+          }
+        },
+      },
+    ]);
   };
 
   const accountColumns: TableColumn<Account>[] = [
@@ -493,8 +513,9 @@ export default function DebugDataScreen() {
       <AnimatedScrollView animatedRef={animatedRef}>
         <SafeAreaView className="flex-1">
           <View className="p-4 border-b border-border">
-            <View className="mb-4 flex-row gap-2">
+            <View className="mb-4 flex-col gap-2">
               <Button title="Clear All Data" onPress={handleClearDatabase} color="error" />
+              <Button title="Clear Encryption Key" onPress={handleClearEncryptionCredentials} color="error" />
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 16 }}>
               <View className="flex-row gap-2">

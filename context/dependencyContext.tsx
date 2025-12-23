@@ -4,7 +4,7 @@ import { HttpClient } from '@/api/gen/http-client';
 import { Plaid } from '@/api/gen/Plaid';
 import { Sync } from '@/api/gen/Sync';
 import { Users } from '@/api/gen/Users';
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import { useAuth0 } from 'react-native-auth0';
 import { getDeviceClientId } from '@/utils/device-client-id';
 export const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -46,18 +46,13 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
 
     // Set up initial authorization header if user is authenticated
     const setupInitialAuth = async () => {
-      if (user) {
-        try {
-          const credentials = await getCredentials();
-          if (credentials?.accessToken) {
-            httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
-          }
-        } catch (error) {
-          console.error('error setting up initial auth', error);
+      try {
+        const credentials = await getCredentials();
+        if (credentials?.accessToken) {
+          httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
         }
-      } else {
-        console.warn('clearing auth header');
-        // Clear authorization header when user is not authenticated
+      } catch (error) {
+        console.error('error setting up initial auth', error);
         delete httpClient.instance.defaults.headers.common.Authorization;
       }
     };
@@ -137,6 +132,9 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
 
     return deps;
   }, [getCredentials, clearCredentials, user]);
+
+  // Note: We always initialize dependencies to allow create-profile to use APIs
+  // Background syncing is prevented by checking profile in useBackgroundTasks hook
 
   return <DependencyContext.Provider value={dependencies}>{children}</DependencyContext.Provider>;
 };
