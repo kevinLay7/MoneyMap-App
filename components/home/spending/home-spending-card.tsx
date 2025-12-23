@@ -209,8 +209,6 @@ export const HomeSpendingGraphCard = memo(function HomeSpendingGraphCard() {
   const accounts = useObservableCollection(accountsQuery);
   const accountIds = useMemo(() => accounts.map(account => account.accountId), [accounts]);
 
-  console.log('accountIds', accountIds);
-
   const transactionsQuery = useMemo(
     () =>
       database
