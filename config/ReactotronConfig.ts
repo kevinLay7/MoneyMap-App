@@ -1,10 +1,5 @@
 import Reactotron from 'reactotron-react-native';
-import { Platform, LogBox } from 'react-native';
-
-// Suppress SafeAreaView deprecation warning from dependencies
-// Configure LogBox early, before any components render
-
-LogBox.ignoreLogs([/SafeAreaView has been deprecated/, /Please use 'react-native-safe-area-context'/]);
+import { Platform } from 'react-native';
 
 if (__DEV__) {
   try {
