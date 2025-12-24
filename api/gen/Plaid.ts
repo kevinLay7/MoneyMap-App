@@ -13,6 +13,8 @@
 import {
   CreateLinkTokenDto,
   PlaidAccountDto,
+  PlaidApiItemResponseDto,
+  PlaidItemCombinedResponseDto,
   PlaidItemResponseDto,
   PlaidSyncDto,
   PublicTokenDto,
@@ -65,7 +67,7 @@ export class Plaid<SecurityDataType = unknown> {
     data: PublicTokenDto,
     params: RequestParams = {},
   ) =>
-    this.http.request<PlaidItemResponseDto, void>({
+    this.http.request<PlaidApiItemResponseDto, void>({
       path: `/plaid/exchange-public-token`,
       method: "POST",
       body: data,
@@ -85,7 +87,7 @@ export class Plaid<SecurityDataType = unknown> {
     plaidItemId: string,
     params: RequestParams = {},
   ) =>
-    this.http.request<PlaidItemResponseDto, void>({
+    this.http.request<PlaidItemCombinedResponseDto, void>({
       path: `/plaid/${plaidItemId}`,
       method: "GET",
       format: "json",
@@ -103,9 +105,10 @@ export class Plaid<SecurityDataType = unknown> {
     plaidItemId: string,
     params: RequestParams = {},
   ) =>
-    this.http.request<any, void>({
+    this.http.request<PlaidItemResponseDto, void>({
       path: `/plaid/${plaidItemId}/institution/refresh`,
       method: "POST",
+      format: "json",
       ...params,
     });
   /**
@@ -157,7 +160,13 @@ export class Plaid<SecurityDataType = unknown> {
    * @request POST:/plaid/items/sync
    */
   plaidControllerSyncAccountsForPlaidItem = (params: RequestParams = {}) =>
-    this.http.request<PlaidItemResponseDto[], void>({
+    this.http.request<
+      {
+        /** @example "Items synced successfully" */
+        message?: string;
+      },
+      void
+    >({
       path: `/plaid/items/sync`,
       method: "POST",
       format: "json",

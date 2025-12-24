@@ -1,11 +1,10 @@
-import { Modal, Pressable, View, Dimensions } from 'react-native';
+import { Modal, Pressable, View, ScrollView } from 'react-native';
 import database from '@/model/database';
 import Category from '@/model/models/category';
 import { useEffect, useMemo, useState } from 'react';
 import { ThemedText } from '@/components/shared';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FontAwesome6 } from '@expo/vector-icons';
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import IconCircle from '../icon-circle';
 import { SearchInput } from './search-input';
 
@@ -100,9 +99,7 @@ export function CategorySlectorModal({
   readonly onClose: () => void;
   readonly onSelectCategory: (category: Category) => void;
 }>) {
-  const [visible, setVisible] = useState(isVisible);
-  const screenWidth = Dimensions.get('window').width;
-  const translateX = useSharedValue(-screenWidth);
+  const insets = useSafeAreaInsets();
 
   const [categories, setCategories] = useState<CategoryParent[] | undefined>(undefined);
   const [shouldExpand, setShouldExpand] = useState(false);
@@ -129,22 +126,10 @@ export function CategorySlectorModal({
     fetchCategories();
   }, []);
 
-  useEffect(() => {
-    setVisible(isVisible);
-    translateX.value = withTiming(isVisible ? 0 : screenWidth, { duration: 300 });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isVisible, screenWidth]);
-
   const selectCategory = (category: Category) => {
     onSelectCategory(category);
     onClose();
   };
-
-  const animatedStyle = useAnimatedStyle(() => {
-    return {
-      transform: [{ translateX: translateX.value }],
-    };
-  });
 
   const filteredCategories = useMemo(() => {
     const query = debouncedQuery.trim().toLowerCase();
@@ -172,9 +157,15 @@ export function CategorySlectorModal({
   }, [categories, debouncedQuery]);
 
   return (
-    <Modal visible={visible} onRequestClose={onClose} transparent>
-      <SafeAreaView className="flex-1 bg-background px-4">
-        <Animated.ScrollView style={[{ flex: 1, width: '100%' }, animatedStyle]}>
+    <Modal visible={isVisible} onRequestClose={onClose} transparent animationType="slide">
+      <View
+        className="flex-1 bg-background px-4"
+        style={{
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        }}
+      >
+        <ScrollView style={{ height: '100%', width: '100%' }}>
           <View className="flex-row mb-4">
             <ThemedText type="title">Select a Category</ThemedText>
             <Pressable onPress={onClose} className="ml-auto mr-2">
@@ -194,8 +185,8 @@ export function CategorySlectorModal({
               />
             ))}
           </View>
-        </Animated.ScrollView>
-      </SafeAreaView>
+        </ScrollView>
+      </View>
     </Modal>
   );
 }

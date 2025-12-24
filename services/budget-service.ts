@@ -1,6 +1,6 @@
 import { isDateBetween } from '@/helpers/dayjs';
 import Account from '@/model/models/account';
-import Budget from '@/model/models/budget';
+import Budget, { BudgetStatus } from '@/model/models/budget';
 import BudgetItem from '@/model/models/budget-item';
 import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { Database, Q } from '@nozbe/watermelondb';
@@ -33,6 +33,7 @@ export class BudgetService {
         budget.accountBalanceSource = createBudgetDto.accountBalanceSource;
         budget.accountId = createBudgetDto.accountId;
         budget.duration = createBudgetDto.duration;
+        budget.status = BudgetStatus.Active;
       });
 
       if (insertedBudget.balanceSource === BudgetBalanceSource.Account) {
@@ -78,6 +79,30 @@ export class BudgetService {
   }
 
   /**
+   * Gets the status of a budget.
+   * @param budget - The budget to get the status for.
+   * @returns The status of the budget.
+   */
+  private getBudgetStatus(budget: Budget): BudgetStatus {
+    const isActive = isDateBetween(budget.startDate, budget.endDate, new Date());
+    return isActive ? BudgetStatus.Active : BudgetStatus.Completed;
+  }
+
+  /**
+   * Updates the balance of a budget.
+   * @param budgetId - The id of the budget to update.
+   * @param balance - The new balance value.
+   */
+  async updateBudgetBalance(budgetId: string, balance: number) {
+    await this.database.write(async () => {
+      const budget = await this.database.get<Budget>('budgets').find(budgetId);
+      await budget.update(budget => {
+        budget.balance = balance;
+      });
+    });
+  }
+
+  /**
    * Updates the balances for all budgets associated with an account.
    * @param account - The account to update the balances for.
    */
@@ -95,7 +120,11 @@ export class BudgetService {
 
     const budgets = await this.database
       .get<Budget>('budgets')
-      .query(Q.where('account_id', internalAccount.id), Q.where('balance_source', BudgetBalanceSource.Account))
+      .query(
+        Q.where('account_id', internalAccount.id),
+        Q.where('balance_source', BudgetBalanceSource.Account),
+        Q.where('status', BudgetStatus.Active)
+      )
       .fetch();
 
     const currentBudgets = budgets.filter(budget => isDateBetween(budget.startDate, budget.endDate, new Date()));
@@ -103,14 +132,17 @@ export class BudgetService {
     for (const budget of currentBudgets) {
       if (budget.accountBalanceSource === AccountBalanceSrouce.Current) {
         await budget.update(budget => {
+          budget.status = this.getBudgetStatus(budget);
           budget.balance = internalAccount.balanceCurrent;
         });
       } else if (budget.accountBalanceSource === AccountBalanceSrouce.Available) {
         await budget.update(budget => {
+          budget.status = this.getBudgetStatus(budget);
           budget.balance = internalAccount.balanceAvailable ?? 0;
         });
       } else {
         await budget.update(budget => {
+          budget.status = this.getBudgetStatus(budget);
           budget.balance = 0;
         });
       }

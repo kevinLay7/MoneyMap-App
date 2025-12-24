@@ -19,6 +19,7 @@ import { Colors } from '@/constants/colors';
 import { clearDatabase, deleteDatabaseFile } from '@/helpers/database-helpers';
 import { useObservableCollection } from '@/hooks/use-observable';
 import { encryptionCredentialsService } from '@/services/encryption-credentials-service';
+import { backgroundTaskService } from '@/services/background-task-service';
 
 type TabType = 'account' | 'category' | 'item' | 'transaction' | 'sync' | 'transactionSync' | 'budget';
 
@@ -101,6 +102,33 @@ export default function DebugDataScreen() {
         },
       },
     ]);
+  };
+
+  const handleTriggerPlaidCheck = async () => {
+    try {
+      await backgroundTaskService.triggerPlaidCheck();
+      Alert.alert('Success', 'Plaid check triggered. Check console logs for details.');
+    } catch (error: any) {
+      console.error('Failed to trigger plaid check:', error);
+      Alert.alert('Error', error.message || 'Failed to trigger plaid check');
+    }
+  };
+
+  const handleCheckTaskStatus = async () => {
+    try {
+      const status = await backgroundTaskService.getTaskStatus();
+      const message = `
+Sync Task: ${status.syncRegistered ? '✅ Registered' : '❌ Not Registered'}
+Last Sync: ${status.lastSyncTime?.toLocaleString() || 'Never'}
+
+Check Task: ${status.checkRegistered ? '✅ Registered' : '❌ Not Registered'}
+Last Check: ${status.lastCheckTime?.toLocaleString() || 'Never'}
+      `.trim();
+      Alert.alert('Background Task Status', message);
+    } catch (error: any) {
+      console.error('Failed to check task status:', error);
+      Alert.alert('Error', error.message || 'Failed to check task status');
+    }
   };
 
   const accountColumns: TableColumn<Account>[] = [
@@ -513,10 +541,27 @@ export default function DebugDataScreen() {
       <AnimatedScrollView animatedRef={animatedRef}>
         <SafeAreaView className="flex-1">
           <View className="p-4 border-b border-border">
+            <ThemedText type="defaultSemiBold" className="mb-2">
+              Database Actions
+            </ThemedText>
             <View className="mb-4 flex-col gap-2">
               <Button title="Clear All Data" onPress={handleClearDatabase} color="error" />
               <Button title="Clear Encryption Key" onPress={handleClearEncryptionCredentials} color="error" />
             </View>
+
+            <ThemedText type="defaultSemiBold" className="mb-2 mt-4">
+              Background Tasks
+            </ThemedText>
+            <View className="mb-4 flex-col gap-2">
+              <Button title="Check Task Status" onPress={handleCheckTaskStatus} color="primary" />
+              <Button title="Trigger Plaid Check" onPress={handleTriggerPlaidCheck} color="primary" />
+            </View>
+          </View>
+
+          <View className="p-4 border-b border-border">
+            <ThemedText type="defaultSemiBold" className="mb-2">
+              Data Tables
+            </ThemedText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 16 }}>
               <View className="flex-row gap-2">
                 {(

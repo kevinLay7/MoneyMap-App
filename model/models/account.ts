@@ -1,5 +1,5 @@
 import { Model } from '@nozbe/watermelondb';
-import { field, relation, children, readonly, date, writer } from '@nozbe/watermelondb/decorators';
+import { field, relation, children, readonly, date } from '@nozbe/watermelondb/decorators';
 import Item from './item';
 import Transaction from './transaction';
 
@@ -27,16 +27,4 @@ export default class Account extends Model {
 
   @relation('items', 'item_id') item!: Item;
   @children('transactions') transactions!: Transaction[];
-
-  @writer async updateBalance(currentBalance: number, availableBalance: number) {
-    await this.update(account => {
-      account.balanceCurrent = currentBalance;
-      account.balanceAvailable = availableBalance;
-    });
-
-    // Use dynamic import to avoid circular dependency: Account -> BudgetService -> Account
-    const { BudgetService } = await import('@/services/budget-service');
-    const budgetService = new BudgetService(this.database);
-    await budgetService.updateBudgetBalancesForAccount(this);
-  }
 }

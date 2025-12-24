@@ -1,6 +1,6 @@
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import IconCircle from '../../ui/icon-circle';
-import { useNavigation } from '@react-navigation/native';
+import { router } from 'expo-router';
 import { useMoneyFormatter } from '@/hooks/format-money';
 import { ThemedText } from '../../shared/themed-text';
 import { View, Pressable } from 'react-native';
@@ -19,7 +19,6 @@ export function AccountGroupRow({
   onToggle: () => void;
 }) {
   const formatMoney = useMoneyFormatter();
-  const navigation = useNavigation();
   const [contentHeight, setContentHeight] = useState(0);
   const totalBalance = group.accounts.reduce((acc, item) => acc + (item.balanceCurrent ?? 0), 0);
   const rotateAnimation = useSharedValue(0);
@@ -84,7 +83,14 @@ export function AccountGroupRow({
               }}
             >
               {group.accounts.map(account => (
-                <AccountRow key={account.id} account={account} onPress={() => {}} />
+                <AccountRow
+                  key={account.id}
+                  account={account}
+                  onPress={() => {
+                    console.log('pushing to account details', account.id);
+                    router.push(`/(auth)/accounts/${account.id}`);
+                  }}
+                />
               ))}
             </View>
           </View>

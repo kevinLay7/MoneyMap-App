@@ -16,14 +16,14 @@ import { getDeviceClientId } from '@/utils/device-client-id';
 import { ThemedText } from './themed-text';
 
 type HeaderProps = {
-  scrollOffset: SharedValue<number>;
-  centerComponent?: ReactNode;
-  leftIcon?: string;
-  rightIcon?: string;
-  rightComponent?: ReactNode;
-  rightCallback?: () => void;
-  backgroundHex?: string;
-  noBackground?: boolean;
+  readonly scrollOffset: SharedValue<number>;
+  readonly centerComponent?: ReactNode;
+  readonly leftIcon?: string;
+  readonly rightIcon?: string;
+  readonly rightComponent?: ReactNode;
+  readonly rightCallback?: () => void;
+  readonly backgroundHex?: string;
+  readonly noBackground?: boolean;
 };
 
 /*

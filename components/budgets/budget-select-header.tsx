@@ -9,6 +9,7 @@ import { Card } from '../ui/card';
 import { useHaptics } from '@/hooks/useHaptics';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Button } from '../ui/button';
+import { router } from 'expo-router';
 
 interface BudgetSelectHeaderProps {
   onBudgetChange?: (budgetId: string) => void;
@@ -152,7 +153,9 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
                   iconLeft={<FontAwesome6 name="plus" size={14} color="black" />}
                   size="sm"
                   color="white"
-                  onPress={() => {}}
+                  onPress={() => {
+                    router.push('/(auth)/create-budget');
+                  }}
                 />
               </ScrollView>
             </Card>

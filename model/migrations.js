@@ -69,5 +69,14 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 7,
+      steps: [
+        addColumns({
+          table: 'budgets',
+          columns: [{ name: 'status', type: 'string' }],
+        }),
+      ],
+    },
   ],
 });

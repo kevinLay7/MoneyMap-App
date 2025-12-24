@@ -101,6 +101,68 @@ export interface PublicTokenDto {
   publicToken: string;
 }
 
+export interface PlaidApiItemResponseDto {
+  /**
+   * The Plaid Item ID
+   * @example "item_1234567890"
+   */
+  item_id: string;
+  /**
+   * The Plaid Institution ID associated with the Item
+   * @example "ins_123"
+   */
+  institution_id: object | null;
+  /**
+   * The name of the institution associated with the Item
+   * @example "Chase Bank"
+   */
+  institution_name: object | null;
+  /**
+   * The URL registered to receive webhooks for the Item
+   * @example "https://api.example.com/webhooks/plaid"
+   */
+  webhook: object | null;
+  /** The authentication method used for the Item */
+  auth_method: PlaidApiItemResponseDtoAuthMethodEnum;
+  /** Error information for the Item */
+  error: object | null;
+  /**
+   * A list of products available for the Item that have not yet been accessed
+   * @example ["transactions","identity"]
+   */
+  available_products: string[];
+  /**
+   * A list of products that have been billed for the Item
+   * @example ["transactions"]
+   */
+  billed_products: string[];
+  /**
+   * A list of products added to the Item
+   * @example ["transactions"]
+   */
+  products?: string[];
+  /**
+   * A list of products that the user has consented to for the Item
+   * @example ["transactions"]
+   */
+  consented_products?: string[];
+  /**
+   * The date and time at which the Item's access consent will expire, in ISO 8601 format
+   * @example "2024-12-31T23:59:59Z"
+   */
+  consent_expiration_time: object | null;
+  /**
+   * Indicates whether an Item requires user interaction to be updated
+   * @example "background"
+   */
+  update_type: PlaidApiItemResponseDtoUpdateTypeEnum;
+  /**
+   * The date and time when the Item was created, in ISO 8601 format
+   * @example "2024-01-01T00:00:00Z"
+   */
+  created_at?: string;
+}
+
 export interface PlaidItemResponseDto {
   /**
    * The unique identifier for the Plaid item
@@ -146,6 +208,13 @@ export interface PlaidItemResponseDto {
   updated_at: string;
   /** Whether the Plaid item is active */
   is_active: boolean;
+}
+
+export interface PlaidItemCombinedResponseDto {
+  /** The database PlaidItem entity with our stored metadata */
+  databaseModel: PlaidItemResponseDto;
+  /** The raw Plaid API Item object from Plaid */
+  plaidItem: PlaidApiItemResponseDto;
 }
 
 export interface AccountBalanceDto {
@@ -503,6 +572,22 @@ export enum UserResponseDtoRoleEnum {
   Owner = "owner",
   Admin = "admin",
   Member = "member",
+}
+
+/** The authentication method used for the Item */
+export enum PlaidApiItemResponseDtoAuthMethodEnum {
+  Automatic = "automatic",
+  Instant = "instant",
+  Manual = "manual",
+}
+
+/**
+ * Indicates whether an Item requires user interaction to be updated
+ * @example "background"
+ */
+export enum PlaidApiItemResponseDtoUpdateTypeEnum {
+  Background = "background",
+  UserPresentRequired = "user_present_required",
 }
 
 /** The status of the Plaid item */

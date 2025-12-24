@@ -13,18 +13,23 @@ export default function AuthLayout() {
       return;
     }
 
+    if (hasProfile === false) {
+      router.replace('/(auth)/create-profile');
+    }
+
     if (hasEncryptionCredentials === false) {
       router.replace('/(auth)/encryption-key');
     }
-  }, [hasEncryptionCredentials, isLoading]);
+  }, [hasEncryptionCredentials, hasProfile, isLoading]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {!hasProfile && <Stack.Screen name="create-profile" options={{ headerShown: false }} />}
-      {hasProfile && <Stack.Screen name="(tabs)" options={{ headerShown: false }} />}
-      {hasProfile && <Stack.Screen name="create-budget" options={{ headerShown: false }} />}
-      {hasProfile && __DEV__ && <Stack.Screen name="debug-data" options={{ headerShown: false }} />}
-      <Stack.Screen name="encryption-key" options={{ headerShown: false }} />
+      <Stack.Screen name="(tabs)" />
+      <Stack.Screen name="create-profile" />
+      <Stack.Screen name="create-budget" />
+      <Stack.Screen name="debug-data" />
+      <Stack.Screen name="encryption-key" />
+      <Stack.Screen name="accounts/[id]" />
     </Stack>
   );
 }

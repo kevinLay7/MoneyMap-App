@@ -1,18 +1,23 @@
 import { Alert } from 'react-native';
 import { Database } from '@nozbe/watermelondb';
 import { Plaid } from '@/api/gen/Plaid';
-import { PlaidItemResponseDto, PlaidAccountDto, TransactionsSyncResponseDto } from '@/api/gen/data-contracts';
+import {
+  PlaidAccountDto,
+  TransactionsSyncResponseDto,
+  PlaidItemCombinedResponseDto,
+  PlaidApiItemResponseDto,
+} from '@/api/gen/data-contracts';
 import Item from '@/model/models/item';
 import Account from '@/model/models/account';
 import { TransactionService } from './transaction-service';
 import { WriterInterface } from '@nozbe/watermelondb/Database/WorkQueue';
 
 export class PlaidService {
-  private transactionService: TransactionService;
+  private readonly transactionService: TransactionService;
 
   constructor(
-    private plaidApi: Plaid,
-    private database: Database
+    private readonly plaidApi: Plaid,
+    private readonly database: Database
   ) {
     this.transactionService = new TransactionService(database);
   }
@@ -52,21 +57,20 @@ export class PlaidService {
         throw new Error('No response received from Plaid API');
       }
 
-      const plaidItem: PlaidItemResponseDto = exchangeResponse.data;
+      const plaidItem: PlaidApiItemResponseDto = exchangeResponse.data;
 
-      // Step 2: Store item in database
-      await this.storeItem(plaidItem);
+      await this.fetchAndStoreItem(plaidItem.item_id);
 
-      // Step 3: Fetch and store accounts
-      await this.fetchAndStoreAccounts(plaidItem.plaid_item_id);
+      await this.fetchAndStoreAccounts(plaidItem.item_id);
 
-      // Step 4: Fetch and store transactions (with pagination)
-      await this.fetchAndStoreTransactions(plaidItem.plaid_item_id);
+      await this.fetchAndStoreTransactions(plaidItem.item_id);
 
       // Step 5: Alert user on success
+      const institutionName =
+        typeof plaidItem.institution_name === 'string' ? plaidItem.institution_name : 'your institution';
       const successMessage = existingPlaidItemId
-        ? `Successfully updated ${plaidItem.institution_name}!`
-        : `Successfully connected ${plaidItem.institution_name}!`;
+        ? `Successfully updated ${institutionName}!`
+        : `Successfully connected ${institutionName}!`;
       Alert.alert('Success', successMessage, [{ text: 'OK' }]);
     } catch (error: any) {
       console.error('Failed to handle Plaid Link success:', error);
@@ -77,48 +81,78 @@ export class PlaidService {
     }
   }
 
+  public async refeshItem(plaidItemId: string): Promise<void> {
+    // Check that the item exists in our database
+    const item = await this.database.get<Item>('items').query().fetch();
+    if (!item) {
+      throw new Error(`Item not found for plaidItemId: ${plaidItemId}`);
+    }
+
+    // Refresh the item
+    await this.fetchAndStoreItem(plaidItemId);
+
+    // Fetch and store accounts
+    await this.fetchAndStoreAccounts(plaidItemId);
+
+    // Fetch and store transactions
+    await this.fetchAndStoreTransactions(plaidItemId);
+  }
+
+  public async fetchAndStoreItem(plaidItemId: string): Promise<void> {
+    const plaidItem = await this.plaidApi.plaidControllerGetPlaidItem(plaidItemId);
+    await this.storeItem(plaidItem.data);
+  }
+
   /**
    * Stores a Plaid item in the database
    */
-  private async storeItem(plaidItem: PlaidItemResponseDto): Promise<void> {
+  private async storeItem(plaidItem: PlaidItemCombinedResponseDto): Promise<void> {
     await this.database.write(async (writer: WriterInterface) => {
       // Check if item already exists
       const existingItems = await this.database.get<Item>('items').query().fetch();
 
-      const existingItem = existingItems.find(item => item.plaidItemId === plaidItem.plaid_item_id);
+      const existingItem = existingItems.find(item => item.plaidItemId === plaidItem.databaseModel.plaid_item_id);
 
       if (existingItem) {
         // Update existing item
         await existingItem.update(item => {
-          item.accountId = plaidItem.account_id;
-          item.itemApiId = plaidItem.id || undefined;
-          item.institutionId = plaidItem.institution_id;
-          item.institutionName = plaidItem.institution_name;
-          item.institutionLogo = plaidItem.institution_logo ? JSON.stringify(plaidItem.institution_logo) : undefined;
-          item.institutionPrimaryColor = plaidItem.institution_primary_color
-            ? JSON.stringify(plaidItem.institution_primary_color)
+          item.accountId = plaidItem.databaseModel.account_id;
+          item.itemApiId = plaidItem.databaseModel.id || undefined;
+          item.institutionId = plaidItem.databaseModel.institution_id;
+          item.institutionName = plaidItem.databaseModel.institution_name;
+          item.institutionLogo = plaidItem.databaseModel.institution_logo
+            ? JSON.stringify(plaidItem.databaseModel.institution_logo)
             : undefined;
-          item.institutionUrl = plaidItem.institution_url ? JSON.stringify(plaidItem.institution_url) : undefined;
-          item.status = plaidItem.status;
-          item.lastSuccessfulUpdate = plaidItem.last_successful_update || undefined;
-          item.isActive = plaidItem.is_active;
+          item.institutionPrimaryColor = plaidItem.databaseModel.institution_primary_color
+            ? JSON.stringify(plaidItem.databaseModel.institution_primary_color)
+            : undefined;
+          item.institutionUrl = plaidItem.databaseModel.institution_url
+            ? JSON.stringify(plaidItem.databaseModel.institution_url)
+            : undefined;
+          item.status = plaidItem.databaseModel.status;
+          item.lastSuccessfulUpdate = plaidItem.databaseModel.last_successful_update || undefined;
+          item.isActive = plaidItem.databaseModel.is_active;
         });
       } else {
         // Create new item
         await this.database.get<Item>('items').create(item => {
-          item.accountId = plaidItem.account_id;
-          item.plaidItemId = plaidItem.plaid_item_id;
-          item.itemApiId = plaidItem.id || undefined;
-          item.institutionId = plaidItem.institution_id;
-          item.institutionName = plaidItem.institution_name;
-          item.institutionLogo = plaidItem.institution_logo ? JSON.stringify(plaidItem.institution_logo) : undefined;
-          item.institutionPrimaryColor = plaidItem.institution_primary_color
-            ? JSON.stringify(plaidItem.institution_primary_color)
+          item.accountId = plaidItem.databaseModel.account_id;
+          item.plaidItemId = plaidItem.databaseModel.plaid_item_id;
+          item.itemApiId = plaidItem.databaseModel.id || undefined;
+          item.institutionId = plaidItem.databaseModel.institution_id;
+          item.institutionName = plaidItem.databaseModel.institution_name;
+          item.institutionLogo = plaidItem.databaseModel.institution_logo
+            ? JSON.stringify(plaidItem.databaseModel.institution_logo)
             : undefined;
-          item.institutionUrl = plaidItem.institution_url ? JSON.stringify(plaidItem.institution_url) : undefined;
-          item.status = plaidItem.status;
-          item.lastSuccessfulUpdate = plaidItem.last_successful_update || undefined;
-          item.isActive = plaidItem.is_active;
+          item.institutionPrimaryColor = plaidItem.databaseModel.institution_primary_color
+            ? JSON.stringify(plaidItem.databaseModel.institution_primary_color)
+            : undefined;
+          item.institutionUrl = plaidItem.databaseModel.institution_url
+            ? JSON.stringify(plaidItem.databaseModel.institution_url)
+            : undefined;
+          item.status = plaidItem.databaseModel.status;
+          item.lastSuccessfulUpdate = plaidItem.databaseModel.last_successful_update || undefined;
+          item.isActive = plaidItem.databaseModel.is_active;
         });
       }
     });
@@ -150,72 +184,20 @@ export class PlaidService {
         // Get existing accounts to check for updates
         const existingAccounts = await this.database.get<Account>('accounts').query().fetch();
 
+        // Import AccountService
+        const { AccountService } = await import('@/services/account-service');
+        const accountService = new AccountService(this.database);
+
         // Process each account
         for (const accountDto of accounts) {
           const existingAccount = existingAccounts.find(acc => acc.accountId === accountDto.account_id);
-          // Extract balance values (API returns objects, need to convert)
-          const balanceCurrent = this.extractBalanceValue(accountDto.balances.current);
-          const balanceAvailable = this.extractBalanceValue(accountDto.balances.available);
 
           if (existingAccount) {
-            // Update existing account
-            await existingAccount.update(account => {
-              account.itemId = item.id;
-              account.name = accountDto.name;
-              account.officialName =
-                accountDto.official_name && typeof accountDto.official_name === 'string'
-                  ? accountDto.official_name
-                  : undefined;
-              account.type = accountDto.type;
-              account.subtype = accountDto.subtype;
-              account.mask = accountDto.mask && typeof accountDto.mask === 'string' ? accountDto.mask : undefined;
-              account.isoCurrencyCode =
-                accountDto.balances.iso_currency_code && typeof accountDto.balances.iso_currency_code === 'string'
-                  ? accountDto.balances.iso_currency_code
-                  : accountDto.balances.iso_currency_code && typeof accountDto.balances.iso_currency_code === 'object'
-                    ? String(accountDto.balances.iso_currency_code)
-                    : undefined;
-              account.unofficialCurrencyCode =
-                accountDto.balances.unofficial_currency_code &&
-                typeof accountDto.balances.unofficial_currency_code === 'string'
-                  ? accountDto.balances.unofficial_currency_code
-                  : accountDto.balances.unofficial_currency_code &&
-                      typeof accountDto.balances.unofficial_currency_code === 'object'
-                    ? String(accountDto.balances.unofficial_currency_code)
-                    : undefined;
-            });
-
-            await existingAccount.updateBalance(balanceCurrent, balanceAvailable);
+            // Update existing account using AccountService
+            await accountService.updateAccountFromPlaid(existingAccount, accountDto, item.id, true);
           } else {
-            // Create new account
-            await this.database.get<Account>('accounts').create(account => {
-              account.accountId = accountDto.account_id;
-              account.itemId = item.id;
-              account.name = accountDto.name;
-              account.officialName =
-                accountDto.official_name && typeof accountDto.official_name === 'string'
-                  ? accountDto.official_name
-                  : undefined;
-              account.type = accountDto.type;
-              account.subtype = accountDto.subtype;
-              account.mask = accountDto.mask && typeof accountDto.mask === 'string' ? accountDto.mask : undefined;
-              account.balanceCurrent = balanceCurrent;
-              account.balanceAvailable = balanceAvailable;
-              account.isoCurrencyCode =
-                accountDto.balances.iso_currency_code && typeof accountDto.balances.iso_currency_code === 'string'
-                  ? accountDto.balances.iso_currency_code
-                  : accountDto.balances.iso_currency_code && typeof accountDto.balances.iso_currency_code === 'object'
-                    ? String(accountDto.balances.iso_currency_code)
-                    : undefined;
-              account.unofficialCurrencyCode =
-                accountDto.balances.unofficial_currency_code &&
-                typeof accountDto.balances.unofficial_currency_code === 'string'
-                  ? accountDto.balances.unofficial_currency_code
-                  : accountDto.balances.unofficial_currency_code &&
-                      typeof accountDto.balances.unofficial_currency_code === 'object'
-                    ? String(accountDto.balances.unofficial_currency_code)
-                    : undefined;
-            });
+            // Create new account using AccountService
+            await accountService.createAccountFromPlaid(accountDto, item.id, true);
           }
         }
       });
@@ -263,35 +245,5 @@ export class PlaidService {
       console.error('Failed to fetch and store transactions:', error);
       throw error;
     }
-  }
-
-  /**
-   * Extracts numeric value from balance field (API may return numbers or objects)
-   */
-  private extractBalanceValue(value: unknown): number {
-    if (typeof value === 'number') {
-      return value;
-    }
-    if (typeof value === 'string') {
-      const parsed = parseFloat(value);
-      return isNaN(parsed) ? 0 : parsed;
-    }
-    if (value === null || value === undefined) {
-      return 0;
-    }
-    // Handle case where API returns object (though typically it's a number)
-    if (value && typeof value === 'object') {
-      const obj = value as Record<string, unknown>;
-      // Try common property names
-      const numValue = obj.value ?? obj.amount ?? obj.balance ?? obj.current ?? obj.available;
-      if (typeof numValue === 'number') {
-        return numValue;
-      }
-      if (typeof numValue === 'string') {
-        const parsed = parseFloat(numValue);
-        return isNaN(parsed) ? 0 : parsed;
-      }
-    }
-    return 0;
   }
 }

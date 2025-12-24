@@ -4,6 +4,11 @@ import { children, date, field, readonly, relation } from '@nozbe/watermelondb/d
 import Account from './account';
 import BudgetItem, { BudgetItemType } from './budget-item';
 
+export enum BudgetStatus {
+  Active = 'active',
+  Completed = 'completed',
+}
+
 export default class Budget extends Model {
   static table = 'budgets';
   static associations = {
@@ -24,6 +29,7 @@ export default class Budget extends Model {
   @field('account_balance_source') accountBalanceSource!: AccountBalanceSrouce;
   @field('account_id') accountId!: string | null;
   @field('duration') duration!: BudgetDuration;
+  @field('status') status!: BudgetStatus;
 
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;

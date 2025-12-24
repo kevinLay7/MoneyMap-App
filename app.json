@@ -17,7 +17,9 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.condenest.moneymap",
       "icon": "./assets/images/icon.png",
-      "backgroundModes": ["background-fetch"]
+      "backgroundModes": [
+        "background-fetch"
+      ]
     },
     "android": {
       "adaptiveIcon": {
@@ -61,7 +63,8 @@
         {
           "mode": "remote-notification"
         }
-      ]
+      ],
+      "expo-background-task"
     ],
     "experiments": {
       "typedRoutes": true,
