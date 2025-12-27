@@ -4,7 +4,7 @@ import { BackgroundTaskResult } from 'expo-background-task';
 import { Sync } from '@/api/gen/Sync';
 import { Plaid } from '@/api/gen/Plaid';
 import { HttpClient } from '@/api/gen/http-client';
-import { databaseSynchronize, pushOnlyChanges } from '@/model/synchronize';
+import { databaseSynchronize } from '@/model/synchronize';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Auth0 from 'react-native-auth0';
 import { getDeviceClientId } from '@/utils/device-client-id';
@@ -12,21 +12,20 @@ import SyncLogger from '@nozbe/watermelondb/sync/SyncLogger';
 import dayjs from 'dayjs';
 import database from '@/model/database';
 import Item from '@/model/models/item';
+import { PlaidService } from './plaid-service';
 
-// Task names
+// Task name - single unified background task
 export const BACKGROUND_SYNC_TASK = 'background-sync';
-export const BACKGROUND_PLAID_SYNC_TASK = 'background-check';
 
 // Storage keys
 const LAST_SYNC_KEY = 'last_background_sync';
-const LAST_CHECK_KEY = 'last_background_check';
 const API_URL_KEY = 'background_task_api_url';
-const LAST_ITEM_REFRESH_PREFIX = 'last_item_refresh_'; // Will be suffixed with item ID
 
-// Minimum time between executions (in milliseconds) to prevent duplicate calls
-const MIN_SYNC_INTERVAL = 25 * 1000; // 25 seconds (less than 30s to allow for foreground polling)
-const MIN_CHECK_INTERVAL = 30 * 60 * 1000; // 30 minutes
-const MIN_ITEM_REFRESH_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours - prevent refreshing same item too often
+// Stale item threshold (unified to 12 hours)
+const STALE_ITEM_THRESHOLD_HOURS = 12;
+
+// Lock timeout
+const SYNC_LOCK_TIMEOUT = 60 * 1000; // 60 seconds
 
 interface BackgroundTaskServiceConfig {
   syncApi: Sync;
@@ -37,21 +36,30 @@ interface BackgroundTaskServiceConfig {
 let globalSyncApi: Sync | null = null;
 let globalPlaidApi: Plaid | null = null;
 let globalInitialized = false;
-let syncInProgress = false; // Lock to prevent concurrent syncs
-let syncLockAcquiredAt: number | null = null; // Timestamp when lock was acquired
-const SYNC_LOCK_TIMEOUT = 60 * 1000; // 60 seconds - auto-release lock if held too long
-let auth0Instance: Auth0 | null = null; // Auth0 instance for background tasks
+let syncInProgress = false;
+let syncLockAcquiredAt: number | null = null;
+let auth0Instance: Auth0 | null = null;
 
+/**
+ * BackgroundTaskService - Handles OS-level background task registration and execution.
+ *
+ * This service is focused solely on:
+ * - Registering background tasks with expo-background-task
+ * - Executing sync when the OS wakes the app in the background
+ * - Headless context initialization (when app is not running)
+ *
+ * Foreground sync scheduling is handled by SyncOrchestrator.
+ */
 export class BackgroundTaskService {
   /**
-   * Initialize the background task service with API clients
+   * Initialize with API clients (called when app starts).
    */
-  async initialize(config: BackgroundTaskServiceConfig) {
+  async initialize(config: BackgroundTaskServiceConfig): Promise<void> {
     globalSyncApi = config.syncApi;
     globalPlaidApi = config.plaidApi;
     globalInitialized = true;
 
-    // Store API URL for headless context initialization
+    // Store API URL for headless context
     const apiUrl = process.env.EXPO_PUBLIC_API_URL;
     if (apiUrl) {
       try {
@@ -63,15 +71,11 @@ export class BackgroundTaskService {
   }
 
   /**
-   * Initialize Auth0 instance for background tasks
-   * This allows background tasks to retrieve credentials from secure storage
+   * Initialize Auth0 for background tasks (credential retrieval in headless context).
    */
-  initializeAuth0(domain: string, clientId: string) {
+  initializeAuth0(domain: string, clientId: string): void {
     try {
-      auth0Instance = new Auth0({
-        domain,
-        clientId,
-      });
+      auth0Instance = new Auth0({ domain, clientId });
       console.log('Auth0 initialized for background tasks');
     } catch (error) {
       console.error('Failed to initialize Auth0 for background tasks:', error);
@@ -79,43 +83,38 @@ export class BackgroundTaskService {
   }
 
   /**
-   * Check if service is initialized
+   * Check if service is initialized.
    */
   isInitialized(): boolean {
     return globalInitialized && globalSyncApi !== null && globalPlaidApi !== null;
   }
 
   /**
-   * Initialize API instances in headless context
-   * Recreates HttpClient and API instances using stored config and Auth0 credentials
+   * Initialize in headless context (when app was killed).
    */
   private static async initializeInHeadlessContext(): Promise<boolean> {
     if (!auth0Instance) {
-      console.warn('Auth0 instance not initialized, cannot initialize in headless context');
+      console.warn('Auth0 not initialized, cannot init headless context');
       return false;
     }
 
     try {
-      // Get API URL from storage or env
       const apiUrl = (await AsyncStorage.getItem(API_URL_KEY)) || process.env.EXPO_PUBLIC_API_URL;
       if (!apiUrl) {
-        console.warn('API URL not available, cannot initialize in headless context');
+        console.warn('API URL not available');
         return false;
       }
 
-      // Get credentials from secure storage (automatically refreshes if expired)
       const credentials = await auth0Instance.credentialsManager.getCredentials();
       if (!credentials?.accessToken) {
-        console.warn('No access token available, cannot initialize in headless context');
+        console.warn('No access token available');
         return false;
       }
 
-      // Create HttpClient with auth token
       const httpClient = new HttpClient<unknown>();
       httpClient.instance.defaults.baseURL = apiUrl;
       httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
 
-      // Set up request interceptor to add x-client-id header for sync endpoints
       httpClient.instance.interceptors.request.use(
         async config => {
           if (config.url && (config.url.includes('/sync/pull') || config.url.includes('/sync/push'))) {
@@ -131,7 +130,6 @@ export class BackgroundTaskService {
         error => Promise.reject(error)
       );
 
-      // Create API instances
       globalSyncApi = new Sync(httpClient);
       globalPlaidApi = new Plaid(httpClient);
       globalInitialized = true;
@@ -139,66 +137,52 @@ export class BackgroundTaskService {
       console.log('Background task service initialized in headless context');
       return true;
     } catch (error) {
-      console.error('Failed to initialize in headless context:', error);
+      console.error('Failed to initialize headless context:', error);
       return false;
     }
   }
 
   /**
-   * Refresh authentication token for API clients
-   * Retrieves credentials from secure storage and updates HttpClient headers
+   * Refresh auth token for API clients.
    */
   private static async refreshAuthToken(): Promise<boolean> {
-    if (!auth0Instance) {
-      console.warn('Auth0 instance not initialized, cannot refresh token');
-      return false;
-    }
+    if (!auth0Instance) return false;
 
     try {
-      // Get credentials from secure storage (automatically refreshes if expired)
       const credentials = await auth0Instance.credentialsManager.getCredentials();
+      if (!credentials?.accessToken) return false;
 
-      if (!credentials?.accessToken) {
-        console.warn('No access token available in credentials');
-        return false;
-      }
-
-      // Update Authorization headers for both API clients
       if (globalSyncApi) {
         globalSyncApi.http.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
       }
-
       if (globalPlaidApi) {
         globalPlaidApi.http.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
       }
 
-      console.log('Auth token refreshed successfully for background tasks');
       return true;
     } catch (error) {
-      console.error('Failed to refresh auth token for background tasks:', error);
+      console.error('Failed to refresh auth token:', error);
       return false;
     }
   }
 
   /**
-   * Acquire sync lock. Returns true if lock was acquired, false if already locked.
-   * Automatically releases stale locks (held longer than SYNC_LOCK_TIMEOUT).
+   * Acquire sync lock.
    */
-  static acquireSyncLock(): boolean {
+  private static acquireSyncLock(): boolean {
     const now = Date.now();
 
-    // Check if lock is stale and should be auto-released
+    // Check for stale lock
     if (syncInProgress && syncLockAcquiredAt) {
       const lockHeldFor = now - syncLockAcquiredAt;
       if (lockHeldFor > SYNC_LOCK_TIMEOUT) {
-        console.warn(`⚠️ Sync lock was stale (held for ${Math.round(lockHeldFor / 1000)}s), force-releasing`);
+        console.warn(`⚠️ Sync lock stale (held ${Math.round(lockHeldFor / 1000)}s), releasing`);
         this.releaseSyncLock();
       }
     }
 
-    if (syncInProgress) {
-      return false;
-    }
+    if (syncInProgress) return false;
+
     syncInProgress = true;
     syncLockAcquiredAt = now;
     return true;
@@ -207,312 +191,111 @@ export class BackgroundTaskService {
   /**
    * Release sync lock.
    */
-  static releaseSyncLock(): void {
+  private static releaseSyncLock(): void {
     syncInProgress = false;
     syncLockAcquiredAt = null;
   }
 
   /**
-   * Force release the sync lock. Use only for debugging/recovery.
+   * Execute background sync task (called by OS).
+   * Performs full sync + checks for stale Plaid items.
    */
-  static forceReleaseSyncLock(): void {
-    console.warn('⚠️ Force releasing sync lock');
-    syncInProgress = false;
-    syncLockAcquiredAt = null;
-  }
-
-  /**
-   * Wraps a promise with a timeout. Rejects if the promise doesn't resolve within the timeout.
-   */
-  private static withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error(`${operation} timed out after ${timeoutMs / 1000}s`));
-      }, timeoutMs);
-
-      promise
-        .then(result => {
-          clearTimeout(timer);
-          resolve(result);
-        })
-        .catch(error => {
-          clearTimeout(timer);
-          reject(error);
-        });
-    });
-  }
-
-  /**
-   * Execute sync with lock to prevent concurrent calls
-   */
-  static async executeSyncWithLock(syncApi: Sync): Promise<void> {
-    if (!this.acquireSyncLock()) {
-      console.log('Sync already in progress, skipping');
-      return;
-    }
-
-    const logger = new SyncLogger(1000);
-    try {
-      // Wrap sync with a timeout slightly less than the lock timeout
-      await this.withTimeout(databaseSynchronize(syncApi, logger), SYNC_LOCK_TIMEOUT - 5000, 'Database sync');
-    } finally {
-      this.releaseSyncLock();
-    }
-  }
-
-  /**
-   * Execute push-only sync with lock to prevent concurrent calls
-   */
-  static async executePushOnlyWithLock(syncApi: Sync): Promise<void> {
-    if (!this.acquireSyncLock()) {
-      console.log('Sync already in progress, skipping push-only');
-      return;
-    }
-
-    try {
-      // Wrap push with a timeout (45s should be enough for most cases)
-      await this.withTimeout(pushOnlyChanges(syncApi), 45000, 'Push-only sync');
-    } finally {
-      this.releaseSyncLock();
-    }
-  }
-
-  /**
-   * Execute sync task (static method for headless context)
-   */
-  private static async executeSync(): Promise<BackgroundTaskResult> {
-    // Try to initialize if not already initialized (headless context)
+  private static async executeBackgroundSync(): Promise<BackgroundTaskResult> {
+    // Initialize if needed (headless context)
     if (!globalInitialized || !globalSyncApi) {
-      console.log('Background task service not initialized, attempting to initialize in headless context...');
+      console.log('Initializing in headless context...');
       const initialized = await this.initializeInHeadlessContext();
       if (!initialized) {
-        console.warn('Failed to initialize background task service, skipping sync');
+        console.warn('Headless init failed, skipping background sync');
         return BackgroundTaskResult.Failed;
       }
     }
 
+    // Acquire lock
+    if (!this.acquireSyncLock()) {
+      console.log('Sync in progress, skipping background sync');
+      return BackgroundTaskResult.Success;
+    }
+
     try {
-      // Check if sync is already in progress
-      if (syncInProgress) {
-        console.log('Sync already in progress, skipping background sync');
-        return BackgroundTaskResult.Success;
-      }
+      // Refresh auth token
+      await this.refreshAuthToken();
 
-      // Check if enough time has passed
-      const lastExecution = await this.getLastExecutionTime(LAST_SYNC_KEY);
-      const shouldExecute = !lastExecution || Date.now() - lastExecution >= MIN_SYNC_INTERVAL;
-
-      if (!shouldExecute) {
-        console.log('Sync skipped: too soon since last execution');
-        return BackgroundTaskResult.Success;
-      }
-
-      console.log('Executing background sync...');
-
-      // Refresh auth token before sync to ensure we have valid credentials
-      const tokenRefreshed = await this.refreshAuthToken();
-      if (!tokenRefreshed) {
-        console.warn('Failed to refresh auth token, attempting sync anyway');
-        // Continue anyway - the API call will fail with 401 if token is invalid
-      }
-
-      // Execute database synchronization with lock
-      if (!globalSyncApi) {
-        console.error('Sync API not available after initialization');
-        return BackgroundTaskResult.Failed;
-      }
-      await this.executeSyncWithLock(globalSyncApi);
+      // Execute full sync
+      console.log('📋 Executing background full sync...');
+      const logger = new SyncLogger(1000);
+      await databaseSynchronize(globalSyncApi!, logger);
+      console.log('✅ Background full sync completed');
 
       // Store execution time
-      await this.setLastExecutionTime(LAST_SYNC_KEY, Date.now());
+      await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
 
-      console.log('Background sync completed successfully');
+      // Check for stale Plaid items
+      await this.checkAndRefreshStaleItems();
+
       return BackgroundTaskResult.Success;
     } catch (error) {
-      console.error('Background sync failed:', error);
+      console.error('❌ Background sync failed:', error);
       return BackgroundTaskResult.Failed;
+    } finally {
+      this.releaseSyncLock();
     }
   }
 
   /**
-   * Execute check task (static method for headless context)
+   * Check for stale Plaid items and refresh them (12h threshold).
    */
-  private static async executeCheck(): Promise<BackgroundTaskResult> {
-    // Try to initialize if not already initialized (headless context)
-    if (!globalInitialized || !globalPlaidApi) {
-      console.log('Background task service not initialized, attempting to initialize in headless context...');
-      const initialized = await this.initializeInHeadlessContext();
-      if (!initialized) {
-        console.warn('Failed to initialize background task service, skipping check');
-        return BackgroundTaskResult.Failed;
-      }
-    }
+  private static async checkAndRefreshStaleItems(): Promise<void> {
+    if (!globalPlaidApi) return;
 
     try {
-      // Check if enough time has passed
-      const lastExecution = await this.getLastExecutionTime(LAST_CHECK_KEY);
-      const now = Date.now();
-      const timeSinceLastExecution = lastExecution ? now - lastExecution : null;
-      const shouldExecute = !lastExecution || timeSinceLastExecution! >= MIN_CHECK_INTERVAL;
-
-      console.log('🔍 Plaid check task triggered', {
-        lastExecution: lastExecution ? new Date(lastExecution).toISOString() : 'never',
-        timeSinceLastExecution: timeSinceLastExecution
-          ? `${Math.round(timeSinceLastExecution / (60 * 1000))} minutes`
-          : 'never',
-        minimumInterval: `${MIN_CHECK_INTERVAL / (60 * 60 * 1000)} hours`,
-        shouldExecute,
-      });
-
-      if (!shouldExecute) {
-        const timeRemaining = MIN_CHECK_INTERVAL - timeSinceLastExecution!;
-        console.log(`⏭️  Check skipped: ${Math.round(timeRemaining / (60 * 1000))} minutes until next check`);
-        return BackgroundTaskResult.Success;
-      }
-
-      console.log('🚀 Executing background plaid check...');
-
-      // Refresh auth token before check to ensure we have valid credentials
-      const tokenRefreshed = await this.refreshAuthToken();
-      if (!tokenRefreshed) {
-        console.warn('Failed to refresh auth token, attempting check anyway');
-        // Continue anyway - the API call will fail with 401 if token is invalid
-      }
-
-      // Call the check endpoint (using Plaid checkForUpdates as default)
-      if (!globalPlaidApi) {
-        console.error('Plaid API not available after initialization');
-        return BackgroundTaskResult.Failed;
-      }
-      console.log('Calling PlaidcheckForUpdates');
-      await globalPlaidApi.plaidControllerCheckForUpdates();
-      console.log('Plaid checkForUpdates completed');
-
-      // Check for items behind on sync and refresh them (with rate limiting)
-      await this.refreshItemsBehindOnSync();
-
-      // Store execution time
-      await this.setLastExecutionTime(LAST_CHECK_KEY, Date.now());
-
-      console.log('Background check completed successfully');
-      return BackgroundTaskResult.Success;
-    } catch (error) {
-      console.error('Background check failed:', error);
-      return BackgroundTaskResult.Failed;
-    }
-  }
-
-  /**
-   * Refresh items that are behind on sync (background only, with rate limiting)
-   */
-  private static async refreshItemsBehindOnSync(): Promise<void> {
-    try {
-      // Query items from database
       const items = await database.get<Item>('items').query().fetch();
 
-      // Filter items behind on sync (more than 4 hours since last local refresh)
-      const itemsBehindOnSync = items.filter(item => {
-        if (!item.lastLocalRefresh) return true; // Never refreshed locally
-        return dayjs(item.lastLocalRefresh).isBefore(dayjs().subtract(4, 'hour'));
+      const staleItems = items.filter(item => {
+        if (!item.lastLocalRefresh) return true;
+        return dayjs(item.lastLocalRefresh).isBefore(dayjs().subtract(STALE_ITEM_THRESHOLD_HOURS, 'hour'));
       });
 
-      if (itemsBehindOnSync.length === 0) {
-        console.log('✅ All items are up to date');
+      if (staleItems.length === 0) {
+        console.log('✅ All Plaid items up to date');
         return;
       }
 
-      console.log(
-        `⚠️  ${itemsBehindOnSync.length} items behind on sync:`,
-        itemsBehindOnSync.map(item => ({
-          name: item.institutionName,
-          lastLocalRefresh: item.lastLocalRefresh,
-          lastSuccessfulUpdate: item.lastSuccessfulUpdate,
-        }))
-      );
+      console.log(`⚠️ ${staleItems.length} stale items found`);
 
-      // Import PlaidService dynamically to avoid circular dependencies
-      const { PlaidService } = await import('@/services/plaid-service');
-
-      if (!globalPlaidApi) {
-        console.error('Plaid API not available for item refresh');
-        return;
+      // Trigger backend webhook check first
+      try {
+        await globalPlaidApi.plaidControllerCheckForUpdates();
+      } catch (error) {
+        console.error('Plaid checkForUpdates failed:', error);
       }
 
+      // Refresh stale items
       const plaidService = new PlaidService(globalPlaidApi, database);
 
-      // Refresh items with rate limiting
-      for (const item of itemsBehindOnSync) {
-        const lastRefreshKey = `${LAST_ITEM_REFRESH_PREFIX}${item.id}`;
-        const lastRefresh = await this.getLastExecutionTime(lastRefreshKey);
-        const now = Date.now();
-
-        // Check if enough time has passed since last refresh of this specific item
-        if (lastRefresh && now - lastRefresh < MIN_ITEM_REFRESH_INTERVAL) {
-          const timeRemaining = MIN_ITEM_REFRESH_INTERVAL - (now - lastRefresh);
-          console.log(
-            `⏭️  Skipping refresh for ${item.institutionName}: ` +
-              `${Math.round(timeRemaining / (60 * 1000))} minutes until next refresh allowed`
-          );
-          continue;
-        }
-
-        console.log(`🔄 Refreshing item: ${item.institutionName}`);
+      for (const item of staleItems) {
         try {
+          console.log(`🔄 Refreshing: ${item.institutionName}`);
           await plaidService.refeshItem(item.plaidItemId);
-          await this.setLastExecutionTime(lastRefreshKey, now);
-          console.log(`✅ Successfully refreshed: ${item.institutionName}`);
+          console.log(`✅ Refreshed: ${item.institutionName}`);
         } catch (error) {
           console.error(`❌ Failed to refresh ${item.institutionName}:`, error);
-          // Continue with next item even if this one fails
         }
       }
     } catch (error) {
-      console.error('Failed to refresh items behind on sync:', error);
-      // Don't throw - we don't want to fail the entire check task
+      console.error('Stale item check failed:', error);
     }
   }
 
   /**
-   * Get last execution time from storage (static method)
+   * Register background task definitions with expo-task-manager.
+   * Must be called at app startup (outside of React components).
    */
-  private static async getLastExecutionTime(key: string): Promise<number | null> {
-    try {
-      const value = await AsyncStorage.getItem(key);
-      return value ? Number.parseInt(value, 10) : null;
-    } catch (error) {
-      console.error(`Failed to get last execution time for ${key}:`, error);
-      return null;
-    }
-  }
-
-  /**
-   * Store last execution time (static method)
-   */
-  private static async setLastExecutionTime(key: string, timestamp: number): Promise<void> {
-    try {
-      await AsyncStorage.setItem(key, timestamp.toString());
-    } catch (error) {
-      console.error(`Failed to store last execution time for ${key}:`, error);
-    }
-  }
-
-  /**
-   * Register background tasks
-   */
-  registerTasks() {
-    // Define sync task (using static method for headless context)
+  registerTasks(): void {
     TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
-      console.log('📋 Background sync task executing...');
-      const result = await BackgroundTaskService.executeSync();
-      console.log('📋 Background sync task completed with result:', result);
-      return result;
-    });
-
-    // Define check task (using static method for headless context)
-    TaskManager.defineTask(BACKGROUND_PLAID_SYNC_TASK, async () => {
-      console.log('📋 Background plaid check task executing...');
-      const result = await BackgroundTaskService.executeCheck();
-      console.log('📋 Background plaid check task completed with result:', result);
+      console.log('📋 Background sync task triggered by OS');
+      const result = await BackgroundTaskService.executeBackgroundSync();
+      console.log('📋 Background sync task completed:', result);
       return result;
     });
 
@@ -520,104 +303,66 @@ export class BackgroundTaskService {
   }
 
   /**
-   * Register background fetch for sync task (1 hour interval)
+   * Register background fetch with expo-background-task.
+   * iOS BGAppRefreshTask will call our task periodically.
    */
-  async registerSyncTask(): Promise<boolean> {
+  async registerBackgroundFetch(): Promise<boolean> {
     try {
-      console.log('🔧 Registering sync background task...');
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
       if (isRegistered) {
-        console.log('✅ Sync task already registered');
+        console.log('✅ Background task already registered');
         return true;
       }
 
       await BackgroundTask.registerTaskAsync(BACKGROUND_SYNC_TASK, {
-        minimumInterval: 60, // 1 hour in minutes
+        minimumInterval: 60, // 60 minutes (iOS may run less frequently)
       });
 
-      console.log('✅ Sync background task registered with 60 minute interval');
+      console.log('✅ Background task registered with 60 minute interval');
       return true;
     } catch (error) {
-      console.error('❌ Failed to register sync background task:', error);
+      console.error('❌ Failed to register background task:', error);
       return false;
     }
   }
 
   /**
-   * Register background fetch for check task (30 minute interval)
-   */
-  async registerCheckTask(): Promise<boolean> {
-    try {
-      console.log('🔧 Registering plaid check background task...');
-      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_PLAID_SYNC_TASK);
-      if (isRegistered) {
-        console.log('✅ Plaid check task already registered');
-        return true;
-      }
-
-      await BackgroundTask.registerTaskAsync(BACKGROUND_PLAID_SYNC_TASK, {
-        minimumInterval: 30, // 30 minutes (minimum is 15 minutes)
-      });
-
-      console.log('✅ Plaid check background task registered with 30 minute interval');
-      return true;
-    } catch (error) {
-      console.error('❌ Failed to register check background task:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Unregister all background tasks
+   * Unregister background tasks.
    */
   async unregisterTasks(): Promise<void> {
     try {
-      const syncRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
-      if (syncRegistered) {
+      const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
+      if (isRegistered) {
         await TaskManager.unregisterTaskAsync(BACKGROUND_SYNC_TASK);
-        console.log('Sync background task unregistered');
-      }
-
-      const checkRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_PLAID_SYNC_TASK);
-      if (checkRegistered) {
-        await TaskManager.unregisterTaskAsync(BACKGROUND_PLAID_SYNC_TASK);
-        console.log('Check background task unregistered');
+        console.log('Background task unregistered');
       }
     } catch (error) {
-      console.error('Failed to unregister background tasks:', error);
+      console.error('Failed to unregister background task:', error);
     }
   }
 
   /**
-   * Manually trigger plaid check task (for testing)
+   * Get background task status.
    */
-  async triggerPlaidCheck(): Promise<void> {
-    console.log('🧪 Manually triggering plaid check...');
-    await BackgroundTaskService.executeCheck();
+  async getTaskStatus(): Promise<{
+    registered: boolean;
+    lastSyncTime: Date | null;
+  }> {
+    const registered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
+    const lastSyncStr = await AsyncStorage.getItem(LAST_SYNC_KEY);
+    const lastSyncTime = lastSyncStr ? new Date(parseInt(lastSyncStr, 10)) : null;
+
+    return { registered, lastSyncTime };
   }
 
   /**
-   * Get status of background tasks
+   * Manually trigger background sync (for testing).
    */
-  async getTaskStatus(): Promise<{
-    syncRegistered: boolean;
-    checkRegistered: boolean;
-    lastSyncTime: Date | null;
-    lastCheckTime: Date | null;
-  }> {
-    const syncRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
-    const checkRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_PLAID_SYNC_TASK);
-    const lastSyncTimestamp = await BackgroundTaskService.getLastExecutionTime(LAST_SYNC_KEY);
-    const lastCheckTimestamp = await BackgroundTaskService.getLastExecutionTime(LAST_CHECK_KEY);
-
-    return {
-      syncRegistered,
-      checkRegistered,
-      lastSyncTime: lastSyncTimestamp ? new Date(lastSyncTimestamp) : null,
-      lastCheckTime: lastCheckTimestamp ? new Date(lastCheckTimestamp) : null,
-    };
+  async triggerManualSync(): Promise<void> {
+    console.log('🧪 Manually triggering background sync...');
+    await BackgroundTaskService.executeBackgroundSync();
   }
 }
 
-// Export singleton instance
+// Export singleton
 export const backgroundTaskService = new BackgroundTaskService();

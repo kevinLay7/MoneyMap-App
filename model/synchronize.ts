@@ -3,7 +3,7 @@ import { fetchLocalChanges, markLocalChangesAsSynced, getLastPulledAt } from '@n
 import database from './database';
 import { Sync } from '@/api/gen/Sync';
 import SyncLogger from '@nozbe/watermelondb/sync/SyncLogger';
-import { syncEncryptionService } from '@/services';
+import { syncEncryptionService } from '@/services/sync-encryption-service';
 import { DailyBalanceService } from '@/services/daily-balance-service';
 
 /**

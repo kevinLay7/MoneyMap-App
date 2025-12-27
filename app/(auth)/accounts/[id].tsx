@@ -211,6 +211,20 @@ function AccountDetailsContent({ account }: { account: Account }) {
               Account Details
             </ThemedText>
             <TextIconRow icon="bank" text="Type" value={observedAccount.subtype} />
+            <TextIconRow icon="info-circle" text="Status" value={item?.status ?? ''} valueType="default" />
+            <TextIconRow
+              icon="clock-o"
+              text="Last Local Refresh"
+              value={item?.lastLocalRefresh ? dayjs(item.lastLocalRefresh).format('MM/DD/YY HH:mm:ss') : ''}
+              valueType="default"
+            />
+            <TextIconRow
+              icon="check-circle"
+              text="Last Successful Update"
+              value={item?.lastSuccessfulUpdate ? dayjs(item.lastSuccessfulUpdate).format('MM/DD/YY HH:mm:ss') : ''}
+              valueType="default"
+              borderBottom={false}
+            />
           </View>
         </View>
       </AnimatedScrollView>
