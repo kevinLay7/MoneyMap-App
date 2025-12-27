@@ -78,5 +78,31 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 8,
+      steps: [
+        createTable({
+          name: 'account_daily_balances',
+          columns: [
+            { name: 'account_id', type: 'string', isIndexed: true },
+            { name: 'item_id', type: 'string', isIndexed: true },
+
+            { name: 'balance', type: 'number' },
+            { name: 'date', type: 'string' },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
+    {
+      toVersion: 9,
+      steps: [
+        addColumns({
+          table: 'items',
+          columns: [{ name: 'last_local_refresh', type: 'string', isOptional: true }],
+        }),
+      ],
+    },
   ],
 });

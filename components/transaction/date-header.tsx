@@ -10,7 +10,7 @@ export interface DateHeaderProps {
 
 export function DateHeader({ dateLabel, total, formatMoney }: DateHeaderProps) {
   return (
-    <View className="bg-background-secondary px-4 py-2 flex-row w-full">
+    <View className="bg-background px-4 py-2 flex-row w-full">
       <ThemedText type="subtitle" className="text-text-secondary">
         {dateLabel}
       </ThemedText>

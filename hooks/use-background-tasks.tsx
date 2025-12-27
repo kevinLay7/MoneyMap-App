@@ -1,15 +1,17 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, InteractionManager } from 'react-native';
 import { useDependency } from '@/context/dependencyContext';
 import { backgroundTaskService, BackgroundTaskService } from '@/services/background-task-service';
 import { useProfileCheck } from '@/hooks/use-profile-check';
+import { PlaidService } from '@/services/plaid-service';
 import dayjs from 'dayjs';
 import database from '@/model/database';
 import Item from '@/model/models/item';
 
 const FOREGROUND_SYNC_INTERVAL = 30 * 1000; // 30 seconds
 const PUSH_ONLY_INTERVAL = 10 * 1000; // 10 seconds
-const PLAID_CHECK_INTERVAL = 60 * 1000; // 1 minute
+const PLAID_CHECK_INTERVAL = 5 * 60 * 1000; // 5 minutes
+const STALE_ITEM_THRESHOLD_HOURS = 12; // Items older than this are considered stale
 
 /**
  * Hook to manage background tasks and foreground polling
@@ -124,7 +126,20 @@ export function useBackgroundTasks() {
   }, [shouldInitialize]);
 
   /**
+   * Wraps an async operation to run after user interactions complete.
+   * This prevents sync from blocking animations and touch responses.
+   */
+  const runAfterInteractions = useCallback(<T,>(operation: () => Promise<T>): Promise<T> => {
+    return new Promise((resolve, reject) => {
+      InteractionManager.runAfterInteractions(() => {
+        operation().then(resolve).catch(reject);
+      });
+    });
+  }, []);
+
+  /**
    * Execute sync operation (full sync: pull + push)
+   * Deferred until after user interactions complete.
    */
   const executeSync = useCallback(async () => {
     try {
@@ -133,14 +148,16 @@ export function useBackgroundTasks() {
         return;
       }
 
-      await BackgroundTaskService.executeSyncWithLock(syncApi);
+      // Defer sync to run after animations/interactions complete
+      await runAfterInteractions(() => BackgroundTaskService.executeSyncWithLock(syncApi));
     } catch (error) {
       console.error('Foreground sync failed:', error);
     }
-  }, [syncApi]);
+  }, [syncApi, runAfterInteractions]);
 
   /**
    * Execute push-only operation (push local changes without pulling)
+   * Deferred until after user interactions complete.
    */
   const executePushOnly = useCallback(async () => {
     try {
@@ -149,14 +166,16 @@ export function useBackgroundTasks() {
         return;
       }
 
-      await BackgroundTaskService.executePushOnlyWithLock(syncApi);
+      // Defer push to run after animations/interactions complete
+      await runAfterInteractions(() => BackgroundTaskService.executePushOnlyWithLock(syncApi));
     } catch (error) {
       console.error('Push-only sync failed:', error);
     }
-  }, [syncApi]);
+  }, [syncApi, runAfterInteractions]);
 
   /**
    * Execute plaid check operation
+   * Deferred until after user interactions complete.
    */
   const executePlaidCheck = useCallback(async () => {
     try {
@@ -165,46 +184,51 @@ export function useBackgroundTasks() {
         return;
       }
 
-      console.log('🔍 Foreground plaid check starting...');
-      await plaidApi.plaidControllerCheckForUpdates();
+      // Defer to run after interactions complete
+      await runAfterInteractions(async () => {
+        console.log('🔍 Foreground plaid check starting...');
+        await plaidApi.plaidControllerCheckForUpdates();
 
-      // Check if any items are behind on sync (more than 1 hour old)
-      const itemsBehindOnSync = items.filter(item => {
-        if (!item.lastSuccessfulUpdate) return true; // Never synced
-        return dayjs(item.lastSuccessfulUpdate).isBefore(dayjs().subtract(1, 'hour'));
+        // Check if any items are stale (haven't been locally refreshed within threshold)
+        const staleItems = items.filter(item => {
+          if (!item.lastLocalRefresh) return true; // Never refreshed locally
+          return dayjs(item.lastLocalRefresh).isBefore(dayjs().subtract(STALE_ITEM_THRESHOLD_HOURS, 'hour'));
+        });
+
+        if (staleItems.length > 0) {
+          console.log(
+            `⚠️  ${staleItems.length} stale items (>${STALE_ITEM_THRESHOLD_HOURS}h since last local refresh):`,
+            staleItems.map(item => ({
+              name: item.institutionName,
+              lastLocalRefresh: item.lastLocalRefresh,
+              lastSuccessfulUpdate: item.lastSuccessfulUpdate,
+            }))
+          );
+
+          // Fire-and-forget: refresh stale items from Plaid (fetches accounts + transactions)
+          // This runs asynchronously without blocking the current check
+          Promise.resolve().then(async () => {
+            const plaidService = new PlaidService(plaidApi, database);
+
+            for (const item of staleItems) {
+              try {
+                console.log(`🔄 Refreshing stale item: ${item.institutionName}`);
+                await plaidService.refeshItem(item.plaidItemId);
+                console.log(`✅ Successfully refreshed: ${item.institutionName}`);
+              } catch (error) {
+                console.error(`❌ Failed to refresh ${item.institutionName}:`, error);
+                // Continue with next item even if this one fails
+              }
+            }
+          });
+        }
+
+        console.log('✅ Foreground plaid check completed');
       });
-
-      if (itemsBehindOnSync.length > 0) {
-        console.log(
-          `⚠️  ${itemsBehindOnSync.length} items behind on sync:`,
-          itemsBehindOnSync.map(item => ({
-            name: item.institutionName,
-            lastSync: item.lastSuccessfulUpdate,
-          }))
-        );
-
-        // Automatic refresh disabled to prevent UI blocking
-        // The refresh was causing the app to freeze because it runs heavy
-        // database/network operations on the main thread every minute.
-        // The backend plaidControllerCheckForUpdates() already triggers syncs when needed.
-        //
-        // If manual refresh is needed, consider:
-        // 1. Running refresh in background task only (not foreground)
-        // 2. Adding rate limiting (max once per item per hour)
-        // 3. Moving to a queue system for non-blocking execution
-        // 4. Using InteractionManager.runAfterInteractions()
-        //
-        // Commented out code:
-        // for (const item of itemsBehindOnSync) {
-        //   await plaidService.refeshItem(item.plaidItemId);
-        // }
-      }
-
-      console.log('✅ Foreground plaid check completed');
     } catch (error) {
       console.error('❌ Foreground plaid check failed:', error);
     }
-  }, [plaidApi, items]);
+  }, [plaidApi, items, runAfterInteractions]);
 
   /**
    * Start foreground polling (30 second interval)

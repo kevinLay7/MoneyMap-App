@@ -6,7 +6,7 @@
 import { LogBox } from 'react-native';
 LogBox.ignoreLogs([/SafeAreaView/, /react-native-safe-area-context/]);
 
-// Polyfill for crypto.getRandomValues (required for crypto-js in React Native)
+// Polyfill for crypto.getRandomValues (required for some libraries)
 // eslint-disable-next-line import/first
 import 'react-native-get-random-values';
 

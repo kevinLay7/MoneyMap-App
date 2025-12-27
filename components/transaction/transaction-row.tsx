@@ -55,7 +55,7 @@ export function TransactionRow({ transaction, category, account, item }: Transac
       renderRightActions={RightAction}
     >
       <Pressable
-        className="flex-row bg-background-tertiary border-t-background-secondary h-16"
+        className="flex-row bg-background-secondary border-t-background-tertiary h-16"
         style={{ borderTopWidth: 1 }}
       >
         <View className="w-full flex-row items-center px-3">
@@ -91,12 +91,10 @@ const enhancedTransactionRow = withObservables(['transaction'], ({ transaction }
   transaction,
   category: transaction.category.observe().pipe(catchError(() => of(undefined))),
   account: transaction.account.observe().pipe(catchError(() => of(undefined))),
-  item: transaction.account
-    .observe()
-    .pipe(
-      catchError(() => of(undefined)),
-      switchMap(account => (account ? account.item.observe().pipe(catchError(() => of(undefined))) : of(undefined)))
-    ),
+  item: transaction.account.observe().pipe(
+    catchError(() => of(undefined)),
+    switchMap(account => (account ? account.item.observe().pipe(catchError(() => of(undefined))) : of(undefined)))
+  ),
 }));
 
 export const EnhancedTransactionRow = enhancedTransactionRow(TransactionRow);

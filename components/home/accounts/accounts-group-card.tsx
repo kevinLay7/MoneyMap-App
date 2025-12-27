@@ -7,6 +7,7 @@ import { useDependency } from '@/context/dependencyContext';
 import { create, LinkExit, LinkLogLevel, LinkSuccess, open } from 'react-native-plaid-link-sdk';
 import { ContentType } from '@/api/gen/http-client';
 import { Button } from '../../ui/button';
+import { LoadingOverlay } from '../../ui/loading-overlay';
 import { useState, useEffect, useMemo } from 'react';
 import database from '@/model/database';
 import Account from '@/model/models/account';
@@ -22,6 +23,7 @@ export function AccountsGroupCard() {
   const [items, setItems] = useState<Item[]>([]);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
+  const [isLinkingAccount, setIsLinkingAccount] = useState(false);
 
   useEffect(() => {
     const accountsSubscription = database
@@ -86,11 +88,16 @@ export function AccountsGroupCard() {
 
       open({
         onSuccess: async (success: LinkSuccess) => {
-          await plaidService.handlePlaidLinkSuccess(
-            success.publicToken,
-            success.metadata.institution?.id ?? '',
-            plaidItemId
-          );
+          setIsLinkingAccount(true);
+          try {
+            await plaidService.handlePlaidLinkSuccess(
+              success.publicToken,
+              success.metadata.institution?.id ?? '',
+              plaidItemId
+            );
+          } finally {
+            setIsLinkingAccount(false);
+          }
         },
         onExit: (linkExit: LinkExit) => {
           if (linkExit.error) {
@@ -137,6 +144,7 @@ export function AccountsGroupCard() {
 
   return (
     <Card variant="elevated" rounded="xl" backgroundColor="secondary">
+      <LoadingOverlay visible={isLinkingAccount} />
       <AddAccountModal
         isVisible={showAddAccountModal}
         onClose={() => setShowAddAccountModal(false)}

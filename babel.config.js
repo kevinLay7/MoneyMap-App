@@ -7,6 +7,8 @@ module.exports = function (api) {
     ],
     plugins: [
       ["@babel/plugin-proposal-decorators", { legacy: true }],
+      // Worklets plugin must come before reanimated
+      "react-native-worklets-core/plugin",
       "react-native-reanimated/plugin",
     ],
   };

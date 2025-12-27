@@ -1,10 +1,17 @@
 import React, { useEffect } from 'react';
-import { Colors } from '@/constants/theme';
 import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
 import { useBackgroundTasks } from '@/hooks/use-background-tasks';
 import { useDependency } from '@/context/dependencyContext';
 import { CateogryService } from '@/services/category-service';
 import database from '@/model/database';
+import { Colors } from '@/constants/colors';
+
+const TAB_COLORS = {
+  home: Colors.primary,
+  transactions: Colors.tertiary,
+  budgets: Colors.secondary,
+  recurring: Colors.quinary,
+} as const;
 
 export default function TabLayout() {
   const { categoryApi } = useDependency();
@@ -25,12 +32,15 @@ export default function TabLayout() {
   }, [categoryApi]);
 
   return (
-    <NativeTabs tintColor={Colors.primary}>
-      <NativeTabs.Trigger name="index">
+    <NativeTabs>
+      <NativeTabs.Trigger name="index" options={{ iconColor: TAB_COLORS.home, selectedIconColor: TAB_COLORS.home }}>
         <Label hidden />
         <Icon sf={{ default: 'house', selected: 'house.fill' }} />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="transactions">
+      <NativeTabs.Trigger
+        name="transactions"
+        options={{ iconColor: TAB_COLORS.transactions, selectedIconColor: TAB_COLORS.transactions }}
+      >
         <Label hidden />
         <Icon
           sf={{
@@ -39,7 +49,10 @@ export default function TabLayout() {
           }}
         />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="budgets">
+      <NativeTabs.Trigger
+        name="budgets"
+        options={{ iconColor: TAB_COLORS.budgets, selectedIconColor: TAB_COLORS.budgets }}
+      >
         <Label hidden />
         <Icon
           sf={{
@@ -48,7 +61,10 @@ export default function TabLayout() {
           }}
         />
       </NativeTabs.Trigger>
-      <NativeTabs.Trigger name="recurring">
+      <NativeTabs.Trigger
+        name="recurring"
+        options={{ iconColor: TAB_COLORS.recurring, selectedIconColor: TAB_COLORS.recurring }}
+      >
         <Label hidden />
         <Icon
           sf={{

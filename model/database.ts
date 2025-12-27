@@ -12,6 +12,7 @@ import Category from './models/category';
 import TransactionSync from './models/transaction-sync';
 import Budget from './models/budget';
 import BudgetItem from './models/budget-item';
+import AccountDailyBalance from './models/account-daily-balance';
 
 // Create adapter with JSI disabled for dev client compatibility
 // JSI requires native build - enable it only when running built app
@@ -30,7 +31,7 @@ const adapter = new SQLiteAdapter({
 // Then, make a Watermelon database from it!
 const database = new Database({
   adapter,
-  modelClasses: [Account, Transaction, Item, Sync, Category, TransactionSync, Budget, BudgetItem],
+  modelClasses: [Account, Transaction, Item, Sync, Category, TransactionSync, Budget, BudgetItem, AccountDailyBalance],
 });
 
 export default database;

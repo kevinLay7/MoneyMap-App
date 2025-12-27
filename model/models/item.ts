@@ -20,6 +20,7 @@ export default class Item extends Model {
   @field('institution_url') institutionUrl?: string;
   @field('status') status!: string;
   @field('last_successful_update') lastSuccessfulUpdate?: string;
+  @field('last_local_refresh') lastLocalRefresh?: string;
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
   @field('is_active') isActive!: boolean;

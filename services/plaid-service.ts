@@ -10,16 +10,19 @@ import {
 import Item from '@/model/models/item';
 import Account from '@/model/models/account';
 import { TransactionService } from './transaction-service';
+import { DailyBalanceService } from './daily-balance-service';
 import { WriterInterface } from '@nozbe/watermelondb/Database/WorkQueue';
 
 export class PlaidService {
   private readonly transactionService: TransactionService;
+  private readonly dailyBalanceService: DailyBalanceService;
 
   constructor(
     private readonly plaidApi: Plaid,
     private readonly database: Database
   ) {
     this.transactionService = new TransactionService(database);
+    this.dailyBalanceService = new DailyBalanceService(database);
   }
 
   /**
@@ -83,8 +86,9 @@ export class PlaidService {
 
   public async refeshItem(plaidItemId: string): Promise<void> {
     // Check that the item exists in our database
-    const item = await this.database.get<Item>('items').query().fetch();
-    if (!item) {
+    const items = await this.database.get<Item>('items').query().fetch();
+    const existingItem = items.find(i => i.plaidItemId === plaidItemId);
+    if (!existingItem) {
       throw new Error(`Item not found for plaidItemId: ${plaidItemId}`);
     }
 
@@ -96,6 +100,17 @@ export class PlaidService {
 
     // Fetch and store transactions
     await this.fetchAndStoreTransactions(plaidItemId);
+
+    // Update lastLocalRefresh to now after successful refresh (local-only field)
+    await this.database.write(async () => {
+      const refreshedItems = await this.database.get<Item>('items').query().fetch();
+      const itemToUpdate = refreshedItems.find(i => i.plaidItemId === plaidItemId);
+      if (itemToUpdate) {
+        await itemToUpdate.update(item => {
+          item.lastLocalRefresh = new Date().toISOString();
+        });
+      }
+    });
   }
 
   public async fetchAndStoreItem(plaidItemId: string): Promise<void> {
@@ -214,6 +229,7 @@ export class PlaidService {
     try {
       let cursor = '';
       let hasMore = true;
+      let transactionsFetched = false;
 
       while (hasMore) {
         const transactionsResponse = await this.plaidApi.plaidControllerGetTransactions(plaidItemId, {
@@ -232,6 +248,15 @@ export class PlaidService {
         await this.transactionService.storeModifiedTransactions(transactionsData.modified);
         await this.transactionService.storeRemovedTransactions(transactionsData.removed);
 
+        // Track if we got any transactions
+        if (
+          transactionsData.added.length > 0 ||
+          transactionsData.modified.length > 0 ||
+          transactionsData.removed.length > 0
+        ) {
+          transactionsFetched = true;
+        }
+
         // Update cursor for next iteration
         cursor = transactionsData.next_cursor;
         hasMore = transactionsData.has_more;
@@ -240,6 +265,19 @@ export class PlaidService {
         if (!hasMore) {
           break;
         }
+      }
+
+      // Calculate daily balances in background after transactions are stored
+      if (transactionsFetched) {
+        setImmediate(async () => {
+          try {
+            console.log('Calculating daily balances after transaction fetch');
+            await this.dailyBalanceService.calculateAllAccountBalances();
+            console.log('Daily balance calculation completed');
+          } catch (error) {
+            console.error('Failed to calculate daily balances:', error);
+          }
+        });
       }
     } catch (error) {
       console.error('Failed to fetch and store transactions:', error);

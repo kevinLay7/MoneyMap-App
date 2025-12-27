@@ -8,6 +8,7 @@ import Category from '@/model/models/category';
 import TransactionSync from '@/model/models/transaction-sync';
 import Budget from '@/model/models/budget';
 import BudgetItem from '@/model/models/budget-item';
+import AccountDailyBalance from '@/model/models/account-daily-balance';
 
 /**
  * Clears all data from the WatermelonDB database
@@ -23,6 +24,8 @@ export async function clearDatabase(): Promise<void> {
     const categories = await database.get<Category>('categories').query().fetch();
     const transactionSyncs = await database.get<TransactionSync>('transaction_syncs').query().fetch();
     const budgets = await database.get<Budget>('budgets').query().fetch();
+    const budgetItems = await database.get<BudgetItem>('budget_items').query().fetch();
+    const accountDailyBalances = await database.get<AccountDailyBalance>('account_daily_balances').query().fetch();
 
     // Delete all records permanently
     await Promise.all([
@@ -33,6 +36,8 @@ export async function clearDatabase(): Promise<void> {
       ...categories.map(record => record.destroyPermanently()),
       ...transactionSyncs.map(record => record.destroyPermanently()),
       ...budgets.map(record => record.destroyPermanently()),
+      ...budgetItems.map(record => record.destroyPermanently()),
+      ...accountDailyBalances.map(record => record.destroyPermanently()),
     ]);
   });
 }

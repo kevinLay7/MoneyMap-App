@@ -38,6 +38,8 @@ let globalSyncApi: Sync | null = null;
 let globalPlaidApi: Plaid | null = null;
 let globalInitialized = false;
 let syncInProgress = false; // Lock to prevent concurrent syncs
+let syncLockAcquiredAt: number | null = null; // Timestamp when lock was acquired
+const SYNC_LOCK_TIMEOUT = 60 * 1000; // 60 seconds - auto-release lock if held too long
 let auth0Instance: Auth0 | null = null; // Auth0 instance for background tasks
 
 export class BackgroundTaskService {
@@ -180,12 +182,25 @@ export class BackgroundTaskService {
 
   /**
    * Acquire sync lock. Returns true if lock was acquired, false if already locked.
+   * Automatically releases stale locks (held longer than SYNC_LOCK_TIMEOUT).
    */
   static acquireSyncLock(): boolean {
+    const now = Date.now();
+
+    // Check if lock is stale and should be auto-released
+    if (syncInProgress && syncLockAcquiredAt) {
+      const lockHeldFor = now - syncLockAcquiredAt;
+      if (lockHeldFor > SYNC_LOCK_TIMEOUT) {
+        console.warn(`⚠️ Sync lock was stale (held for ${Math.round(lockHeldFor / 1000)}s), force-releasing`);
+        this.releaseSyncLock();
+      }
+    }
+
     if (syncInProgress) {
       return false;
     }
     syncInProgress = true;
+    syncLockAcquiredAt = now;
     return true;
   }
 
@@ -194,6 +209,37 @@ export class BackgroundTaskService {
    */
   static releaseSyncLock(): void {
     syncInProgress = false;
+    syncLockAcquiredAt = null;
+  }
+
+  /**
+   * Force release the sync lock. Use only for debugging/recovery.
+   */
+  static forceReleaseSyncLock(): void {
+    console.warn('⚠️ Force releasing sync lock');
+    syncInProgress = false;
+    syncLockAcquiredAt = null;
+  }
+
+  /**
+   * Wraps a promise with a timeout. Rejects if the promise doesn't resolve within the timeout.
+   */
+  private static withTimeout<T>(promise: Promise<T>, timeoutMs: number, operation: string): Promise<T> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(`${operation} timed out after ${timeoutMs / 1000}s`));
+      }, timeoutMs);
+
+      promise
+        .then(result => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch(error => {
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
   }
 
   /**
@@ -207,7 +253,8 @@ export class BackgroundTaskService {
 
     const logger = new SyncLogger(1000);
     try {
-      await databaseSynchronize(syncApi, logger);
+      // Wrap sync with a timeout slightly less than the lock timeout
+      await this.withTimeout(databaseSynchronize(syncApi, logger), SYNC_LOCK_TIMEOUT - 5000, 'Database sync');
     } finally {
       this.releaseSyncLock();
     }
@@ -223,7 +270,8 @@ export class BackgroundTaskService {
     }
 
     try {
-      await pushOnlyChanges(syncApi);
+      // Wrap push with a timeout (45s should be enough for most cases)
+      await this.withTimeout(pushOnlyChanges(syncApi), 45000, 'Push-only sync');
     } finally {
       this.releaseSyncLock();
     }
@@ -362,10 +410,10 @@ export class BackgroundTaskService {
       // Query items from database
       const items = await database.get<Item>('items').query().fetch();
 
-      // Filter items behind on sync (more than 1 hour old)
+      // Filter items behind on sync (more than 4 hours since last local refresh)
       const itemsBehindOnSync = items.filter(item => {
-        if (!item.lastSuccessfulUpdate) return true; // Never synced
-        return dayjs(item.lastSuccessfulUpdate).isBefore(dayjs().subtract(4, 'hour'));
+        if (!item.lastLocalRefresh) return true; // Never refreshed locally
+        return dayjs(item.lastLocalRefresh).isBefore(dayjs().subtract(4, 'hour'));
       });
 
       if (itemsBehindOnSync.length === 0) {
@@ -377,7 +425,8 @@ export class BackgroundTaskService {
         `⚠️  ${itemsBehindOnSync.length} items behind on sync:`,
         itemsBehindOnSync.map(item => ({
           name: item.institutionName,
-          lastSync: item.lastSuccessfulUpdate,
+          lastLocalRefresh: item.lastLocalRefresh,
+          lastSuccessfulUpdate: item.lastSuccessfulUpdate,
         }))
       );
 

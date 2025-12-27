@@ -4,6 +4,7 @@ import database from './database';
 import { Sync } from '@/api/gen/Sync';
 import SyncLogger from '@nozbe/watermelondb/sync/SyncLogger';
 import { syncEncryptionService } from '@/services';
+import { DailyBalanceService } from '@/services/daily-balance-service';
 
 /**
  * Table dependency order for sync operations.
@@ -466,6 +467,23 @@ function createSyncConfig(syncApi: Sync, logger: SyncLogger) {
     onWillApplyRemoteChanges: async (info: { remoteChangeCount: number }) => {
       if (info.remoteChangeCount > 0) {
         console.log('onWillApplyRemoteChanges', info.remoteChangeCount);
+      }
+    },
+    onDidPullChanges: async (info: { remoteChangeCount: number }) => {
+      // Calculate daily balances in background after pulling transaction changes
+      // This runs asynchronously and doesn't block the sync completion
+      if (info.remoteChangeCount > 0) {
+        console.log('Sync pulled changes, scheduling daily balance calculation');
+        // Use setImmediate to ensure this runs after sync completes, not blocking UI
+        setImmediate(async () => {
+          try {
+            const dailyBalanceService = new DailyBalanceService(database);
+            await dailyBalanceService.calculateAllAccountBalances();
+            console.log('Daily balance calculation completed');
+          } catch (error) {
+            console.error('Failed to calculate daily balances after sync:', error);
+          }
+        });
       }
     },
   };
