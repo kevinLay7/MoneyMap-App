@@ -84,7 +84,7 @@ export class BudgetService {
    * @returns The status of the budget.
    */
   private getBudgetStatus(budget: Budget): BudgetStatus {
-    const isActive = isDateBetween(budget.startDate, budget.endDate, new Date());
+    const isActive = isDateBetween(new Date(), budget.startDate, budget.endDate);
     return isActive ? BudgetStatus.Active : BudgetStatus.Completed;
   }
 
@@ -127,7 +127,7 @@ export class BudgetService {
       )
       .fetch();
 
-    const currentBudgets = budgets.filter(budget => isDateBetween(budget.startDate, budget.endDate, new Date()));
+    const currentBudgets = budgets.filter(budget => isDateBetween(new Date(), budget.startDate, budget.endDate));
 
     for (const budget of currentBudgets) {
       if (budget.accountBalanceSource === AccountBalanceSrouce.Current) {
