@@ -1,6 +1,7 @@
 import React, { useContext } from 'react';
 import { View, StyleSheet, Image, Text } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
+import { ThemedText } from '../shared';
 
 interface IconCircleProps {
   input: string;
@@ -72,12 +73,13 @@ const IconCircle: React.FC<IconCircleProps> = ({
         </Text>
       )}
       {inputType === InputType.Letter && (
-        <Text
+        <ThemedText
+          type="defaultSemiBold"
           style={{ fontSize: logoSize, lineHeight: logoSize * 1.55 }}
-          className="my-auto mx-auto p-0 text-center font-semibold"
+          className="my-auto mx-auto p-0 text-center"
         >
           {input.toUpperCase()}
-        </Text>
+        </ThemedText>
       )}
       {inputType === InputType.FaName && <FontAwesome6 name={input} size={logoSize} color={color} />}
       {(inputType === InputType.Base64 || inputType === InputType.Url) && (

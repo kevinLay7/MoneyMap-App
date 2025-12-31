@@ -3,7 +3,7 @@ import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import { Keyboard, Pressable, TextInput as RNTextInput, View } from 'react-native';
 import { Colors } from '@/constants/colors';
 import { ThemedText } from '../shared/themed-text';
-import { BudgetViewModel } from '@/model/view-models/budget.viewmodel';
+import { BudgetState } from '@/model/models/budget';
 import { useMoneyFormatter } from '@/hooks/format-money';
 import Animated from 'react-native-reanimated';
 import { BudgetBalanceSource } from '@/types/budget';
@@ -12,27 +12,29 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BudgetService } from '@/services/budget-service';
 import database from '@/model/database';
 
-export function BudgetSummaryCard({ budgetViewModel }: { readonly budgetViewModel: BudgetViewModel }) {
+export function BudgetSummaryCard({ budgetState }: { readonly budgetState: BudgetState }) {
   const formatMoney = useMoneyFormatter();
   const theme = useColorScheme();
 
   const [showAccountOnlyExpenses, setShowAccountOnlyExpenses] = useState<boolean>(false);
-  const [manualBalance, setManualBalance] = useState<number>(budgetViewModel.budget.balance);
+  const [manualBalance, setManualBalance] = useState<number>(budgetState.balance);
 
   useEffect(() => {
-    setManualBalance(budgetViewModel.budget.balance);
-  }, [budgetViewModel]);
+    setManualBalance(budgetState.balance);
+  }, [budgetState.balance]);
 
   const updateManualBalance = useCallback(
     async (value: number) => {
       const budgetService = new BudgetService(database);
-      await budgetService.updateBudgetBalance(budgetViewModel.budget.id, value);
+      await budgetService.updateBudgetBalance(budgetState.budgetId, value);
     },
-    [budgetViewModel.budget.id]
+    [budgetState.budgetId]
   );
 
-  const isManualBalance = budgetViewModel.budget?.balanceSource === BudgetBalanceSource.Manual;
-  const remainingBalance = budgetViewModel.getTotalRemaining(showAccountOnlyExpenses);
+  const isManualBalance = budgetState.balanceSource === BudgetBalanceSource.Manual;
+  const remainingBalance = showAccountOnlyExpenses
+    ? budgetState.remainingAccountOnly
+    : budgetState.remainingSafeToSpend;
   const isNegativeBalance = remainingBalance <= 0;
   const formattedRemaining = formatMoney(remainingBalance);
 
@@ -40,11 +42,11 @@ export function BudgetSummaryCard({ budgetViewModel }: { readonly budgetViewMode
     <Card variant="elevated" rounded="xl" backgroundColor="secondary" padding="lg" className="mb-4">
       <Pressable className="items-center">
         <AnimatedCircularProgress
-          key={`${budgetViewModel.budget.id}-${showAccountOnlyExpenses}`}
+          key={`${budgetState.budgetId}-${showAccountOnlyExpenses}`}
           size={200}
           width={15}
           prefill={0}
-          fill={(Math.abs(remainingBalance) / budgetViewModel.budget.balance) * 100}
+          fill={(Math.abs(remainingBalance) / budgetState.balance) * 100}
           rotation={-100}
           lineCap="round"
           tintColor={isNegativeBalance ? Colors.warning : Colors.success}
@@ -110,7 +112,7 @@ export function BudgetSummaryCard({ budgetViewModel }: { readonly budgetViewMode
               />
             ) : (
               <ThemedText type="subtitle" color={isNegativeBalance ? 'warning' : 'success'}>
-                {formatMoney(budgetViewModel.budget.balance ?? 0)}
+                {formatMoney(budgetState.balance ?? 0)}
               </ThemedText>
             )}
           </View>
@@ -125,7 +127,7 @@ export function BudgetSummaryCard({ budgetViewModel }: { readonly budgetViewMode
                   {showAccountOnlyExpenses ? 'Account Expenses' : 'Remaining Expenses'}
                 </ThemedText>
                 <ThemedText type="subtitle" color="warning">
-                  {formatMoney(budgetViewModel.budget.balance - (remainingBalance ?? 0))}
+                  {formatMoney(budgetState.balance - remainingBalance)}
                 </ThemedText>
               </View>
             </Pressable>

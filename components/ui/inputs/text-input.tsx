@@ -10,8 +10,27 @@ interface TextInputProps extends BaseInputProps {
   placeholder?: string;
   disabled?: boolean;
   infoText?: string;
-  type?: 'text' | 'password' | 'email' | 'phone';
+  type?: 'text' | 'password' | 'email' | 'phone' | 'currency';
   tabIndex?: number;
+}
+
+/**
+ * Formats a raw digit string as currency with 2 decimal places.
+ * "12345" → "123.45", "1" → "0.01", "" → "0.00"
+ */
+function formatCurrency(digits: string): string {
+  const cleaned = digits.replaceAll(/\D/g, '');
+  const cents = Number.parseInt(cleaned || '0', 10);
+  return (cents / 100).toFixed(2);
+}
+
+/**
+ * Extracts raw cents from a formatted currency string.
+ * "123.45" → "12345", "0.01" → "1"
+ */
+function extractCents(formatted: string): string {
+  const cleaned = formatted.replaceAll(/\D/g, '');
+  return cleaned.replaceAll(/^0+/g, '') || '0';
 }
 
 export function TextInput({
@@ -25,6 +44,7 @@ export function TextInput({
   infoText,
   type = 'text',
   tabIndex = 0,
+  required = false,
 }: TextInputProps) {
   const theme = useColorScheme();
   const placeholderTextColor = theme === 'light' ? Colors.light.textSecondary : Colors.dark.textSecondary;
@@ -82,42 +102,60 @@ export function TextInput({
   const wouldOverflow = availableWidth !== null && textWidth > 0 && textWidth > availableWidth - 10;
   const multiLine = hasNewlines || wouldOverflow;
 
-  let keyboardType: 'default' | 'email-address' | 'phone-pad' = 'default';
+  let keyboardType: 'default' | 'email-address' | 'phone-pad' | 'decimal-pad' = 'default';
   if (type === 'email') {
     keyboardType = 'email-address';
   } else if (type === 'phone') {
     keyboardType = 'phone-pad';
+  } else if (type === 'currency') {
+    keyboardType = 'decimal-pad';
   }
+
+  const handleCurrencyChange = useCallback(
+    (text: string) => {
+      // Extract only digits from the new input
+      const newDigits = text.replaceAll(/\D/g, '');
+      // Format and pass up
+      onChangeText(formatCurrency(newDigits));
+    },
+    [onChangeText]
+  );
+
+  const handleTextChange = type === 'currency' ? handleCurrencyChange : onChangeText;
+
+  // For currency, ensure the displayed value is always formatted
+  const displayValue = type === 'currency' && value ? formatCurrency(extractCents(value)) : value;
 
   return (
     <View
       ref={containerRef}
-      className={`min-h-16 h-auto overflow-hidden flex py-2 border-b-2 border-myColors-Colors-dark-backgroundTertiary`}
+      className={`min-h-16 h-auto overflow-hidden flex pt-3 pb-2 border-b-2 border-background-tertiary`}
       onTouchEnd={handlePress}
       onLayout={handleContainerLayout}
     >
       <View className={` ${multiLine ? 'flex-col items-start' : 'flex-row items-center'}`}>
         <View onLayout={handleHeaderLayout}>
-          <InputHeader icon={icon} label={label} infoText={infoText} disabled={disabled} />
+          <InputHeader icon={icon} label={label} infoText={infoText} disabled={disabled} required={required} />
         </View>
         <RNTextInput
           ref={inputRef}
           placeholder={placeholder}
           placeholderTextColor={placeholderTextColor}
-          onChangeText={onChangeText}
-          value={value}
+          onChangeText={handleTextChange}
+          value={displayValue}
           className={`text-text flex-auto py-2 `}
           editable={!disabled}
-          multiline={true}
+          multiline={type !== 'currency'}
           numberOfLines={multiLine ? 4 : 1}
           enablesReturnKeyAutomatically
           textAlign="right"
           keyboardType={keyboardType}
           tabIndex={tabIndex as unknown as 0 | -1 | undefined}
+          selection={type === 'currency' ? { start: displayValue.length, end: displayValue.length } : undefined}
         />
       </View>
       {/* Hidden text for measuring width - matches TextInput styling */}
-      {value && (
+      {Boolean(displayValue) && (
         <Text
           ref={measureTextRef}
           className="text-text"
@@ -129,7 +167,7 @@ export function TextInput({
           }}
           onTextLayout={handleTextLayout}
         >
-          {value}
+          {displayValue}
         </Text>
       )}
     </View>

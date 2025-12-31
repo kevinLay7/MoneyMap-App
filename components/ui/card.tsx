@@ -78,7 +78,7 @@ export function Card({
     variantClasses = colorScheme === 'light' ? 'shadow-lg shadow-black/10' : 'shadow-lg shadow-black/50';
   }
 
-  const baseClasses = `${bgColorClass} shadow-lg shadow-black p-4 ${paddingClass} ${roundedClass} ${variantClasses} ${className || ''}`;
+  const baseClasses = `${bgColorClass} shadow-lg shadow-black ${paddingClass} ${roundedClass} ${variantClasses} ${className || ''}`;
 
   if (onPress || onLongPress) {
     return (

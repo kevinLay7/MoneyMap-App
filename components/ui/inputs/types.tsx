@@ -3,4 +3,5 @@ export interface BaseInputProps {
   readonly label: string;
   readonly error?: string;
   readonly infoText?: string;
+  readonly required?: boolean;
 }

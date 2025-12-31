@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 import { InputHeader } from './input-header';
 import { withObservables } from '@nozbe/watermelondb/react';
-import Account from '@/model/models/account';
+import Merchant from '@/model/models/merchant';
 import database from '@/model/database';
 import { BaseInputProps } from './types';
 import { ThemedText } from '@/components/shared';
@@ -9,34 +9,37 @@ import { Colors } from '@/constants/colors';
 import RNPickerSelect from 'react-native-picker-select';
 import { useMemo } from 'react';
 
-interface AccountSelectInputProps extends BaseInputProps {
-  selectedAccountId: string | null;
-  onChange: (accountId: string | null) => void;
+interface MerchantSelectInputProps extends Partial<BaseInputProps> {
+  selectedMerchantId: string | null;
+  onChange: (merchantId: string | null) => void;
   disabled?: boolean;
   infoText?: string;
   noBorder?: boolean;
+  placeholder?: string;
 }
 
-function AccountSelectInputInternal({
-  accounts,
-  label,
-  icon,
+function MerchantSelectInputInternal({
+  merchants,
+  label = 'Merchant',
+  icon = 'store',
   error,
-  selectedAccountId,
+  selectedMerchantId,
   onChange,
   disabled = false,
   infoText,
   noBorder = false,
+  placeholder = 'Select a merchant',
   required = false,
-}: Readonly<{ accounts: Account[] } & AccountSelectInputProps>) {
-  // Memoize the processed accounts to prevent unnecessary re-renders
+}: Readonly<{ merchants: Merchant[] } & MerchantSelectInputProps>) {
   const items = useMemo(() => {
-    if (!accounts) return [];
-    return accounts.map(account => ({
-      label: `${account.name} (...${account.mask})`,
-      value: account.id,
-    }));
-  }, [accounts]);
+    if (!merchants) return [];
+    return merchants
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .map(merchant => ({
+        label: merchant.name,
+        value: merchant.id,
+      }));
+  }, [merchants]);
 
   const getPickerSelectStyles = (theme: string) => ({
     inputIOS: {
@@ -56,15 +59,19 @@ function AccountSelectInputInternal({
     },
   });
 
-  const selectedAccount = accounts?.find(a => a.id === selectedAccountId);
+  // Don't render if no merchants exist
+  if (!merchants || merchants.length === 0) {
+    return null;
+  }
 
-  const displayText = selectedAccount ? `${selectedAccount.name} (...${selectedAccount.mask})` : 'Select an account';
+  const selectedMerchant = merchants.find(m => m.id === selectedMerchantId);
+  const displayText = selectedMerchant ? selectedMerchant.name : placeholder;
 
   return (
     <View
       className={`h-16 py-2 border-b-2 border-background-tertiary items-center flex-row ${noBorder ? 'border-none' : ''}`}
     >
-      <InputHeader icon="wallet" label="Account" disabled={disabled} required={required} />
+      <InputHeader icon={icon} label={label} infoText={infoText} disabled={disabled} required={required} />
       <View className="ml-auto">
         {disabled ? (
           <ThemedText className="text-typography-900 opacity-60">{displayText}</ThemedText>
@@ -72,9 +79,9 @@ function AccountSelectInputInternal({
           <RNPickerSelect
             onValueChange={onChange}
             items={items}
-            value={selectedAccountId}
+            value={selectedMerchantId}
             style={getPickerSelectStyles('dark')}
-            placeholder={{ label: 'Select an account', value: null }}
+            placeholder={{ label: placeholder, value: null }}
             disabled={disabled}
             darkTheme={true}
             textInputProps={{ pointerEvents: 'none' }}
@@ -86,9 +93,8 @@ function AccountSelectInputInternal({
   );
 }
 
-// If props aren't used in the query, keep the empty array:
-const enchancedAccountSelectInput = withObservables([], () => ({
-  accounts: database.get<Account>('accounts').query().observe(),
+const enhancedMerchantSelectInput = withObservables([], () => ({
+  merchants: database.get<Merchant>('merchants').query().observe(),
 }));
 
-export const AccountSelectInput = enchancedAccountSelectInput(AccountSelectInputInternal);
+export const MerchantSelectInput = enhancedMerchantSelectInput(MerchantSelectInputInternal);

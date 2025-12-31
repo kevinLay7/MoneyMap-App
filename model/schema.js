@@ -1,8 +1,19 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 9,
+  version: 12,
   tables: [
+    tableSchema({
+      name: 'merchants',
+      columns: [
+        { name: 'entity_id', type: 'string', isIndexed: true },
+        { name: 'name', type: 'string' },
+        { name: 'logo_url', type: 'string', isOptional: true },
+        { name: 'website', type: 'string', isOptional: true },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
     tableSchema({
       name: 'accounts',
       columns: [
@@ -26,6 +37,7 @@ export const schema = appSchema({
       columns: [
         { name: 'transaction_id', type: 'string', isIndexed: true },
         { name: 'account_id', type: 'string', isIndexed: true },
+        { name: 'merchant_id', type: 'string', isOptional: true, isIndexed: true },
         { name: 'amount', type: 'number' },
         { name: 'iso_currency_code', type: 'string', isOptional: true },
         { name: 'unofficial_currency_code', type: 'string', isOptional: true },
@@ -146,9 +158,16 @@ export const schema = appSchema({
       columns: [
         { name: 'budget_id', type: 'string', isIndexed: true },
         { name: 'funding_account_id', type: 'string', isOptional: true },
+        { name: 'merchant_id', type: 'string', isOptional: true, isIndexed: true },
+        { name: 'category_id', type: 'string', isOptional: true, isIndexed: true },
         { name: 'name', type: 'string' },
         { name: 'amount', type: 'number' },
         { name: 'type', type: 'string' },
+        { name: 'status', type: 'string' },
+        { name: 'tracking_mode', type: 'string', isOptional: true },
+        { name: 'due_date', type: 'number', isOptional: true },
+        { name: 'is_auto_pay', type: 'boolean', isOptional: true },
+        { name: 'exclude_from_balance', type: 'boolean', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

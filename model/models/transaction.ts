@@ -3,16 +3,19 @@ import { field, relation, readonly, date } from '@nozbe/watermelondb/decorators'
 import { TransactionSource } from '@/types/transaction';
 import Category from './category';
 import Account from './account';
+import Merchant from './merchant';
 
 export default class Transaction extends Model {
   static table = 'transactions';
   static associations = {
     accounts: { type: 'belongs_to', key: 'account_id' },
     categories: { type: 'belongs_to', key: 'category_id' },
+    merchants: { type: 'belongs_to', key: 'merchant_id' },
   } as const;
 
   @field('transaction_id') transactionId!: string;
   @field('account_id') accountId!: string;
+  @field('merchant_id') merchantId?: string;
   @field('amount') amount!: number;
   @field('iso_currency_code') isoCurrencyCode?: string;
   @field('unofficial_currency_code') unofficialCurrencyCode?: string;
@@ -46,4 +49,5 @@ export default class Transaction extends Model {
 
   @relation('accounts', 'account_id') account!: Account;
   @relation('categories', 'category_id') category!: Category;
+  @relation('merchants', 'merchant_id') merchant!: Merchant;
 }

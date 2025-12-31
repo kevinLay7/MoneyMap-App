@@ -104,5 +104,57 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 10,
+      steps: [
+        createTable({
+          name: 'merchants',
+          columns: [
+            { name: 'entity_id', type: 'string', isIndexed: true },
+            { name: 'name', type: 'string' },
+            { name: 'logo_url', type: 'string', isOptional: true },
+            { name: 'website', type: 'string', isOptional: true },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+        addColumns({
+          table: 'transactions',
+          columns: [{ name: 'merchant_id', type: 'string', isOptional: true, isIndexed: true }],
+        }),
+        addColumns({
+          table: 'budget_items',
+          columns: [
+            { name: 'merchant_id', type: 'string', isOptional: true, isIndexed: true },
+            { name: 'status', type: 'string' },
+          ],
+        }),
+      ],
+    },
+    {
+      toVersion: 11,
+      steps: [
+        addColumns({
+          table: 'budget_items',
+          columns: [
+            { name: 'tracking_mode', type: 'string', isOptional: true },
+            { name: 'category_id', type: 'string', isOptional: true, isIndexed: true },
+          ],
+        }),
+      ],
+    },
+    {
+      toVersion: 12,
+      steps: [
+        addColumns({
+          table: 'budget_items',
+          columns: [
+            { name: 'due_date', type: 'number', isOptional: true },
+            { name: 'is_auto_pay', type: 'boolean', isOptional: true },
+            { name: 'exclude_from_balance', type: 'boolean', isOptional: true },
+          ],
+        }),
+      ],
+    },
   ],
 });

@@ -98,7 +98,10 @@ export function BudgetMenu({ selectedBudgetId }: { selectedBudgetId: string | nu
               color="negative"
               iconLeft={<FontAwesome6 name="location-dot" size={18} color="white" />}
               width="w-1/2"
-              onPress={() => {}}
+              onPress={() => {
+                setShowMenu(false);
+                navigator.navigate('create-budget-item', { budgetId: selectedBudgetId });
+              }}
             />
           </View>
         </View>

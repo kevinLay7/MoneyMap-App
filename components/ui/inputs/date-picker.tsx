@@ -6,6 +6,7 @@ import RNDateTimePicker from '@react-native-community/datetimepicker';
 import { useMemo } from 'react';
 import dayjs from '@/helpers/dayjs';
 import { Colors } from '@/constants/colors';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 interface DatePickerProps extends BaseInputProps {
   readonly value: Date;
@@ -14,14 +15,27 @@ interface DatePickerProps extends BaseInputProps {
   readonly disabled?: boolean;
 }
 
-export function DatePicker({ icon, label, value, onChange, error, disabled = false }: DatePickerProps) {
+export function DatePicker({
+  icon,
+  label,
+  value,
+  onChange,
+  error,
+  disabled = false,
+  required = false,
+}: DatePickerProps) {
   const formattedDate = useMemo(() => dayjs(value).format('MM/DD'), [value]);
 
   return (
     <View className="h-16 py-2 border-b-2 border-background-tertiary w-full">
       <View className="flex-row items-center">
-        <View className="w-12 justify-center">
+        <View className="w-12 justify-center relative">
           <IconCircle input={icon} size={36} color="white" backgroundColor="transparent" borderSize={0} />
+          {required && (
+            <View className="absolute top-0 right-1" style={{ marginRight: 8 }}>
+              <FontAwesome6 name="asterisk" size={10} color={Colors.error} />
+            </View>
+          )}
         </View>
         <ThemedText className="mr-2">
           {label}: {formattedDate}

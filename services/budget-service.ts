@@ -1,7 +1,7 @@
 import { isDateBetween } from '@/helpers/dayjs';
 import Account from '@/model/models/account';
 import Budget, { BudgetStatus } from '@/model/models/budget';
-import BudgetItem from '@/model/models/budget-item';
+import BudgetItem, { BalanceTrackingMode, BudgetItemStatus, BudgetItemType } from '@/model/models/budget-item';
 import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { Database, Q } from '@nozbe/watermelondb';
 
@@ -13,6 +13,20 @@ export interface CreateBudgetDto {
   accountBalanceSource: AccountBalanceSrouce;
   accountId: string;
   duration: BudgetDuration;
+}
+
+export interface CreateBudgetItemDto {
+  budgetId: string;
+  name: string;
+  amount: number;
+  type: BudgetItemType;
+  trackingMode?: BalanceTrackingMode;
+  fundingAccountId?: string;
+  merchantId?: string;
+  categoryId?: string;
+  dueDate?: Date;
+  isAutoPay?: boolean;
+  excludeFromBalance?: boolean;
 }
 
 export class BudgetService {
@@ -41,6 +55,45 @@ export class BudgetService {
       }
 
       return insertedBudget;
+    });
+  }
+
+  /**
+   * Creates a new budget item.
+   * @param dto - The data to create a new budget item.
+   * @returns The created budget item.
+   */
+  async createBudgetItem(dto: CreateBudgetItemDto): Promise<BudgetItem> {
+    return await this.database.write(async () => {
+      const budgetItem = await this.database.get<BudgetItem>('budget_items').create(item => {
+        item.budgetId = dto.budgetId;
+        item.name = dto.name;
+        item.amount = dto.amount;
+        item.type = dto.type;
+        item.status = BudgetItemStatus.ACTIVE;
+        if (dto.trackingMode) {
+          item.trackingMode = dto.trackingMode;
+        }
+        if (dto.fundingAccountId) {
+          item.fundingAccountId = dto.fundingAccountId;
+        }
+        if (dto.merchantId) {
+          item.merchantId = dto.merchantId;
+        }
+        if (dto.categoryId) {
+          item.categoryId = dto.categoryId;
+        }
+        if (dto.dueDate) {
+          item.dueDate = dto.dueDate;
+        }
+        if (dto.isAutoPay !== undefined) {
+          item.isAutoPay = dto.isAutoPay;
+        }
+        if (dto.excludeFromBalance !== undefined) {
+          item.excludeFromBalance = dto.excludeFromBalance;
+        }
+      });
+      return budgetItem;
     });
   }
 

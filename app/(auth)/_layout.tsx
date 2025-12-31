@@ -27,6 +27,7 @@ export default function AuthLayout() {
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="create-profile" />
       <Stack.Screen name="create-budget" />
+      <Stack.Screen name="create-budget-item" />
       <Stack.Screen name="debug-data" />
       <Stack.Screen name="encryption-key" />
       <Stack.Screen name="accounts/[id]" />
