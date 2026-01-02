@@ -156,5 +156,14 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 13,
+      steps: [
+        addColumns({
+          table: 'transactions',
+          columns: [{ name: 'budget_item_id', type: 'string', isOptional: true, isIndexed: true }],
+        }),
+      ],
+    },
   ],
 });

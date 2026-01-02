@@ -5,7 +5,7 @@ import { encryptionCredentialsService } from './encryption-credentials-service';
 /**
  * Service for encrypting and decrypting sync records.
  * Uses AES-256-CBC encryption with PBKDF2 key derivation.
- * 
+ *
  * Now uses react-native-quick-crypto which runs all crypto operations
  * on native threads - completely non-blocking to the JS thread.
  */
@@ -100,6 +100,7 @@ class SyncEncryptionService {
       throw new Error('Encryption credentials not found. User must be authenticated.');
     }
 
+    console.log('encryptedRecord', encryptedRecord);
     const combined = Buffer.from(encryptedRecord, 'base64');
 
     // Extract IV (first 16 bytes) and ciphertext (rest)

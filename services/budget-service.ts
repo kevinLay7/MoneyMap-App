@@ -2,8 +2,10 @@ import { isDateBetween } from '@/helpers/dayjs';
 import Account from '@/model/models/account';
 import Budget, { BudgetStatus } from '@/model/models/budget';
 import BudgetItem, { BalanceTrackingMode, BudgetItemStatus, BudgetItemType } from '@/model/models/budget-item';
+import Transaction from '@/model/models/transaction';
 import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { Database, Q } from '@nozbe/watermelondb';
+import { TransactionService } from './transaction-service';
 
 export interface CreateBudgetDto {
   startDate: Date;
@@ -64,7 +66,11 @@ export class BudgetService {
    * @returns The created budget item.
    */
   async createBudgetItem(dto: CreateBudgetItemDto): Promise<BudgetItem> {
-    return await this.database.write(async () => {
+    const budget = await this.database.get<Budget>('budgets').find(dto.budgetId);
+    if (!budget) {
+      throw new Error('Budget not found');
+    }
+    const newBudgetItem = await this.database.write(async () => {
       const budgetItem = await this.database.get<BudgetItem>('budget_items').create(item => {
         item.budgetId = dto.budgetId;
         item.name = dto.name;
@@ -93,7 +99,50 @@ export class BudgetService {
           item.excludeFromBalance = dto.excludeFromBalance;
         }
       });
+
       return budgetItem;
+    });
+
+    // if the type is category, we need to find any transactions that are linked to this budget item and update the category id
+    // Find transactions that should be linked to this budget item
+    if (dto.type === BudgetItemType.Category) {
+      const transactionService = new TransactionService(this.database);
+      const transactionsToLink = await transactionService.findTransactionsForCategory(
+        dto.categoryId!,
+        budget.startDate,
+        budget.endDate
+      );
+
+      for (const transaction of transactionsToLink) {
+        await transactionService.linkTransactionToBudgetItem(transaction, newBudgetItem);
+      }
+    }
+
+    return newBudgetItem;
+  }
+
+  /**
+   * Deletes a budget item and unlinks any associated transactions.
+   * @param budgetItemId - The id of the budget item to delete.
+   */
+  async deleteBudgetItem(budgetItemId: string): Promise<void> {
+    await this.database.write(async () => {
+      const budgetItem = await this.database.get<BudgetItem>('budget_items').find(budgetItemId);
+
+      // Unlink all transactions associated with this budget item
+      const linkedTransactions = await this.database
+        .get<Transaction>('transactions')
+        .query(Q.where('budget_item_id', budgetItemId))
+        .fetch();
+
+      for (const transaction of linkedTransactions) {
+        await transaction.update(t => {
+          t.budgetItemId = null;
+        });
+      }
+
+      // Delete the budget item
+      await budgetItem.markAsDeleted();
     });
   }
 
@@ -113,6 +162,18 @@ export class BudgetService {
         .query(Q.where('budget_id', budgetId))
         .fetch();
       for (const budgetItem of budgetItems) {
+        // Unlink transactions before deleting budget item
+        const linkedTransactions = await this.database
+          .get<Transaction>('transactions')
+          .query(Q.where('budget_item_id', budgetItem.id))
+          .fetch();
+
+        for (const transaction of linkedTransactions) {
+          await transaction.update(t => {
+            t.budgetItemId = null;
+          });
+        }
+
         await budgetItem.markAsDeleted();
       }
     });
@@ -151,6 +212,20 @@ export class BudgetService {
       const budget = await this.database.get<Budget>('budgets').find(budgetId);
       await budget.update(budget => {
         budget.balance = balance;
+      });
+    });
+  }
+
+  /**
+   * Updates the status of a budget item.
+   * @param budgetItemId - The id of the budget item to update.
+   * @param status - The new status value.
+   */
+  async updateBudgetItemStatus(budgetItemId: string, status: BudgetItemStatus) {
+    await this.database.write(async () => {
+      const budgetItem = await this.database.get<BudgetItem>('budget_items').find(budgetItemId);
+      await budgetItem.update(item => {
+        item.status = status;
       });
     });
   }

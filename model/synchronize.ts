@@ -173,7 +173,7 @@ async function encryptChanges(changes: SyncDatabaseChangeSet): Promise<SyncDatab
 
     // Deleted items are just IDs, don't encrypt them
     if (typedTableChanges.deleted?.length) {
-      encryptedTableChanges.deleted = typedTableChanges.deleted;
+      encryptedTableChanges.deleted = await syncEncryptionService.encryptRecords(typedTableChanges.deleted);
     }
 
     // Only include table if it has changes

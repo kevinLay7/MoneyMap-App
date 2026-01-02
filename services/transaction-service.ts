@@ -1,13 +1,16 @@
 import Category from '@/model/models/category';
 import Transaction from '@/model/models/transaction';
+import BudgetItem, { BudgetItemType, BudgetItemStatus } from '@/model/models/budget-item';
+import Budget from '@/model/models/budget';
 import { Database, Q } from '@nozbe/watermelondb';
 import { Observable } from '@nozbe/watermelondb/utils/rx';
 import { TransactionDto } from '@/api/gen/data-contracts';
 import { TransactionSource } from '@/types/transaction';
 import { executeInWriteContext } from '@/helpers/database-helpers';
+import dayjs from '@/helpers/dayjs';
 
 export class TransactionService {
-  constructor(private database: Database) {}
+  constructor(private readonly database: Database) {}
 
   async fetchUncategorizedTransactions(): Promise<Transaction[]> {
     const transactions = await this.database.get<Transaction>('transactions').query().fetch();
@@ -57,40 +60,44 @@ export class TransactionService {
             t.categoryId = category.id;
             t.personalFinanceCategoryConfidenceLevel = 'HIGH';
           });
-          return;
+          // Don't return early - we still need to link to budget items below
+        } else {
+          const categories = await this.database.get<Category>('categories').query().fetch();
+
+          const primaryCategory = transaction.personalFinanceCategoryPrimary
+            ? transaction.personalFinanceCategoryPrimary.toLowerCase()
+            : undefined;
+          const detailedCategory = transaction.personalFinanceCategoryDetailed
+            ? transaction.personalFinanceCategoryDetailed.toLowerCase()
+            : undefined;
+
+          let newCategory: Category | undefined;
+
+          if (detailedCategory) {
+            console.log('Detailed category found:', detailedCategory);
+            newCategory = categories.find(c => c.detailed.toLowerCase() === detailedCategory);
+          }
+
+          if (!newCategory && primaryCategory) {
+            console.log('Primary category found:', primaryCategory);
+            newCategory = categories.find(c => c.primary.toLowerCase() === primaryCategory);
+          }
+
+          if (!newCategory) {
+            console.log('No category found, using uncategorized');
+            newCategory = categories.find(c => c.name.toLowerCase() === 'uncategorized');
+          }
+
+          if (newCategory) {
+            await transaction.update(t => {
+              t.categoryId = newCategory.id;
+            });
+          }
         }
 
-        const categories = await this.database.get<Category>('categories').query().fetch();
-
-        const primaryCategory = transaction.personalFinanceCategoryPrimary
-          ? transaction.personalFinanceCategoryPrimary.toLowerCase()
-          : undefined;
-        const detailedCategory = transaction.personalFinanceCategoryDetailed
-          ? transaction.personalFinanceCategoryDetailed.toLowerCase()
-          : undefined;
-
-        let newCategory: Category | undefined;
-
-        if (detailedCategory) {
-          console.log('Detailed category found:', detailedCategory);
-          newCategory = categories.find(c => c.detailed.toLowerCase() === detailedCategory);
-        }
-
-        if (!newCategory && primaryCategory) {
-          console.log('Primary category found:', primaryCategory);
-          newCategory = categories.find(c => c.primary.toLowerCase() === primaryCategory);
-        }
-
-        if (!newCategory) {
-          console.log('No category found, using uncategorized');
-          newCategory = categories.find(c => c.name.toLowerCase() === 'uncategorized');
-        }
-
-        if (newCategory) {
-          await transaction.update(t => {
-            t.categoryId = newCategory.id;
-          });
-        }
+        // Link transaction to budget items after categorization (or even if no category was set)
+        // This handles both merchant-based (expense) and category-based linking
+        await this.linkTransactionToBudgetItems(transaction, true);
       },
       inWriteContext
     );
@@ -118,6 +125,7 @@ export class TransactionService {
       });
 
       await this.categorizeTransaction(insertedTransaction, undefined, true);
+      // Linking happens inside categorizeTransaction
       return insertedTransaction;
     });
   }
@@ -140,6 +148,7 @@ export class TransactionService {
           this.mapTransactionDtoToModel(transaction, transactionDto, TransactionSource.Plaid);
         });
         await this.categorizeTransaction(updatedTransaction, undefined, true);
+        // Linking happens inside categorizeTransaction
         return updatedTransaction;
       } else {
         // If not found, create it
@@ -147,6 +156,7 @@ export class TransactionService {
           this.mapTransactionDtoToModel(transaction, transactionDto, TransactionSource.Plaid);
         });
         await this.categorizeTransaction(insertedTransaction, undefined, true);
+        // Linking happens inside categorizeTransaction
         return insertedTransaction;
       }
     });
@@ -197,6 +207,215 @@ export class TransactionService {
         }
       }
     });
+  }
+
+  /**
+   * Checks if a transaction date falls within a budget's period
+   */
+  private isTransactionInBudgetPeriod(transaction: Transaction, budget: Budget): boolean {
+    const transactionDate = dayjs(transaction.date).startOf('day');
+    const budgetStart = dayjs(budget.startDate).startOf('day');
+    const budgetEnd = dayjs(budget.endDate).endOf('day');
+    return transactionDate.isSameOrAfter(budgetStart) && transactionDate.isSameOrBefore(budgetEnd);
+  }
+
+  /**
+   * Gets all child category IDs for a parent category
+   * Parent categories have detailed === '' or detailed === null
+   */
+  private async getChildCategoryIds(parentCategory: Category): Promise<string[]> {
+    // Check if this is a parent category (detailed is empty or null)
+    const isParentCategory = !parentCategory.detailed || parentCategory.detailed === '';
+    if (!isParentCategory) {
+      // Not a parent category, return empty array
+      return [];
+    }
+
+    const childCategories = await this.database
+      .get<Category>('categories')
+      .query(
+        Q.where('primary', parentCategory.primary),
+        Q.where('detailed', Q.notEq('')),
+        Q.where('detailed', Q.notEq(null))
+      )
+      .fetch();
+
+    return [parentCategory.id, ...childCategories.map(cat => cat.id)];
+  }
+
+  /**
+   * Links a transaction to matching budget items based on merchant (expense) or category (category items)
+   */
+  async linkTransactionToBudgetItems(transaction: Transaction, inWriteContext: boolean = false): Promise<void> {
+    await executeInWriteContext(
+      this.database,
+      async () => {
+        // If transaction already has a budget item linked, check if it still matches
+        if (transaction.budgetItemId) {
+          const currentBudgetItem = await this.database.get<BudgetItem>('budget_items').find(transaction.budgetItemId);
+          const budget = await this.database.get<Budget>('budgets').find(currentBudgetItem.budgetId);
+
+          // Check if still matches
+          let stillMatches = false;
+          if (currentBudgetItem.type === BudgetItemType.Expense && currentBudgetItem.merchantId) {
+            stillMatches = transaction.merchantId === currentBudgetItem.merchantId;
+          } else if (currentBudgetItem.type === BudgetItemType.Category && currentBudgetItem.categoryId) {
+            if (transaction.categoryId === currentBudgetItem.categoryId) {
+              stillMatches = true;
+            } else {
+              // Check if transaction category is a child of budget item category
+              const budgetItemCategory = await this.database
+                .get<Category>('categories')
+                .find(currentBudgetItem.categoryId);
+              const childCategoryIds = await this.getChildCategoryIds(budgetItemCategory);
+              stillMatches = transaction.categoryId ? childCategoryIds.includes(transaction.categoryId) : false;
+            }
+          }
+
+          // Check if still in budget period
+          if (stillMatches) {
+            stillMatches = this.isTransactionInBudgetPeriod(transaction, budget);
+          }
+
+          if (!stillMatches) {
+            // Unlink if no longer matches
+            await transaction.update(t => {
+              t.budgetItemId = null;
+            });
+          } else {
+            // Still matches, no need to relink
+            return;
+          }
+        }
+
+        // Find all active budgets where transaction date falls within budget period
+        const allBudgets = await this.database.get<Budget>('budgets').query().fetch();
+        const matchingBudgets = allBudgets.filter(budget => this.isTransactionInBudgetPeriod(transaction, budget));
+
+        if (matchingBudgets.length === 0) {
+          return;
+        }
+
+        // Get all budget items from matching budgets
+        const budgetIds = matchingBudgets.map(b => b.id);
+        const budgetItems = await this.database
+          .get<BudgetItem>('budget_items')
+          .query(Q.where('budget_id', Q.oneOf(budgetIds)), Q.where('status', BudgetItemStatus.ACTIVE))
+          .fetch();
+
+        // Try to match expense items by merchant
+        if (transaction.merchantId) {
+          const expenseItems = budgetItems.filter(
+            item => item.type === BudgetItemType.Expense && item.merchantId === transaction.merchantId
+          );
+
+          // Link to first matching expense item that doesn't already have a transaction
+          for (const expenseItem of expenseItems) {
+            const existingLinkedTransactions = await this.database
+              .get<Transaction>('transactions')
+              .query(Q.where('budget_item_id', expenseItem.id))
+              .fetch();
+
+            // Only link if no transaction is already linked (one-to-one for expenses)
+            if (existingLinkedTransactions.length === 0) {
+              await transaction.update(t => {
+                t.budgetItemId = expenseItem.id;
+              });
+              return; // Only link to one expense item
+            }
+          }
+        }
+
+        // Try to match category items by category
+        if (transaction.categoryId) {
+          const categoryItems = budgetItems.filter(item => item.type === BudgetItemType.Category && item.categoryId);
+
+          for (const categoryItem of categoryItems) {
+            if (!categoryItem.categoryId) continue;
+            const categoryItemCategory = await this.database.get<Category>('categories').find(categoryItem.categoryId);
+            let shouldLink = false;
+
+            // Direct match
+            if (transaction.categoryId === categoryItem.categoryId) {
+              shouldLink = true;
+            } else {
+              // Check if transaction category is a child of budget item category
+              const childCategoryIds = await this.getChildCategoryIds(categoryItemCategory);
+              shouldLink = childCategoryIds.includes(transaction.categoryId);
+            }
+
+            if (shouldLink) {
+              // Link transaction to category item (one-to-many allowed)
+              await transaction.update(t => {
+                t.budgetItemId = categoryItem.id;
+              });
+              return; // Link to first matching category item
+            }
+          }
+        }
+      },
+      inWriteContext
+    );
+  }
+
+  /**
+   * Manually unlinks a transaction from its budget item
+   */
+  async unlinkTransactionFromBudgetItem(transaction: Transaction, inWriteContext: boolean = false): Promise<void> {
+    await executeInWriteContext(
+      this.database,
+      async () => {
+        await transaction.update(t => {
+          t.budgetItemId = null;
+        });
+      },
+      inWriteContext
+    );
+  }
+
+  /**
+   * Manually links a transaction to a specific budget item
+   */
+  async linkTransactionToBudgetItem(
+    transaction: Transaction,
+    budgetItem: BudgetItem,
+    inWriteContext: boolean = false
+  ): Promise<void> {
+    await executeInWriteContext(
+      this.database,
+      async () => {
+        // Verify transaction date is within budget period
+        const budget = await this.database.get<Budget>('budgets').find(budgetItem.budgetId);
+        if (!this.isTransactionInBudgetPeriod(transaction, budget)) {
+          throw new Error('Transaction date is not within budget period');
+        }
+
+        await transaction.update(t => {
+          t.budgetItemId = budgetItem.id;
+        });
+      },
+      inWriteContext
+    );
+  }
+
+  /**
+   * Finds all transactions for a category within a date range
+   */
+  async findTransactionsForCategory(categoryId: string, startDate: Date, endDate: Date): Promise<Transaction[]> {
+    const transactionsForDateRange = await this.database
+      .get<Transaction>('transactions')
+      .query(Q.where('date', Q.gte(startDate.toISOString())), Q.where('date', Q.lte(endDate.toISOString())))
+      .fetch();
+
+    const category = await this.database.get<Category>('categories').find(categoryId);
+    if (!category) {
+      return [];
+    }
+
+    const childCategoryIds = await this.getChildCategoryIds(category);
+
+    const transactionsToLink = transactionsForDateRange.filter(t => childCategoryIds.includes(t.categoryId || ''));
+    return transactionsToLink;
   }
 
   /**

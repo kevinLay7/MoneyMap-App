@@ -1,10 +1,10 @@
 import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
-import { Model } from '@nozbe/watermelondb';
+import { Model, Query } from '@nozbe/watermelondb';
 import { children, date, field, lazy, readonly, relation } from '@nozbe/watermelondb/decorators';
 import { of } from '@nozbe/watermelondb/utils/rx';
-import { catchError, combineLatest, map, shareReplay } from 'rxjs';
+import { catchError, combineLatest, map, shareReplay, switchMap } from 'rxjs';
 import Account from './account';
-import BudgetItem, { BudgetItemType } from './budget-item';
+import BudgetItem, { BudgetItemType, BudgetItemState, BudgetItemStatus } from './budget-item';
 
 export enum BudgetStatus {
   Active = 'active',
@@ -36,12 +36,12 @@ export interface BudgetState {
   remainingAccountOnly: number;
   /** True if expenses exceed effective balance */
   isOverBudget: boolean;
-  /** All expense-type budget items */
-  expenseItems: BudgetItem[];
-  /** Expense items funded from the linked account only */
-  accountOnlyExpenseItems: BudgetItem[];
-  /** All budget items */
-  allItems: BudgetItem[];
+  /** All expense-type budget items (computed states) */
+  expenseItems: BudgetItemState[];
+  /** Expense items funded from the linked account only (computed states) */
+  accountOnlyExpenseItems: BudgetItemState[];
+  /** All budget items (computed states) */
+  allItems: BudgetItemState[];
   /** Linked account (if balance source is Account) */
   account: Account | null;
 }
@@ -71,8 +71,8 @@ export default class Budget extends Model {
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
 
-  @relation('accounts', 'account_id') account!: Account | null;
-  @children('budget_items') budgetItems!: BudgetItem[];
+  @relation('accounts', 'account_id') account!: Query<Account>;
+  @children('budget_items') budgetItems!: Query<BudgetItem>;
 
   /**
    * Computed observable that emits BudgetState whenever the budget,
@@ -82,14 +82,30 @@ export default class Budget extends Model {
    */
   @lazy computedState$ = combineLatest({
     account: this.account.observe().pipe(catchError(() => of(null))),
-    items: this.budgetItems.observe().pipe(catchError(() => of([]))),
+    items: this.budgetItems.observe().pipe(
+      switchMap(items => {
+        if (items.length === 0) {
+          return of([]);
+        }
+        // Get computedState$ for each budget item and combine them
+        return combineLatest(items.map(item => item.computedState$));
+      }),
+      catchError(() => of([]))
+    ),
   }).pipe(
     map(({ account, items }): BudgetState => {
-      const expenseItems = items.filter(i => i.type === BudgetItemType.Expense);
+      const expenseItems = items.filter(
+        i =>
+          [BudgetItemType.Expense, BudgetItemType.Category, BudgetItemType.BalanceTracking].includes(i.type) &&
+          i.status !== BudgetItemStatus.COMPLETED
+      );
       const accountOnlyExpenseItems = expenseItems.filter(i => i.fundingAccountId === this.accountId);
-      const totalExpenses = expenseItems.reduce((sum, i) => sum + i.amount, 0);
-      const totalAccountOnlyExpenses = accountOnlyExpenseItems.reduce((sum, i) => sum + i.amount, 0);
-      const effectiveBalance = this.getEffectiveBalance(account);
+      const totalExpenses = expenseItems.reduce((sum, i) => sum + i.remaining, 0);
+      const totalAccountOnlyExpenses = accountOnlyExpenseItems.reduce((sum, i) => sum + i.remaining, 0);
+
+      // account is an array from Query.observe(), get first item or null
+      const accountRecord = Array.isArray(account) ? (account[0] ?? null) : account;
+      const effectiveBalance = this.getEffectiveBalance(accountRecord);
 
       return {
         budgetId: this.id,
@@ -105,7 +121,7 @@ export default class Budget extends Model {
         expenseItems,
         accountOnlyExpenseItems,
         allItems: items,
-        account,
+        account: accountRecord,
       };
     }),
     shareReplay(1)

@@ -9,9 +9,11 @@ import { BudgetState } from '@/model/models/budget';
 import { BudgetItemStatus } from '@/model/models/budget-item';
 import { BudgetItemRow } from './budget-item-row';
 import { Colors } from '@/constants/colors';
+import database from '@/model/database';
+import { BudgetService } from '@/services/budget-service';
 
 interface BudgetItemsListProps {
-  budgetState: BudgetState;
+  readonly budgetState: BudgetState;
 }
 
 const SEGMENTS = ['UPCOMING', 'COMPLETED'] as const;
@@ -48,6 +50,12 @@ export function BudgetItemsList({ budgetState }: BudgetItemsListProps) {
     });
   };
 
+  const budgetService = new BudgetService(database);
+
+  const handleToggleStatus = (itemId: string) => (newStatus: BudgetItemStatus) => {
+    budgetService.updateBudgetItemStatus(itemId, newStatus);
+  };
+
   return (
     <Card variant="elevated" rounded="xl" backgroundColor="secondary" padding="none" className="py-4">
       <View className="flex-row items-center justify-between mb-4 mx-6">
@@ -76,7 +84,7 @@ export function BudgetItemsList({ budgetState }: BudgetItemsListProps) {
       ) : (
         <View>
           {sortedItems.map(item => (
-            <BudgetItemRow key={item.id} item={item} />
+            <BudgetItemRow key={item.itemId} item={item} onToggleStatus={handleToggleStatus(item.itemId)} />
           ))}
         </View>
       )}

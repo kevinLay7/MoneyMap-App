@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 12,
+  version: 13,
   tables: [
     tableSchema({
       name: 'merchants',
@@ -77,6 +77,7 @@ export const schema = appSchema({
         { name: 'transaction_code', type: 'string', isOptional: true },
         { name: 'counterparties', type: 'string', isOptional: true },
         { name: 'source', type: 'string', isOptional: true },
+        { name: 'budget_item_id', type: 'string', isOptional: true, isIndexed: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

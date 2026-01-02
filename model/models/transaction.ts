@@ -4,6 +4,7 @@ import { TransactionSource } from '@/types/transaction';
 import Category from './category';
 import Account from './account';
 import Merchant from './merchant';
+import BudgetItem from './budget-item';
 
 export default class Transaction extends Model {
   static table = 'transactions';
@@ -11,6 +12,7 @@ export default class Transaction extends Model {
     accounts: { type: 'belongs_to', key: 'account_id' },
     categories: { type: 'belongs_to', key: 'category_id' },
     merchants: { type: 'belongs_to', key: 'merchant_id' },
+    budget_items: { type: 'belongs_to', key: 'budget_item_id' },
   } as const;
 
   @field('transaction_id') transactionId!: string;
@@ -43,6 +45,7 @@ export default class Transaction extends Model {
   @field('transaction_code') transactionCode?: string;
   @field('counterparties') counterparties?: string;
   @field('source') source?: TransactionSource;
+  @field('budget_item_id') budgetItemId?: string | null;
 
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
@@ -50,4 +53,5 @@ export default class Transaction extends Model {
   @relation('accounts', 'account_id') account!: Account;
   @relation('categories', 'category_id') category!: Category;
   @relation('merchants', 'merchant_id') merchant!: Merchant;
+  @relation('budget_items', 'budget_item_id') budgetItem!: BudgetItem | null;
 }

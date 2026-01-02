@@ -1,5 +1,5 @@
-import { Model, Q } from '@nozbe/watermelondb';
-import { date, readonly, field, lazy, relation } from '@nozbe/watermelondb/decorators';
+import { Model, Q, Query } from '@nozbe/watermelondb';
+import { date, readonly, field, lazy, relation, children } from '@nozbe/watermelondb/decorators';
 import { of } from '@nozbe/watermelondb/utils/rx';
 import { catchError, combineLatest, map, shareReplay, switchMap } from 'rxjs';
 import Budget from './budget';
@@ -66,11 +66,15 @@ export interface BudgetItemState {
   /** True if item is completed */
   isCompleted: boolean;
   /** For category items: total spending within budget period */
-  categorySpending: number;
+  spending: number;
   /** For category items: percentage of budget used (0-100, can exceed 100) */
-  categorySpendingPercentage: number;
+  spendingPercentage: number;
   /** For category items: true if spending exceeds budget amount */
   isOverBudget: boolean;
+  /** Linked transactions for this budget item */
+  linkedTransactions: Transaction[];
+
+  remaining: number;
 }
 
 export default class BudgetItem extends Model {
@@ -79,6 +83,7 @@ export default class BudgetItem extends Model {
     budgets: { type: 'belongs_to', key: 'budget_id' },
     merchants: { type: 'belongs_to', key: 'merchant_id' },
     categories: { type: 'belongs_to', key: 'category_id' },
+    transactions: { type: 'has_many', foreignKey: 'budget_item_id' },
   } as const;
 
   @field('budget_id') budgetId!: string;
@@ -123,6 +128,7 @@ export default class BudgetItem extends Model {
   @relation('budgets', 'budget_id') budget!: Budget;
   @relation('merchants', 'merchant_id') merchant!: Merchant;
   @relation('categories', 'category_id') category!: Category;
+  @children('transactions') linkedTransactions!: Query<Transaction>;
 
   /**
    * Computed observable that emits BudgetItemState whenever the budget item
@@ -131,46 +137,42 @@ export default class BudgetItem extends Model {
    * Usage: const itemState = useComputedState(budgetItem.computedState$)
    */
   @lazy computedState$ = combineLatest({
+    item: this.observe().pipe(catchError(() => of(this))),
     budget: this.budget.observe().pipe(catchError(() => of(null))),
     merchant: this.merchant.observe().pipe(catchError(() => of(null))),
     category: this.category.observe().pipe(catchError(() => of(null))),
+    linkedTransactions: this.linkedTransactions.observe().pipe(catchError(() => of([]))),
   }).pipe(
-    switchMap(({ budget, merchant, category }) => {
+    switchMap(({ budget, merchant, category, linkedTransactions }) => {
       // For category items, observe transactions within budget period
       if (this.type === BudgetItemType.Category && this.categoryId && budget) {
-        const startDate = dayjs(budget.startDate).startOf('day').toISOString();
-        const endDate = dayjs(budget.endDate).endOf('day').toISOString();
-
         const transactionsQuery = this.database
           .get<Transaction>('transactions')
-          .query(
-            Q.where('category_id', this.categoryId),
-            Q.where('date', Q.gte(startDate)),
-            Q.where('date', Q.lte(endDate)),
-            Q.where('pending', false)
-          );
+          .query(Q.where('budget_item_id', this.id));
 
         return transactionsQuery.observe().pipe(
           map(transactions => {
             const spending = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-            return { budget, merchant, category, spending };
+            return { budget, merchant, category, spending, linkedTransactions };
           }),
-          catchError(() => of({ budget, merchant, category, spending: 0 }))
+          catchError(() => {
+            console.error('Error fetching linked transactions');
+            return of({ budget, merchant, category, spending: 0, linkedTransactions });
+          })
         );
       }
 
-      return of({ budget, merchant, category, spending: 0 });
+      return of({ budget, merchant, category, spending: 0, linkedTransactions });
     }),
-    map(({ budget, merchant, category, spending }): BudgetItemState => {
+    map(({ budget, merchant, category, spending, linkedTransactions }): BudgetItemState => {
       const now = new Date();
       const dueDate = this.dueDate;
       const daysUntilDue = dueDate ? Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
       const isOverdue = dueDate ? daysUntilDue !== null && daysUntilDue < 0 : false;
 
-      const categorySpending = this.type === BudgetItemType.Category ? spending : 0;
-      const categorySpendingPercentage =
-        this.type === BudgetItemType.Category && this.amount > 0 ? (categorySpending / this.amount) * 100 : 0;
-      const isOverBudget = this.type === BudgetItemType.Category && categorySpending > this.amount;
+      const totalSpending = linkedTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+      const spendingPercentage = (totalSpending / this.amount) * 100;
+      const isOverBudget = totalSpending > this.amount;
 
       return {
         itemId: this.id,
@@ -198,9 +200,11 @@ export default class BudgetItem extends Model {
         isBalanceTracking: this.type === BudgetItemType.BalanceTracking,
         isCategory: this.type === BudgetItemType.Category,
         isCompleted: this.status === BudgetItemStatus.COMPLETED,
-        categorySpending,
-        categorySpendingPercentage,
+        spending: totalSpending,
+        spendingPercentage,
         isOverBudget,
+        linkedTransactions: linkedTransactions || [],
+        remaining: this.amount - Math.min(totalSpending, this.amount),
       };
     }),
     shareReplay(1)
