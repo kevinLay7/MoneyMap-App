@@ -3,10 +3,9 @@ const tintColorDark = '#973AFF';
 
 export const Colors = {
   primary: '#973AFF',
-  secondary: '#028FFF',
-  tertiary: '#FC4F9E',
-  quaternary: '#10ab8f',
-  quinary: '#a64ca0',
+  secondary: '#3A7BFF',
+  tertiary: '#2C9AC6',
+  quaternary: '#DE32E4',
   negative: 'transparent',
   success: '#20b197',
   pending: '#1090c7',

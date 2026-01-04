@@ -8,9 +8,9 @@ import { Colors } from '@/constants/colors';
 
 const TAB_COLORS = {
   home: Colors.primary,
-  transactions: Colors.tertiary,
   budgets: Colors.secondary,
-  recurring: Colors.quinary,
+  transactions: Colors.tertiary,
+  recurring: Colors.quaternary,
 } as const;
 
 export default function TabLayout() {
@@ -38,18 +38,6 @@ export default function TabLayout() {
         <Icon sf={{ default: 'house', selected: 'house.fill' }} />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
-        name="transactions"
-        options={{ iconColor: TAB_COLORS.transactions, selectedIconColor: TAB_COLORS.transactions }}
-      >
-        <Label hidden />
-        <Icon
-          sf={{
-            default: 'list.bullet.rectangle',
-            selected: 'list.bullet.rectangle.fill',
-          }}
-        />
-      </NativeTabs.Trigger>
-      <NativeTabs.Trigger
         name="budgets"
         options={{ iconColor: TAB_COLORS.budgets, selectedIconColor: TAB_COLORS.budgets }}
       >
@@ -58,6 +46,18 @@ export default function TabLayout() {
           sf={{
             default: 'map',
             selected: 'map.fill',
+          }}
+        />
+      </NativeTabs.Trigger>
+      <NativeTabs.Trigger
+        name="transactions"
+        options={{ iconColor: TAB_COLORS.transactions, selectedIconColor: TAB_COLORS.transactions }}
+      >
+        <Label hidden />
+        <Icon
+          sf={{
+            default: 'list.bullet.rectangle',
+            selected: 'list.bullet.rectangle.fill',
           }}
         />
       </NativeTabs.Trigger>

@@ -5,7 +5,6 @@ import { FontAwesome6 } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
-import WaveBackground from '@/components/wave-background';
 import { useNavigation } from '@react-navigation/native';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Button } from '@/components/ui/button';
@@ -101,10 +100,10 @@ export default function Header({
   // Memoize gradient configuration
   const shadowGradientConfig = React.useMemo(
     () => ({
-      colors: ['#000000d5', 'transparent'] as const,
+      colors: ['#000000', 'transparent'] as const,
       start: { x: 0, y: 0 },
       end: { x: 0, y: 1 },
-      locations: [0, 0.99] as const,
+      locations: [0, 1] as const,
     }),
     []
   );
@@ -174,40 +173,42 @@ export default function Header({
     [colorScheme, handleOpenAccountManagement, handleOpenSettings, handleOpenDebugData, clearCredentials]
   );
 
-  const bgHeight = useDerivedValue(() => {
-    return 275 - scrollOffset.value;
-  }, []);
-
-  const bgStyles = useAnimatedStyle(
-    () => ({
-      height: bgHeight.value,
-      width: '100%',
-      backgroundColor: backgroundHex,
-      position: 'absolute',
-      top: 0,
-      left: 0,
-      zIndex: 0,
-      shadowColor: backgroundHex,
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.3,
-      shadowRadius: 5,
-      elevation: 5,
-      opacity: backgroundHex ? 1 : 0,
-    }),
-    [backgroundHex]
-  );
-
   const shadowOpacity = useDerivedValue(() => {
     return scrollOffset.value > 50 ? 1 : scrollOffset.value / 50;
   }, []);
 
   const shadowStyles = useAnimatedStyle(
     () => ({
-      height: 70,
+      height: 80,
       position: 'absolute',
       width: '100%',
       zIndex: 300,
       opacity: shadowOpacity.value,
+    }),
+    []
+  );
+
+  const s = useAnimatedStyle(
+    () => ({
+      height: 350,
+      width: '100%',
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      zIndex: 0,
+      elevation: 5,
+      opacity: 1,
+    }),
+    [backgroundHex]
+  );
+
+  const gradientBackgroundConfig = React.useMemo(
+    () => ({
+      colors: [backgroundHex, backgroundHex, 'transparent'] as const,
+      start: { x: 0, y: 0 },
+      end: { x: 0, y: 1 },
+      locations: [0, 0.3, 1] as const,
+      opacity: 1,
     }),
     []
   );
@@ -218,8 +219,11 @@ export default function Header({
         <LinearGradient {...shadowGradientConfig} style={linearGradientStyles} />
       </Animated.View>
 
-      {shouldShowBackground && <Animated.View style={bgStyles}></Animated.View>}
-      {shouldShowBackground && <WaveBackground height={bgHeight} />}
+      {shouldShowBackground && (
+        <Animated.View style={s}>
+          <LinearGradient {...gradientBackgroundConfig} style={linearGradientStyles} />
+        </Animated.View>
+      )}
 
       <Animated.View style={combinedHeaderStyles}>
         <View className="h-28 justify-start items-end bg-transparent flex-row">

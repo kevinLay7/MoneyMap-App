@@ -56,6 +56,10 @@ export function BudgetItemsList({ budgetState }: BudgetItemsListProps) {
     budgetService.updateBudgetItemStatus(itemId, newStatus);
   };
 
+  const handleDelete = (itemId: string) => {
+    budgetService.deleteBudgetItem(itemId);
+  };
+
   return (
     <Card variant="elevated" rounded="xl" backgroundColor="secondary" padding="none" className="py-4">
       <View className="flex-row items-center justify-between mb-4 mx-6">
@@ -84,7 +88,12 @@ export function BudgetItemsList({ budgetState }: BudgetItemsListProps) {
       ) : (
         <View>
           {sortedItems.map(item => (
-            <BudgetItemRow key={item.itemId} item={item} onToggleStatus={handleToggleStatus(item.itemId)} />
+            <BudgetItemRow
+              key={item.itemId}
+              item={item}
+              onToggleStatus={handleToggleStatus(item.itemId)}
+              onDelete={handleDelete}
+            />
           ))}
         </View>
       )}
