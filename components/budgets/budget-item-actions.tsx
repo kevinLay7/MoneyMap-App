@@ -2,38 +2,10 @@ import { View, Pressable } from 'react-native';
 import { ThemedText } from '@/components/shared/themed-text';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { BudgetItemState, BudgetItemStatus, BudgetItemType } from '@/model/models/budget-item';
-
-interface ButtonConfig {
-  label: string;
-  icon: string;
-  bgColor: string;
-  status: BudgetItemStatus;
-}
+import { ButtonConfig, getBudgetItemActionButtons } from '@/utils/budget-item-colors';
 
 function getStatusButtons(item: BudgetItemState): ButtonConfig[] {
-  const { status, type } = item;
-
-  const buttonMap: Record<string, ButtonConfig[]> = {
-    [`${BudgetItemStatus.ACTIVE}-${BudgetItemType.Expense}`]: [
-      { label: 'Paid', icon: 'check', bgColor: 'bg-success', status: BudgetItemStatus.COMPLETED },
-      { label: 'Pending', icon: 'clock', bgColor: 'bg-secondary', status: BudgetItemStatus.PENDING },
-    ],
-    [`${BudgetItemStatus.ACTIVE}-${BudgetItemType.Income}`]: [
-      { label: 'Unpaid', icon: 'xmark', bgColor: 'bg-warning', status: BudgetItemStatus.ACTIVE },
-    ],
-    [`${BudgetItemStatus.ACTIVE}-${BudgetItemType.Category}`]: [
-      { label: 'Completed', icon: 'xmark', bgColor: 'bg-success', status: BudgetItemStatus.COMPLETED },
-    ],
-    [`${BudgetItemStatus.PENDING}`]: [
-      { label: 'Paid', icon: 'check', bgColor: 'bg-success', status: BudgetItemStatus.COMPLETED },
-      { label: 'Unpaid', icon: 'xmark', bgColor: 'bg-warning', status: BudgetItemStatus.ACTIVE },
-    ],
-    [`${BudgetItemStatus.COMPLETED}`]: [
-      { label: 'Unpaid', icon: 'xmark', bgColor: 'bg-warning', status: BudgetItemStatus.ACTIVE },
-    ],
-  };
-
-  return buttonMap[`${status}-${type}`] || buttonMap[status] || [];
+  return getBudgetItemActionButtons(item.status, item.type);
 }
 
 interface LeftActionsProps {
@@ -78,4 +50,3 @@ export function RightActions({ item, onToggleStatus, swipeableMethods }: RightAc
     </>
   );
 }
-

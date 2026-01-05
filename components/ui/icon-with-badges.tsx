@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
 import IconCircle from './icon-circle';
 import { BudgetItemTag } from '@/model/models/budget-item';
-import { Colors } from '@/constants/colors';
+import { getBudgetItemTagColor } from '@/utils/budget-item-colors';
 
 interface IconWithBadgesProps {
   readonly input: string;
@@ -14,25 +14,6 @@ interface IconWithBadgesProps {
   readonly borderColor?: string;
   readonly tags: BudgetItemTag[];
 }
-
-const getTagColor = (tag: BudgetItemTag): string => {
-  switch (tag) {
-    case BudgetItemTag.Pending:
-      return Colors.pending;
-    case BudgetItemTag.Overdue:
-      return Colors.error;
-    case BudgetItemTag.DueToday:
-      return Colors.alert;
-    case BudgetItemTag.AutoPay:
-      return Colors.secondary;
-    case BudgetItemTag.Paid:
-      return Colors.success;
-    case BudgetItemTag.Recurring:
-      return Colors.tertiary;
-    default:
-      return Colors.tertiary;
-  }
-};
 
 const getTagIcon = (tag: BudgetItemTag): string => {
   switch (tag) {
@@ -107,7 +88,7 @@ export function IconWithBadges({
               width: badgeSize,
               height: badgeSize,
               borderRadius: badgeSize / 2,
-              backgroundColor: getTagColor(highestPriorityTag),
+              backgroundColor: getBudgetItemTagColor(highestPriorityTag),
               borderWidth: 1,
               top: -badgeOffset,
               right: -badgeOffset,

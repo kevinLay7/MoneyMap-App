@@ -2,10 +2,10 @@ import { Pressable, Alert } from 'react-native';
 import { IconWithBadges } from '@/components/ui/icon-with-badges';
 import { useMoneyFormatter } from '@/hooks/format-money';
 import { BudgetItemState, BudgetItemStatus } from '@/model/models/budget-item';
-import { Colors } from '@/constants/colors';
 import ReanimatedSwipeable from 'react-native-gesture-handler/ReanimatedSwipeable';
 import { BudgetItemContent } from './budget-item-content';
 import { LeftActions, RightActions } from './budget-item-actions';
+import { getBudgetItemBackgroundColor } from '@/utils/budget-item-colors';
 
 interface BudgetItemRowProps {
   readonly item: BudgetItemState;
@@ -17,7 +17,7 @@ interface BudgetItemRowProps {
 export function BudgetItemRow({ item, onPress, onToggleStatus, onDelete }: BudgetItemRowProps) {
   const formatMoney = useMoneyFormatter();
   const iconInput = item.name?.charAt(0) || '?';
-  const bgColor = item.isCompleted ? 'bg-background-secondary' : 'bg-background-tertiary';
+  const bgColor = getBudgetItemBackgroundColor(item.isCompleted);
 
   const handleDelete = () => {
     if (!onDelete) return;
@@ -58,7 +58,7 @@ export function BudgetItemRow({ item, onPress, onToggleStatus, onDelete }: Budge
           input={iconInput}
           size={36}
           backgroundColor={bgColor}
-          color={Colors.dark.textSecondary}
+          color="gray"
           borderSize={2}
           borderColor={item.statusColor}
           tags={item.tags}

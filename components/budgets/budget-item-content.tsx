@@ -3,7 +3,7 @@ import { ThemedText } from '@/components/shared/themed-text';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { formatDate } from '@/helpers/dayjs';
 import { BudgetItemState } from '@/model/models/budget-item';
-import { Colors } from '@/constants/colors';
+import { getBudgetItemProgressColor } from '@/utils/budget-item-colors';
 
 interface BudgetItemContentProps {
   readonly item: BudgetItemState;
@@ -46,11 +46,7 @@ function CategoryContent({ item, formatMoney }: BudgetItemContentProps) {
             className="h-full rounded-full"
             style={{
               width: `${Math.min(item.spendingPercentage, 100)}%`,
-              backgroundColor: item.isOverBudget
-                ? Colors.error
-                : item.spendingPercentage > 55
-                  ? Colors.warning
-                  : Colors.success,
+              backgroundColor: getBudgetItemProgressColor(item.isOverBudget, item.spendingPercentage),
             }}
           />
         </View>
@@ -67,9 +63,7 @@ function BalanceTrackingContent({ item, formatMoney }: BudgetItemContentProps) {
           <ThemedText type="defaultSemiBold" numberOfLines={1} className="">
             {item.name}
           </ThemedText>
-          {item.isAutoPay && (
-            <FontAwesome6 name="rotate-left" size={14} color={Colors.dark.textSecondary} style={{ marginLeft: 6 }} />
-          )}
+          {item.isAutoPay && <FontAwesome6 name="rotate-left" size={14} color="gray" style={{ marginLeft: 6 }} />}
         </View>
       </View>
 
@@ -87,4 +81,3 @@ export function BudgetItemContent({ item, formatMoney }: BudgetItemContentProps)
   if (item.isBalanceTracking) return <BalanceTrackingContent item={item} formatMoney={formatMoney} />;
   return null;
 }
-

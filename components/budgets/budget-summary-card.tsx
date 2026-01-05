@@ -1,7 +1,6 @@
 import { Card } from '../ui/card';
 import { AnimatedCircularProgress } from 'react-native-circular-progress';
 import { Keyboard, Pressable, TextInput as RNTextInput, View } from 'react-native';
-import { Colors } from '@/constants/colors';
 import { ThemedText } from '../shared/themed-text';
 import { BudgetState } from '@/model/models/budget';
 import { useMoneyFormatter } from '@/hooks/format-money';
@@ -11,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BudgetService } from '@/services/budget-service';
 import database from '@/model/database';
+import { getBudgetSummaryColor } from '@/utils/budget-item-colors';
 
 export function BudgetSummaryCard({ budgetState }: { readonly budgetState: BudgetState }) {
   const formatMoney = useMoneyFormatter();
@@ -37,6 +37,7 @@ export function BudgetSummaryCard({ budgetState }: { readonly budgetState: Budge
     : budgetState.remainingSafeToSpend;
   const isNegativeBalance = remainingBalance <= 0;
   const formattedRemaining = formatMoney(remainingBalance);
+  const summaryColors = getBudgetSummaryColor(isNegativeBalance);
 
   return (
     <Card variant="elevated" rounded="xl" backgroundColor="secondary" padding="lg" className="mb-4">
@@ -49,9 +50,9 @@ export function BudgetSummaryCard({ budgetState }: { readonly budgetState: Budge
           fill={(Math.abs(remainingBalance) / budgetState.balance) * 100}
           rotation={-100}
           lineCap="round"
-          tintColor={isNegativeBalance ? Colors.warning : Colors.success}
+          tintColor={summaryColors.tintColor}
           duration={2000}
-          backgroundColor={Colors.warning}
+          backgroundColor="orange"
           arcSweepAngle={200}
           style={{ position: 'relative', top: 0, left: 0, right: 0, bottom: 0 }}
           childrenContainerStyle={{ marginTop: -5 }}
@@ -92,12 +93,12 @@ export function BudgetSummaryCard({ budgetState }: { readonly budgetState: Budge
                 style={{
                   fontSize: 18,
                   fontWeight: 'bold',
-                  color: theme === 'dark' ? Colors.dark.text : Colors.light.text,
+                  color: theme === 'dark' ? 'white' : 'black',
                   borderBottomWidth: 1,
-                  borderBottomColor: Colors.secondary,
+                  borderBottomColor: '#3A7BFF',
                 }}
                 placeholder="Enter total balance"
-                placeholderTextColor={theme === 'dark' ? Colors.dark.textSecondary : Colors.light.textSecondary}
+                placeholderTextColor={theme === 'dark' ? 'gray' : 'darkgray'}
                 inputMode="decimal"
                 maxLength={15}
                 returnKeyType="done"
@@ -111,7 +112,7 @@ export function BudgetSummaryCard({ budgetState }: { readonly budgetState: Budge
                 }}
               />
             ) : (
-              <ThemedText type="subtitle" color={isNegativeBalance ? 'warning' : 'success'}>
+              <ThemedText type="subtitle" color={summaryColors.colorName as any}>
                 {formatMoney(budgetState.balance ?? 0)}
               </ThemedText>
             )}
