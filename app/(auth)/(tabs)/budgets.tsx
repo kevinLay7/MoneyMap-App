@@ -17,6 +17,8 @@ import { Button } from '@/components/ui/button';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { useObservable } from '@/hooks/use-observable';
 import { useComputedState } from '@/hooks/use-computed-state';
+import { Calendar } from '@/components/ui';
+import { Card } from '@/components/ui/card';
 
 export default function BudgetsScreen() {
   const animatedRef = useAnimatedRef<any>();
@@ -79,6 +81,9 @@ export default function BudgetsScreen() {
         {budgetState ? (
           <View className="p-4">
             <BudgetSummaryCard budgetState={budgetState} />
+            <Card variant="elevated" rounded="lg" backgroundColor="secondary" padding="md" className="mb-4">
+              <Calendar budget={budgetState} />
+            </Card>
             <BudgetItemsList budgetState={budgetState} />
           </View>
         ) : (

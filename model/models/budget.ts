@@ -20,6 +20,10 @@ export interface BudgetState {
   budgetId: string;
   /** Raw balance from the budget record */
   balance: number;
+  /** Start date of the budget */
+  startDate: Date;
+  /** End date of the budget */
+  endDate: Date;
   /** Balance source type (Manual or Account) */
   balanceSource: BudgetBalanceSource;
   /** Account ID if linked */
@@ -109,6 +113,8 @@ export default class Budget extends Model {
 
       return {
         budgetId: this.id,
+        startDate: this.startDate,
+        endDate: this.endDate,
         balance: this.balance,
         balanceSource: this.balanceSource,
         accountId: this.accountId,

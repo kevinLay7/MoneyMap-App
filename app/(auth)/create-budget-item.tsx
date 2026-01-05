@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { AccountSelectInput } from '@/components/ui/inputs/account-select-input';
 import { MerchantSelectInput } from '@/components/ui/inputs/merchant-select-input';
 import { BudgetService, CreateBudgetItemDto } from '@/services/budget-service';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, Alert } from 'react-native';
 import { SwitchInput } from '@/components/ui/inputs/switch-input';
 import { BalanceTrackingMode, BudgetItemType } from '@/model/models/budget-item';
 import { CategorySlectorModal } from '@/components/ui/inputs/category-selector-modal';
@@ -203,10 +203,26 @@ export default function CreateBudgetItem() {
 
       let itemName = name;
       let itemAmount = Number.parseFloat(amount) || 0;
+      let targetBudgetId = budgetId;
+
+      // For Expense items, validate that the due date falls within a budget's date range
+      if (selectedType === BudgetItemType.Expense) {
+        const budgetForDate = await budgetService.findBudgetByDate(dueDate);
+        if (!budgetForDate) {
+          Alert.alert(
+            'No Budget Found',
+            `No budget exists for the selected due date (${dueDate.toLocaleDateString()}). Please select a date that falls within an existing budget period.`,
+            [{ text: 'OK' }]
+          );
+          setIsLoading(false);
+          return;
+        }
+        targetBudgetId = budgetForDate.id;
+      }
 
       // Build the DTO based on type
       const dto: CreateBudgetItemDto = {
-        budgetId,
+        budgetId: targetBudgetId,
         name: itemName,
         amount: itemAmount,
         type: selectedType,

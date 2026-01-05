@@ -222,10 +222,8 @@ export class BackgroundTaskService {
       await this.refreshAuthToken();
 
       // Execute full sync
-      console.log('📋 Executing background full sync...');
       const logger = new SyncLogger(1000);
       await databaseSynchronize(globalSyncApi!, logger);
-      console.log('✅ Background full sync completed');
 
       // Store execution time
       await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());

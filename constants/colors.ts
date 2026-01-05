@@ -12,6 +12,7 @@ export const Colors = {
   warning: '#ffa334',
   error: '#ff4d4f',
   alert: '#ff6a00',
+  limeGreen: '#32CD32',
   light: {
     text: '#11181C',
     textSecondary: '#687076',

@@ -193,6 +193,23 @@ export class BudgetService {
   }
 
   /**
+   * Finds a budget that contains the given date within its date range.
+   * @param date - The date to search for.
+   * @returns The budget that contains the date, or null if none found.
+   */
+  async findBudgetByDate(date: Date): Promise<Budget | null> {
+    const allBudgets = await this.database.get<Budget>('budgets').query().fetch();
+    
+    for (const budget of allBudgets) {
+      if (isDateBetween(date, budget.startDate, budget.endDate)) {
+        return budget;
+      }
+    }
+    
+    return null;
+  }
+
+  /**
    * Gets the status of a budget.
    * @param budget - The budget to get the status for.
    * @returns The status of the budget.

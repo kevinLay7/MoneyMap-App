@@ -1,5 +1,5 @@
 import { Pressable, Alert } from 'react-native';
-import IconCircle from '@/components/ui/icon-circle';
+import { IconWithBadges } from '@/components/ui/icon-with-badges';
 import { useMoneyFormatter } from '@/hooks/format-money';
 import { BudgetItemState, BudgetItemStatus } from '@/model/models/budget-item';
 import { Colors } from '@/constants/colors';
@@ -54,7 +54,15 @@ export function BudgetItemRow({ item, onPress, onToggleStatus, onDelete }: Budge
         style={{ borderTopWidth: 1, borderRadius: 5 }}
         onPress={() => onPress?.(item)}
       >
-        <IconCircle input={iconInput} size={36} backgroundColor={bgColor} color={Colors.dark.textSecondary} />
+        <IconWithBadges
+          input={iconInput}
+          size={36}
+          backgroundColor={bgColor}
+          color={Colors.dark.textSecondary}
+          borderSize={2}
+          borderColor={item.statusColor}
+          tags={item.tags}
+        />
         <BudgetItemContent item={item} formatMoney={formatMoney} />
       </Pressable>
     </ReanimatedSwipeable>

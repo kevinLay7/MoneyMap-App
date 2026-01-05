@@ -10,6 +10,7 @@ interface IconCircleProps {
   iconSize?: number;
   backgroundColor?: string;
   borderSize?: number;
+  borderColor?: string;
   opacity?: 0 | 10 | 20 | 30 | 40 | 50 | 60 | 70 | 80 | 90 | 100;
   circle?: boolean;
 }
@@ -29,6 +30,7 @@ const IconCircle: React.FC<IconCircleProps> = ({
   backgroundColor = 'bg-myColors-Colors-primary',
   iconSize = undefined,
   borderSize = 0,
+  borderColor,
   opacity = 100,
   circle = true,
 }) => {
@@ -63,6 +65,7 @@ const IconCircle: React.FC<IconCircleProps> = ({
           width: size,
           height: size,
           borderWidth: borderSize,
+          borderColor: borderColor,
         },
       ]}
       className={`${backgroundColor} opacity-${opacity.toString()} items-center justify-center`}

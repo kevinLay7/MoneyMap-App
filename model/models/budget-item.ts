@@ -6,7 +6,8 @@ import Budget from './budget';
 import Category from './category';
 import Merchant from './merchant';
 import Transaction from './transaction';
-import dayjs from '@/helpers/dayjs';
+import dayjs, { isSameDate } from '@/helpers/dayjs';
+import { Colors } from '@/constants/colors';
 
 export enum BudgetItemType {
   Income = 'income',
@@ -25,6 +26,24 @@ export enum BudgetItemStatus {
 export enum BalanceTrackingMode {
   Delta = 'delta',
   Absolute = 'absolute',
+}
+
+export enum BudgetItemDisplayStatus {
+  Income = 'INCOME',
+  Paid = 'PAID',
+  Overdue = 'OVERDUE',
+  DueToday = 'DUE_TODAY',
+  AutoPay = 'AUTO_PAY',
+  Upcoming = 'UPCOMING',
+}
+
+export enum BudgetItemTag {
+  Pending = 'pending',
+  Overdue = 'overdue',
+  DueToday = 'due today',
+  AutoPay = 'Auto pay',
+  Paid = 'Paid',
+  Recurring = 'Recurring',
 }
 
 /**
@@ -75,6 +94,12 @@ export interface BudgetItemState {
   linkedTransactions: Transaction[];
 
   remaining: number;
+  /** Display status for UI (income, paid, overdue, due today, auto pay, upcoming) */
+  displayStatus: BudgetItemDisplayStatus;
+  /** Status color for UI display (dot color, border color, etc.) */
+  statusColor: string;
+  /** Tags for filtering and categorization */
+  tags: BudgetItemTag[];
 }
 
 export default class BudgetItem extends Model {
@@ -165,14 +190,88 @@ export default class BudgetItem extends Model {
       return of({ budget, merchant, category, spending: 0, linkedTransactions });
     }),
     map(({ budget, merchant, category, spending, linkedTransactions }): BudgetItemState => {
-      const now = new Date();
       const dueDate = this.dueDate;
-      const daysUntilDue = dueDate ? Math.floor((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : null;
+      const daysUntilDue = dueDate ? Math.round(dayjs(dueDate).diff(dayjs(), 'day', true)) : null;
       const isOverdue = dueDate ? daysUntilDue !== null && daysUntilDue < 0 : false;
 
       const totalSpending = linkedTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
       const spendingPercentage = (totalSpending / this.amount) * 100;
       const isOverBudget = totalSpending > this.amount;
+
+      // Compute display status based on priority:
+      // 1. Pay day (income)
+      // 2. Paid (completed)
+      // 3. Past due (overdue)
+      // 4. Due today
+      // 5. Auto pay
+      // 6. Upcoming (default)
+      let displayStatus: BudgetItemDisplayStatus = BudgetItemDisplayStatus.Upcoming;
+      if (this.type === BudgetItemType.Income) {
+        displayStatus = BudgetItemDisplayStatus.Income;
+      } else if (this.status === BudgetItemStatus.COMPLETED) {
+        displayStatus = BudgetItemDisplayStatus.Paid;
+      } else if (isOverdue) {
+        displayStatus = BudgetItemDisplayStatus.Overdue;
+      } else if (dueDate) {
+        const today = dayjs().startOf('day');
+        const dueDateDayjs = dayjs(dueDate).startOf('day');
+        if (isSameDate(dueDateDayjs, today)) {
+          displayStatus = BudgetItemDisplayStatus.DueToday;
+        } else if (this.isAutoPay) {
+          displayStatus = BudgetItemDisplayStatus.AutoPay;
+        }
+      } else if (this.isAutoPay) {
+        displayStatus = BudgetItemDisplayStatus.AutoPay;
+      }
+
+      // Compute status color from display status
+      const getStatusColor = (status: BudgetItemDisplayStatus): string => {
+        switch (status) {
+          case BudgetItemDisplayStatus.Income:
+            return Colors.limeGreen;
+          case BudgetItemDisplayStatus.Paid:
+            return Colors.success;
+          case BudgetItemDisplayStatus.Overdue:
+            return Colors.error;
+          case BudgetItemDisplayStatus.DueToday:
+            return Colors.alert;
+          case BudgetItemDisplayStatus.AutoPay:
+            return Colors.secondary;
+          case BudgetItemDisplayStatus.Upcoming:
+          default:
+            return Colors.tertiary;
+        }
+      };
+      const statusColor = getStatusColor(displayStatus);
+
+      // Compute tags based on item properties (multiple tags can apply)
+      const tags: BudgetItemTag[] = [];
+
+      if (this.status === BudgetItemStatus.PENDING) {
+        tags.push(BudgetItemTag.Pending);
+      }
+
+      if (isOverdue) {
+        tags.push(BudgetItemTag.Overdue);
+      }
+
+      if (dueDate) {
+        const today = dayjs().startOf('day');
+        const dueDateDayjs = dayjs(dueDate).startOf('day');
+        if (isSameDate(dueDateDayjs, today)) {
+          tags.push(BudgetItemTag.DueToday);
+        }
+      }
+
+      if (this.isAutoPay) {
+        tags.push(BudgetItemTag.AutoPay);
+      }
+
+      if (this.status === BudgetItemStatus.COMPLETED) {
+        tags.push(BudgetItemTag.Paid);
+      }
+      // Note: 'Recurring' tag can be added when recurring logic is implemented
+      // For now, items are not marked as recurring
 
       return {
         itemId: this.id,
@@ -205,6 +304,9 @@ export default class BudgetItem extends Model {
         isOverBudget,
         linkedTransactions: linkedTransactions || [],
         remaining: this.amount - Math.min(totalSpending, this.amount),
+        displayStatus,
+        statusColor,
+        tags,
       };
     }),
     shareReplay(1)

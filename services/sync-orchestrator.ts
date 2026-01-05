@@ -238,7 +238,6 @@ class SyncOrchestrator {
       await this.runAfterInteractions(async () => {
         const logger = new SyncLogger(1000);
         await databaseSynchronize(this.syncApi!, logger);
-        console.log('✅ Full sync completed');
       });
     } catch (error) {
       console.error('❌ Full sync failed:', error);
@@ -405,4 +404,3 @@ class SyncOrchestrator {
 
 // Export singleton instance
 export const syncOrchestrator = new SyncOrchestrator();
-
