@@ -22,6 +22,7 @@ export const useCreateUser = () => {
           : null;
       const errorMessage = responseMessage || error.message || 'Failed to create user';
       console.error('Create user error:', errorMessage);
+      throw new Error(errorMessage);
     },
   });
 };

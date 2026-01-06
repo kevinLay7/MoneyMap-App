@@ -73,7 +73,7 @@ export function useProfileCheck() {
       };
     },
     enabled: !!user, // Only run when user is authenticated
-    retry: false, // Don't retry - if it fails, assume no profile
-    staleTime: 0, // Always check fresh
+    retry: 1, // Retry once if the request fails
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 }

@@ -15,6 +15,7 @@ interface DependencyContextType {
   plaidApi: Plaid;
   syncApi: Sync;
   usersApi: Users;
+  categoryService: CateogryService;
   // Add new services here
   // newService: NewService;
 }

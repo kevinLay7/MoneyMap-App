@@ -94,7 +94,7 @@ export function CalendarDayCell({
         <View className="absolute top-1 left-0 right-0 items-center">
           <ThemedText
             type="defaultSemiBold"
-            color={isToday ? 'secondary' : 'text'}
+            color={isToday ? 'primary' : 'text'}
             style={{
               fontSize: 14,
             }}

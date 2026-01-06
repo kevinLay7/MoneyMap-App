@@ -1,12 +1,12 @@
 import { Model, Q, Query } from '@nozbe/watermelondb';
 import { date, readonly, field, lazy, relation, children } from '@nozbe/watermelondb/decorators';
 import { of } from '@nozbe/watermelondb/utils/rx';
-import { catchError, combineLatest, map, shareReplay, switchMap } from 'rxjs';
+import { catchError, combineLatest, map, Observable, shareReplay, switchMap } from 'rxjs';
 import Budget from './budget';
 import Category from './category';
 import Merchant from './merchant';
 import Transaction from './transaction';
-import dayjs, { isSameDate } from '@/helpers/dayjs';
+import dayjs from '@/helpers/dayjs';
 import {
   getBudgetItemStatusColor,
   determineBudgetItemDisplayStatus,
@@ -22,7 +22,13 @@ import {
 } from './budget-item-enums';
 
 // Re-export enums for convenience
-export { BudgetItemType, BudgetItemStatus, BalanceTrackingMode, BudgetItemDisplayStatus, BudgetItemTag };
+export {
+  BudgetItemType,
+  BudgetItemStatus,
+  BalanceTrackingMode,
+  BudgetItemDisplayStatus,
+  BudgetItemTag,
+} from './budget-item-enums';
 
 /**
  * Computed state emitted by BudgetItem.computedState$
@@ -81,8 +87,8 @@ export interface BudgetItemState {
 }
 
 export default class BudgetItem extends Model {
-  static table = 'budget_items';
-  static associations = {
+  static readonly table = 'budget_items';
+  static readonly associations = {
     budgets: { type: 'belongs_to', key: 'budget_id' },
     merchants: { type: 'belongs_to', key: 'merchant_id' },
     categories: { type: 'belongs_to', key: 'category_id' },
@@ -139,7 +145,7 @@ export default class BudgetItem extends Model {
    *
    * Usage: const itemState = useComputedState(budgetItem.computedState$)
    */
-  @lazy computedState$ = combineLatest({
+  @lazy computedState$: Observable<BudgetItemState> = combineLatest({
     item: this.observe().pipe(catchError(() => of(this))),
     budget: this.budget.observe().pipe(catchError(() => of(null))),
     merchant: this.merchant.observe().pipe(catchError(() => of(null))),

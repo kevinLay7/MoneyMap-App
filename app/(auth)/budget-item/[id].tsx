@@ -1,24 +1,26 @@
-import { Header, ThemedText } from '@/components/shared';
-import { BackgroundContainer } from '@/components/ui/background-container';
-import { AnimatedNumber } from '@/components/ui/animated-number';
-import { Card } from '@/components/ui/card';
-import { Colors } from '@/constants/colors';
-import { useObservable, useObservableCollection } from '@/hooks/use-observable';
-import { useComputedState } from '@/hooks/use-computed-state';
-import database from '@/model/database';
-import BudgetItem, { BudgetItemState, BudgetItemTag } from '@/model/models/budget-item';
-import Account from '@/model/models/account';
-import { useLocalSearchParams } from 'expo-router';
-import { useMemo } from 'react';
 import { View } from 'react-native';
+import { useMemo } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
-import AnimatedScrollView from '@/components/ui/animated-scrollview';
-import { TextIconRow } from '@/components/accounts';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { getBudgetItemTagColor } from '@/utils/budget-item-colors';
-import { EnhancedTransactionRow } from '@/components/transaction';
-import dayjs from '@/helpers/dayjs';
 import { Q } from '@nozbe/watermelondb';
+import { TextIconRow } from '@/components/accounts';
+import { EnhancedTransactionRow } from '@/components/transaction';
+import { Header, ThemedText } from '@/components/shared';
+import { AnimatedNumber } from '@/components/ui/animated-number';
+import AnimatedScrollView from '@/components/ui/animated-scrollview';
+import { BackgroundContainer } from '@/components/ui/background-container';
+import { Card } from '@/components/ui/card';
+import IconCircle from '@/components/ui/icon-circle';
+import { Colors } from '@/constants/colors';
+import dayjs from '@/helpers/dayjs';
+import { useComputedState } from '@/hooks/use-computed-state';
+import { useObservable, useObservableCollection } from '@/hooks/use-observable';
+import database from '@/model/database';
+import Account from '@/model/models/account';
+import BudgetItem, { BudgetItemState, BudgetItemTag } from '@/model/models/budget-item';
+import { getBudgetItemMerchantIconInput } from '@/utils/budget-item-icon';
+import { getBudgetItemTagColor } from '@/utils/budget-item-colors';
 
 const getTagIcon = (tag: BudgetItemTag): string => {
   switch (tag) {
@@ -40,7 +42,7 @@ const getTagIcon = (tag: BudgetItemTag): string => {
 };
 
 const formatTagDisplay = (tag: BudgetItemTag): string => {
-  return tag.replace(/\b\w/g, l => l.toUpperCase());
+  return tag.replaceAll(/\b\w/g, l => l.toUpperCase());
 };
 
 export default function BudgetItemDetailsScreen() {
@@ -75,6 +77,7 @@ export default function BudgetItemDetailsScreen() {
 function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: BudgetItemState }) {
   const animatedRef = useAnimatedRef<any>();
   const scrollOffset = useScrollOffset(animatedRef);
+  const iconInput = getBudgetItemMerchantIconInput(budgetItemState);
 
   // Fetch funding account if available
   const fundingAccountsObservable = useMemo(() => {
@@ -89,13 +92,20 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
       <Header
         leftIcon="arrow-left"
         scrollOffset={scrollOffset}
-        backgroundHex={Colors.secondary}
-        centerComponent={<ThemedText type="subtitle">{budgetItemState.name}</ThemedText>}
+        backgroundHex={Colors.primary}
+        centerComponent={
+          <View className="flex-row items-center">
+            <IconCircle input={iconInput} color="white" size={28} />
+            <ThemedText type="subtitle" className="ml-1">
+              {budgetItemState.name}
+            </ThemedText>
+          </View>
+        }
       />
 
       <AnimatedScrollView animatedRef={animatedRef}>
         <View className="p-4">
-          <Card backgroundColor="secondary" className="mt-6">
+          <Card backgroundColor="secondary" className="">
             <View className="flex-col items-center justify-center">
               <ThemedText type="defaultSemiBold" className="text-center">
                 Amount
@@ -104,7 +114,7 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
             </View>
 
             {(budgetItemState.tags.length > 0 || budgetItemState.dueDate) && (
-              <View className="mt-4 border-t border-background-tertiary pt-4">
+              <View className="mt-4 pt-4">
                 <ThemedText type="defaultSemiBold" className="mb-2 text-center">
                   Tags
                 </ThemedText>
@@ -123,7 +133,7 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
                   )}
                   {budgetItemState.tags.map((tag, index) => (
                     <View
-                      key={index}
+                      key={index.toString() + tag}
                       className="flex-row items-center px-2 py-1 rounded mr-2 mb-2"
                       style={{ backgroundColor: getBudgetItemTagColor(tag) }}
                     >

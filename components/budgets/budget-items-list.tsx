@@ -76,7 +76,7 @@ export function BudgetItemsList({ budgetState }: BudgetItemsListProps) {
         style={{ marginBottom: 12, marginHorizontal: 16 }}
         fontStyle={{ fontWeight: '600' }}
         activeFontStyle={{ fontWeight: '600' }}
-        tintColor={Colors.secondary}
+        tintColor={Colors.primary}
       />
 
       {sortedItems.length === 0 ? (

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { NativeTabs, Icon, Label } from 'expo-router/unstable-native-tabs';
+import { useLoadCategories } from '@/hooks/use-load-categories';
 import { useBackgroundTasks } from '@/hooks/use-background-tasks';
 import { useDependency } from '@/context/dependencyContext';
 import { CateogryService } from '@/services/category-service';
@@ -9,22 +10,10 @@ import { Colors } from '@/constants/colors';
 const TAB_ICON_COLOR = Colors.primary;
 
 export default function TabLayout() {
-  const { categoryApi } = useDependency();
+  useLoadCategories();
 
   // Initialize background tasks when user is authenticated
   useBackgroundTasks();
-
-  useEffect(() => {
-    async function loadCategories() {
-      if (categoryApi) {
-        const categoryService = new CateogryService(categoryApi, database);
-
-        await categoryService.loadCategoriesToDatabase();
-      }
-    }
-
-    loadCategories();
-  }, [categoryApi]);
 
   return (
     <NativeTabs

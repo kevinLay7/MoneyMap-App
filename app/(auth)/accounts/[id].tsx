@@ -35,7 +35,7 @@ export default function AccountDetailsScreen() {
         <Header
           leftIcon="arrow-left"
           scrollOffset={scrollOffset}
-          backgroundHex={Colors.quaternary}
+          backgroundHex={Colors.quinary}
           centerComponent={<ThemedText type="subtitle">Loading...</ThemedText>}
         />
       </BackgroundContainer>
@@ -125,7 +125,7 @@ function AccountDetailsContent({ account }: { account: Account }) {
       <Header
         leftIcon="arrow-left"
         scrollOffset={scrollOffset}
-        noBackground
+        backgroundHex={Colors.primary}
         centerComponent={
           <View className="flex-row items-center">
             <IconCircle input={item?.institutionLogo ?? account?.name?.[0] ?? ''} color="white" size={28} />

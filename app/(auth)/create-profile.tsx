@@ -1,4 +1,4 @@
-import { View, ScrollView } from 'react-native';
+import { View, ScrollView, Alert } from 'react-native';
 import { Button } from '@/components/ui/button';
 import { useAuth0 } from 'react-native-auth0';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -58,7 +58,7 @@ export default function CreateProfile() {
       !createUserDto.email ||
       !createUserDto.encryption_password
     ) {
-      console.error('Please fill in all required fields', createUserDto);
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
@@ -83,7 +83,11 @@ export default function CreateProfile() {
       // Navigate to tabs after user creation
       router.replace('/(auth)/(tabs)');
     } catch (error) {
-      console.error('Failed to create user:', error);
+      if (error instanceof Error) {
+        Alert.alert('Error', error.message);
+      } else {
+        Alert.alert('Error', 'An unknown error occurred');
+      }
     }
   };
 
