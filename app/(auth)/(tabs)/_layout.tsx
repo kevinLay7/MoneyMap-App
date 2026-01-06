@@ -6,12 +6,7 @@ import { CateogryService } from '@/services/category-service';
 import database from '@/model/database';
 import { Colors } from '@/constants/colors';
 
-const TAB_COLORS = {
-  home: Colors.primary,
-  budgets: Colors.secondary,
-  transactions: Colors.tertiary,
-  recurring: Colors.quaternary,
-} as const;
+const TAB_ICON_COLOR = Colors.primary;
 
 export default function TabLayout() {
   const { categoryApi } = useDependency();
@@ -32,14 +27,19 @@ export default function TabLayout() {
   }, [categoryApi]);
 
   return (
-    <NativeTabs>
-      <NativeTabs.Trigger name="index" options={{ iconColor: TAB_COLORS.home, selectedIconColor: TAB_COLORS.home }}>
+    <NativeTabs
+      blurEffect="systemUltraThinMaterial"
+      backgroundColor={null}
+      shadowColor="rgba(0, 0, 0, 0.2)"
+      disableTransparentOnScrollEdge
+    >
+      <NativeTabs.Trigger name="index" options={{ iconColor: TAB_ICON_COLOR, selectedIconColor: TAB_ICON_COLOR }}>
         <Label hidden />
         <Icon sf={{ default: 'house', selected: 'house.fill' }} />
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="budgets"
-        options={{ iconColor: TAB_COLORS.budgets, selectedIconColor: TAB_COLORS.budgets }}
+        options={{ iconColor: TAB_ICON_COLOR, selectedIconColor: TAB_ICON_COLOR }}
       >
         <Label hidden />
         <Icon
@@ -51,7 +51,7 @@ export default function TabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="transactions"
-        options={{ iconColor: TAB_COLORS.transactions, selectedIconColor: TAB_COLORS.transactions }}
+        options={{ iconColor: TAB_ICON_COLOR, selectedIconColor: TAB_ICON_COLOR }}
       >
         <Label hidden />
         <Icon
@@ -63,7 +63,7 @@ export default function TabLayout() {
       </NativeTabs.Trigger>
       <NativeTabs.Trigger
         name="recurring"
-        options={{ iconColor: TAB_COLORS.recurring, selectedIconColor: TAB_COLORS.recurring }}
+        options={{ iconColor: TAB_ICON_COLOR, selectedIconColor: TAB_ICON_COLOR }}
       >
         <Label hidden />
         <Icon

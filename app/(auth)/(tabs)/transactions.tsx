@@ -180,7 +180,7 @@ export default function TransactionsScreen() {
     <BackgroundContainer>
       <Header
         scrollOffset={scrollOffset}
-        backgroundHex={Colors.tertiary}
+        backgroundHex={Colors.primary}
         centerComponent={<ThemedText type="subtitle">Transactions</ThemedText>}
       />
       <View className="w-full h-full">

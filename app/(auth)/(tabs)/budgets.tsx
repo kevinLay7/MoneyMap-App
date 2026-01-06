@@ -70,7 +70,7 @@ export default function BudgetsScreen() {
     <BackgroundContainer>
       <Header
         scrollOffset={scrollOffset}
-        backgroundHex={Colors.secondary}
+        backgroundHex={Colors.primary}
         centerComponent={
           <BudgetSelectHeader selectedBudgetId={selectedBudgetId} onBudgetChange={setSelectedBudgetId} />
         }
