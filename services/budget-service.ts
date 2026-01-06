@@ -1,11 +1,12 @@
 import { isDateBetween } from '@/helpers/dayjs';
 import Account from '@/model/models/account';
 import Budget, { BudgetStatus } from '@/model/models/budget';
-import BudgetItem, { BalanceTrackingMode, BudgetItemStatus, BudgetItemType } from '@/model/models/budget-item';
+import BudgetItem from '@/model/models/budget-item';
 import Transaction from '@/model/models/transaction';
+import { BudgetItemType, BalanceTrackingMode, BudgetItemStatus } from '@/model/models/budget-item-enums';
 import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
-import { Database, Q } from '@nozbe/watermelondb';
 import { TransactionService } from './transaction-service';
+import { Q } from '@nozbe/watermelondb';
 
 export interface CreateBudgetDto {
   startDate: Date;
@@ -199,13 +200,13 @@ export class BudgetService {
    */
   async findBudgetByDate(date: Date): Promise<Budget | null> {
     const allBudgets = await this.database.get<Budget>('budgets').query().fetch();
-    
+
     for (const budget of allBudgets) {
       if (isDateBetween(date, budget.startDate, budget.endDate)) {
         return budget;
       }
     }
-    
+
     return null;
   }
 
@@ -215,8 +216,53 @@ export class BudgetService {
    * @returns The status of the budget.
    */
   private getBudgetStatus(budget: Budget): BudgetStatus {
-    const isActive = isDateBetween(new Date(), budget.startDate, budget.endDate);
-    return isActive ? BudgetStatus.Active : BudgetStatus.Completed;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endDate = new Date(budget.endDate);
+    endDate.setHours(0, 0, 0, 0);
+    return endDate < today ? BudgetStatus.Completed : BudgetStatus.Active;
+  }
+
+  /**
+   * Completes any budget items for budgets whose end date has passed.
+   */
+  async completeExpiredBudgetsAndItems(): Promise<void> {
+    const budgets = await this.database.get<Budget>('budgets').query().fetch();
+    if (budgets.length === 0) {
+      return;
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const expiredBudgets = budgets.filter(budget => {
+      const endDate = new Date(budget.endDate);
+      endDate.setHours(0, 0, 0, 0);
+      return endDate < today;
+    });
+
+    if (expiredBudgets.length === 0) {
+      return;
+    }
+
+    await this.database.write(async () => {
+      for (const budget of expiredBudgets) {
+        if (budget.status !== BudgetStatus.Completed) {
+          await budget.update(record => {
+            record.status = BudgetStatus.Completed;
+          });
+        }
+
+        const budgetItems = await budget.budgetItems.fetch();
+        for (const item of budgetItems) {
+          if (item.status !== BudgetItemStatus.COMPLETED && item.status !== BudgetItemStatus.CANCELED) {
+            await item.update(record => {
+              record.status = BudgetItemStatus.COMPLETED;
+            });
+          }
+        }
+      }
+    });
   }
 
   /**
@@ -263,10 +309,10 @@ export class BudgetService {
       internalAccount = account;
     }
 
-    const budgets = await this.database
+    const budgets: Budget[] = await this.database
       .get<Budget>('budgets')
       .query(
-        Q.where('account_id', internalAccount.id),
+        Q.where('account_id', internalAccount?.id ?? ''),
         Q.where('balance_source', BudgetBalanceSource.Account),
         Q.where('status', BudgetStatus.Active)
       )
@@ -278,12 +324,12 @@ export class BudgetService {
       if (budget.accountBalanceSource === AccountBalanceSrouce.Current) {
         await budget.update(budget => {
           budget.status = this.getBudgetStatus(budget);
-          budget.balance = internalAccount.balanceCurrent;
+          budget.balance = internalAccount?.balanceCurrent ?? 0;
         });
       } else if (budget.accountBalanceSource === AccountBalanceSrouce.Available) {
         await budget.update(budget => {
           budget.status = this.getBudgetStatus(budget);
-          budget.balance = internalAccount.balanceAvailable ?? 0;
+          budget.balance = internalAccount?.balanceAvailable ?? 0;
         });
       } else {
         await budget.update(budget => {

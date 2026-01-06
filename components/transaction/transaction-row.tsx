@@ -54,10 +54,7 @@ export function TransactionRow({ transaction, category, account, item }: Transac
       rightThreshold={40}
       renderRightActions={RightAction}
     >
-      <Pressable
-        className="flex-row bg-background-secondary border-t-background-tertiary h-16"
-        style={{ borderTopWidth: 1 }}
-      >
+      <Pressable className="flex-row bg-background border-t-background-tertiary h-16" style={{ borderTopWidth: 1 }}>
         <View className="w-full flex-row items-center px-3">
           <View className="mr-3">
             <IconCircle input={icon} size={32} borderSize={1} />

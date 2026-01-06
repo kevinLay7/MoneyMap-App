@@ -91,6 +91,7 @@ export function BudgetItemsList({ budgetState }: BudgetItemsListProps) {
             <BudgetItemRow
               key={item.itemId}
               item={item}
+              onPress={() => router.push(`/(auth)/budget-item/${item.itemId}`)}
               onToggleStatus={handleToggleStatus(item.itemId)}
               onDelete={handleDelete}
             />

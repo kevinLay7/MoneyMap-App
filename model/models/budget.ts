@@ -3,10 +3,17 @@ import { Model, Query } from '@nozbe/watermelondb';
 import { children, date, field, lazy, readonly, relation } from '@nozbe/watermelondb/decorators';
 import { of } from '@nozbe/watermelondb/utils/rx';
 import { catchError, combineLatest, map, shareReplay, switchMap } from 'rxjs';
+import dayjs from '@/helpers/dayjs';
 import Account from './account';
 import BudgetItem, { BudgetItemType, BudgetItemState, BudgetItemStatus } from './budget-item';
 
 export enum BudgetStatus {
+  Active = 'active',
+  Completed = 'completed',
+}
+
+export enum BudgetComputedStatus {
+  Upcoming = 'upcoming',
   Active = 'active',
   Completed = 'completed',
 }
@@ -20,6 +27,8 @@ export interface BudgetState {
   budgetId: string;
   /** Raw balance from the budget record */
   balance: number;
+  /** Derived status based on the budget date range */
+  computedStatus: BudgetComputedStatus;
   /** Start date of the budget */
   startDate: Date;
   /** End date of the budget */
@@ -116,6 +125,7 @@ export default class Budget extends Model {
         startDate: this.startDate,
         endDate: this.endDate,
         balance: this.balance,
+        computedStatus: this.getComputedStatus(),
         balanceSource: this.balanceSource,
         accountId: this.accountId,
         effectiveBalance,
@@ -146,5 +156,24 @@ export default class Budget extends Model {
     return this.accountBalanceSource === AccountBalanceSrouce.Available
       ? (account.balanceAvailable ?? 0)
       : account.balanceCurrent;
+  }
+
+  /**
+   * Computes the status based on the budget date range.
+   */
+  private getComputedStatus(): BudgetComputedStatus {
+    const today = dayjs().startOf('day');
+    const startDate = dayjs(this.startDate).startOf('day');
+    const endDate = dayjs(this.endDate).startOf('day');
+
+    if (today.isBefore(startDate)) {
+      return BudgetComputedStatus.Upcoming;
+    }
+
+    if (today.isAfter(endDate)) {
+      return BudgetComputedStatus.Completed;
+    }
+
+    return BudgetComputedStatus.Active;
   }
 }

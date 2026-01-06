@@ -1,5 +1,11 @@
 import { Colors } from '@/constants/colors';
-import { BudgetItemDisplayStatus, BudgetItemTag, BudgetItemStatus, BudgetItemType } from '@/model/models/budget-item';
+import {
+  BudgetItemType,
+  BudgetItemStatus,
+  BalanceTrackingMode,
+  BudgetItemDisplayStatus,
+  BudgetItemTag,
+} from '@/model/models/budget-item-enums';
 
 /**
  * Centralized budget item color and status logic
@@ -119,23 +125,25 @@ export const determineBudgetItemTags = (
     tags.push(BudgetItemTag.Pending);
   }
 
-  if (isOverdue) {
-    tags.push(BudgetItemTag.Overdue);
-  }
-
-  if (dueDate) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDateNormalized = new Date(dueDate);
-    dueDateNormalized.setHours(0, 0, 0, 0);
-
-    if (dueDateNormalized.getTime() === today.getTime()) {
-      tags.push(BudgetItemTag.DueToday);
+  if (status !== BudgetItemStatus.COMPLETED) {
+    if (isOverdue) {
+      tags.push(BudgetItemTag.Overdue);
     }
-  }
 
-  if (isAutoPay) {
-    tags.push(BudgetItemTag.AutoPay);
+    if (dueDate) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const dueDateNormalized = new Date(dueDate);
+      dueDateNormalized.setHours(0, 0, 0, 0);
+
+      if (dueDateNormalized.getTime() === today.getTime()) {
+        tags.push(BudgetItemTag.DueToday);
+      }
+    }
+
+    if (isAutoPay) {
+      tags.push(BudgetItemTag.AutoPay);
+    }
   }
 
   if (status === BudgetItemStatus.COMPLETED) {
@@ -191,14 +199,13 @@ export const getBudgetItemActionButtons = (
     ],
     [`${BudgetItemStatus.PENDING}-${BudgetItemType.Expense}`]: [
       { label: 'Paid', icon: 'check', bgColor: 'bg-success', status: BudgetItemStatus.COMPLETED },
-      { label: 'Active', icon: 'play', bgColor: 'bg-tertiary', status: BudgetItemStatus.ACTIVE },
+      { label: 'Unpaid', icon: 'xmark', bgColor: 'bg-warning', status: BudgetItemStatus.ACTIVE },
     ],
     [`${BudgetItemStatus.PENDING}-${BudgetItemType.Income}`]: [
       { label: 'Paid', icon: 'check', bgColor: 'bg-success', status: BudgetItemStatus.COMPLETED },
     ],
     [`${BudgetItemStatus.COMPLETED}-${BudgetItemType.Expense}`]: [
       { label: 'Active', icon: 'play', bgColor: 'bg-tertiary', status: BudgetItemStatus.ACTIVE },
-      { label: 'Pending', icon: 'clock', bgColor: 'bg-secondary', status: BudgetItemStatus.PENDING },
     ],
     [`${BudgetItemStatus.COMPLETED}-${BudgetItemType.Income}`]: [
       { label: 'Unpaid', icon: 'xmark', bgColor: 'bg-warning', status: BudgetItemStatus.ACTIVE },

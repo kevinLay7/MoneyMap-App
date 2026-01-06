@@ -176,8 +176,8 @@ function AccountDetailsContent({ account }: { account: Account }) {
           )}
 
           {transactions.length > 0 && (
-            <View className="mt-10">
-              <ThemedText type="defaultSemiBold" className="mb-2">
+            <View className="mt-14">
+              <ThemedText type="defaultSemiBold" className="mb-2 text-text-secondary">
                 Recent Transactions
               </ThemedText>
 

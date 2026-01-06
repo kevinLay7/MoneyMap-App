@@ -8,6 +8,7 @@ import dayjs from 'dayjs';
 import database from '@/model/database';
 import Item from '@/model/models/item';
 import { PlaidService } from './plaid-service';
+import { BudgetService } from './budget-service';
 
 // Intervals
 const FOREGROUND_FULL_SYNC_INTERVAL = 60 * 1000; // 60 seconds
@@ -238,6 +239,8 @@ class SyncOrchestrator {
       await this.runAfterInteractions(async () => {
         const logger = new SyncLogger(1000);
         await databaseSynchronize(this.syncApi!, logger);
+        const budgetService = new BudgetService(database);
+        await budgetService.completeExpiredBudgetsAndItems();
       });
     } catch (error) {
       console.error('❌ Full sync failed:', error);
@@ -364,6 +367,8 @@ class SyncOrchestrator {
       const logger = new SyncLogger(1000);
       await databaseSynchronize(this.syncApi!, logger);
       console.log('✅ Background full sync completed');
+      const budgetService = new BudgetService(database);
+      await budgetService.completeExpiredBudgetsAndItems();
 
       // Check for stale plaid items
       await this.checkPlaidIfStale();
