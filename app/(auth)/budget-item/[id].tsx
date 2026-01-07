@@ -106,31 +106,26 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
       <AnimatedScrollView animatedRef={animatedRef}>
         <View className="p-4">
           <Card backgroundColor="secondary" className="">
-            <View className="flex-col items-center justify-center">
-              <ThemedText type="defaultSemiBold" className="text-center">
-                Amount
-              </ThemedText>
-              <AnimatedNumber value={budgetItemState.amount} />
+            <View className="flex-row flex-1 px-5">
+              <View className="flex-col items-center justify-center">
+                <ThemedText type="defaultSemiBold" className="text-center">
+                  Amount
+                </ThemedText>
+                <AnimatedNumber value={budgetItemState.amount} />
+              </View>
+              <View className="flex-col items-center justify-center ml-auto">
+                <ThemedText type="defaultSemiBold" className="text-center">
+                  Due
+                </ThemedText>
+                <ThemedText type="default" className="text-center">
+                  {budgetItemState.dueDate ? dayjs(budgetItemState.dueDate).format('MMM D') : 'No due date'}
+                </ThemedText>
+              </View>
             </View>
 
             {(budgetItemState.tags.length > 0 || budgetItemState.dueDate) && (
-              <View className="mt-4 pt-4">
-                <ThemedText type="defaultSemiBold" className="mb-2 text-center">
-                  Tags
-                </ThemedText>
+              <View className="mt-4">
                 <View className="flex-row flex-wrap items-center justify-center">
-                  {budgetItemState.dueDate && (
-                    <View
-                      key="due-date"
-                      className="flex-row items-center px-2 py-1 rounded mr-2 mb-2"
-                      style={{ backgroundColor: Colors.tertiary }}
-                    >
-                      <FontAwesome6 name="calendar" size={12} color="white" />
-                      <ThemedText type="default" className="ml-1 text-white">
-                        Due {dayjs(budgetItemState.dueDate).format('MMM D')}
-                      </ThemedText>
-                    </View>
-                  )}
                   {budgetItemState.tags.map((tag, index) => (
                     <View
                       key={index.toString() + tag}
