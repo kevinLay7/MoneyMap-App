@@ -4,11 +4,12 @@ import { FontAwesome } from '@expo/vector-icons';
 import { View } from 'react-native';
 
 interface TextIconRowProps {
-  icon: string;
-  text: string;
-  value: string;
-  valueType?: 'default' | 'defaultSemiBold' | 'defaultBold';
-  borderBottom?: boolean;
+  readonly icon: string;
+  readonly text: string;
+  readonly value: string;
+  readonly valueType?: 'default' | 'defaultSemiBold' | 'defaultBold';
+  readonly borderBottom?: boolean;
+  readonly iconAlign?: 'left' | 'center';
 }
 
 export function TextIconRow({
@@ -17,7 +18,10 @@ export function TextIconRow({
   value,
   valueType = 'default',
   borderBottom = true,
+  iconAlign = 'center',
 }: TextIconRowProps) {
+  const iconAlignmentClass = iconAlign === 'left' ? 'items-start' : 'items-center';
+
   return (
     <View
       className="flex-row items-center"
@@ -29,7 +33,7 @@ export function TextIconRow({
       }}
     >
       <View className="flex-row items-center my-2">
-        <View className="w-12 items-center justify-center">
+        <View className={`w-12 ${iconAlignmentClass} justify-center`}>
           <FontAwesome name={icon} size={18} color="white" />
         </View>
       </View>
@@ -42,4 +46,3 @@ export function TextIconRow({
     </View>
   );
 }
-

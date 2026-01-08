@@ -23,6 +23,7 @@ interface SelectInputProps extends BaseInputProps {
 export function SelectInput({
   icon,
   label,
+  iconAlign,
   value,
   onValueChange,
   items,
@@ -53,7 +54,14 @@ export function SelectInput({
   return (
     <View className="h-16 py-2 border-b-2 border-background-tertiary">
       <View className="flex-row items-center">
-        <InputHeader icon={icon} label={label} infoText={infoText} disabled={disabled} required={required} />
+        <InputHeader
+          icon={icon}
+          label={label}
+          iconAlign={iconAlign}
+          infoText={infoText}
+          disabled={disabled}
+          required={required}
+        />
         <View className="flex flex-1 flex-row-reverse">
           <RNPickerSelect
             onValueChange={onValueChange}

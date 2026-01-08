@@ -5,15 +5,16 @@ import { ThemedText } from '@/components/shared';
 import { Colors } from '@/constants/colors';
 
 interface SwitchInputProps extends BaseInputProps {
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-  disabled?: boolean;
-  description?: string;
+  readonly value: boolean;
+  readonly onValueChange: (value: boolean) => void;
+  readonly disabled?: boolean;
+  readonly description?: string;
 }
 
 export function SwitchInput({
   icon,
   label,
+  iconAlign,
   value,
   onValueChange,
   error,
@@ -23,19 +24,28 @@ export function SwitchInput({
   required = false,
 }: SwitchInputProps) {
   return (
-    <View className="h-16 pb-2 pt-3 border-b-2 border-background-tertiary">
-      <View className="flex-row items-center justify-between">
-        <View className="flex-row items-center flex-1 mr-4">
-          <InputHeader icon={icon} label={label} infoText={infoText} disabled={disabled} required={required} />
+    <View className="min-h-16 h-auto overflow-hidden flex pt-3 pb-2 border-b-2 border-background-tertiary">
+      <View className="flex-row items-center">
+        <View className="">
+          <InputHeader
+            icon={icon}
+            label={label}
+            iconAlign={iconAlign}
+            infoText={infoText}
+            disabled={disabled}
+            required={required}
+          />
         </View>
-        <Switch
-          value={value}
-          onValueChange={onValueChange}
-          disabled={disabled}
-          trackColor={{ false: Colors.dark.backgroundTertiary, true: Colors.primary }}
-          thumbColor="#fff"
-          style={{ opacity: disabled ? 0.6 : 1, marginTop: 3 }}
-        />
+        <View className="ml-auto">
+          <Switch
+            value={value}
+            onValueChange={onValueChange}
+            disabled={disabled}
+            trackColor={{ false: Colors.dark.backgroundTertiary, true: Colors.primary }}
+            thumbColor="#fff"
+            style={{ opacity: disabled ? 0.6 : 1 }}
+          />
+        </View>
       </View>
       {description && (
         <ThemedText type="default" className="text-text-secondary text-xs mt-1 ml-12">

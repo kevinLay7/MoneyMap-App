@@ -1,10 +1,9 @@
-import { View } from 'react-native';
+import { Pressable, View } from 'react-native';
 import { useMemo } from 'react';
 import { useLocalSearchParams } from 'expo-router';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
-import { TextIconRow } from '@/components/accounts';
 import { EnhancedTransactionRow } from '@/components/transaction';
 import { Header, ThemedText } from '@/components/shared';
 import { AnimatedNumber } from '@/components/ui/animated-number';
@@ -12,15 +11,18 @@ import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import { BackgroundContainer } from '@/components/ui/background-container';
 import { Card } from '@/components/ui/card';
 import IconCircle from '@/components/ui/icon-circle';
+import { SwitchInput } from '@/components/ui/inputs/switch-input';
+import { TextInput } from '@/components/ui/inputs/text-input';
 import { Colors } from '@/constants/colors';
 import dayjs from '@/helpers/dayjs';
+import { useMoneyFormatter } from '@/hooks/format-money';
 import { useComputedState } from '@/hooks/use-computed-state';
 import { useObservable, useObservableCollection } from '@/hooks/use-observable';
 import database from '@/model/database';
 import Account from '@/model/models/account';
 import BudgetItem, { BudgetItemState, BudgetItemTag } from '@/model/models/budget-item';
 import { getBudgetItemMerchantIconInput } from '@/utils/budget-item-icon';
-import { getBudgetItemTagColor } from '@/utils/budget-item-colors';
+import { getBudgetItemProgressColor, getBudgetItemTagColor } from '@/utils/budget-item-colors';
 
 const getTagIcon = (tag: BudgetItemTag): string => {
   switch (tag) {
@@ -78,6 +80,19 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
   const animatedRef = useAnimatedRef<any>();
   const scrollOffset = useScrollOffset(animatedRef);
   const iconInput = getBudgetItemMerchantIconInput(budgetItemState);
+  const formatMoney = useMoneyFormatter();
+  const dueStatusLabel =
+    budgetItemState.dueDate && budgetItemState.daysUntilDue !== null
+      ? budgetItemState.daysUntilDue < 0
+        ? `${Math.abs(budgetItemState.daysUntilDue)} days overdue`
+        : `${budgetItemState.daysUntilDue} days left`
+      : null;
+  const dueLabel = budgetItemState.dueDate ? 'Due' : 'Budget Ends';
+  const dueDateDisplay = budgetItemState.dueDate
+    ? dayjs(budgetItemState.dueDate).format('ddd, MMM D')
+    : budgetItemState.budget?.endDate
+      ? dayjs(budgetItemState.budget.endDate).format('ddd, MMM D')
+      : 'End date';
 
   // Fetch funding account if available
   const fundingAccountsObservable = useMemo(() => {
@@ -101,68 +116,123 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
             </ThemedText>
           </View>
         }
+        rightComponent={
+          <Pressable onPress={() => {}}>
+            <FontAwesome6 name="ellipsis" size={24} color="white" />
+          </Pressable>
+        }
       />
 
       <AnimatedScrollView animatedRef={animatedRef}>
         <View className="p-4">
-          <Card backgroundColor="secondary" className="">
-            <View className="flex-row flex-1 px-5">
-              <View className="flex-col items-center justify-center">
-                <ThemedText type="defaultSemiBold" className="text-center">
+          <Card backgroundColor="secondary" padding="lg">
+            <View className="gap-2">
+              <View className="flex-row items-center">
+                <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary">
                   Amount
                 </ThemedText>
-                <AnimatedNumber value={budgetItemState.amount} />
+                <ThemedText type="subText" className="ml-auto uppercase tracking-widest text-text-secondary">
+                  {dueLabel}
+                </ThemedText>
               </View>
-              <View className="flex-col items-center justify-center ml-auto">
-                <ThemedText type="defaultSemiBold" className="text-center">
-                  Due
-                </ThemedText>
-                <ThemedText type="default" className="text-center">
-                  {budgetItemState.dueDate ? dayjs(budgetItemState.dueDate).format('MMM D') : 'No due date'}
-                </ThemedText>
+              <View className="flex-row items-center">
+                <AnimatedNumber value={budgetItemState.amount} textStyle={{ fontSize: 32, lineHeight: 38 }} />
+                <View className="ml-auto">
+                  <ThemedText type="subtitle">{dueDateDisplay}</ThemedText>
+                  {dueStatusLabel ? (
+                    <ThemedText type="subText" className=" ml-auto text-text-secondary mt-1">
+                      {dueStatusLabel}
+                    </ThemedText>
+                  ) : null}
+                </View>
               </View>
             </View>
-
-            {(budgetItemState.tags.length > 0 || budgetItemState.dueDate) && (
+            {budgetItemState.isCategory ? (
               <View className="mt-4">
-                <View className="flex-row flex-wrap items-center justify-center">
+                <View className="flex-row items-center mb-2">
+                  <ThemedText type="subText" className="text-text-secondary">
+                    Spent {formatMoney(budgetItemState.spending)}
+                  </ThemedText>
+                  <ThemedText type="subText" className="ml-auto text-text-secondary">
+                    Remaining {formatMoney(budgetItemState.remaining)}
+                  </ThemedText>
+                </View>
+                <View className="h-2 bg-background-tertiary rounded-full overflow-hidden">
+                  <View
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${Math.min(budgetItemState.spendingPercentage, 100)}%`,
+                      backgroundColor: getBudgetItemProgressColor(
+                        budgetItemState.isOverBudget,
+                        budgetItemState.spendingPercentage
+                      ),
+                    }}
+                  />
+                </View>
+              </View>
+            ) : null}
+
+            {budgetItemState.tags.length > 0 ? (
+              <View className="mt-6 border-t border-background-tertiary pt-5">
+                <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary">
+                  Status
+                </ThemedText>
+                <View className="mt-3 flex-row flex-wrap items-center">
                   {budgetItemState.tags.map((tag, index) => (
                     <View
                       key={index.toString() + tag}
-                      className="flex-row items-center px-2 py-1 rounded mr-2 mb-2"
+                      className="flex-row items-center px-3 py-1 rounded-full mr-2 mb-2"
                       style={{ backgroundColor: getBudgetItemTagColor(tag) }}
                     >
                       <FontAwesome6 name={getTagIcon(tag) as any} size={12} color="white" />
-                      <ThemedText type="default" className="ml-1 text-white">
+                      <ThemedText type="default" className="ml-2 text-white">
                         {formatTagDisplay(tag)}
                       </ThemedText>
                     </View>
                   ))}
                 </View>
               </View>
-            )}
+            ) : null}
 
-            <View className="mt-2 border-t border-background-tertiary pt-2">
-              <TextIconRow
+            <View className="mt-5 border-t border-background-tertiary pt-5">
+              <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary mb-2">
+                Details
+              </ThemedText>
+              <TextInput
                 icon="building"
-                text="Merchant"
+                iconAlign="left"
+                label="Merchant"
                 value={budgetItemState.merchant ? budgetItemState.merchant.name : 'No merchant linked'}
+                onChangeText={() => {}}
+                disabled
               />
-
-              <TextIconRow
-                icon="bank"
-                text="Funding Account"
+              <TextInput
+                icon="credit-card"
+                iconAlign="left"
+                label="Funding Account"
                 value={fundingAccount ? fundingAccount.name : 'No funding account'}
-                borderBottom={false}
+                onChangeText={() => {}}
+                disabled
+              />
+              <SwitchInput
+                icon="ban"
+                iconAlign="left"
+                label="Exclude From Budget B"
+                value={budgetItemState.excludeFromBalance}
+                onValueChange={() => {}}
+                disabled
               />
             </View>
           </Card>
 
           <View className="mt-6">
-            <ThemedText type="defaultSemiBold" className="mb-2">
-              Linked Transactions ({budgetItemState.linkedTransactions.length})
-            </ThemedText>
-            <View className="bg-background-secondary rounded-lg overflow-hidden">
+            <View className="flex-row items-center mb-2">
+              <ThemedText type="defaultSemiBold">Linked Transactions</ThemedText>
+              <View className="ml-2 rounded-full bg-background-secondary px-2 py-0.5">
+                <ThemedText type="subText">{budgetItemState.linkedTransactions.length}</ThemedText>
+              </View>
+            </View>
+            <Card backgroundColor="secondary" className="overflow-hidden">
               {budgetItemState.linkedTransactions.length > 0 ? (
                 budgetItemState.linkedTransactions.map(transaction => (
                   <EnhancedTransactionRow key={transaction.id} transaction={transaction} />
@@ -174,7 +244,7 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
                   </ThemedText>
                 </View>
               )}
-            </View>
+            </Card>
           </View>
         </View>
       </AnimatedScrollView>

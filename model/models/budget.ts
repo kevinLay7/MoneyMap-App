@@ -110,7 +110,8 @@ export default class Budget extends Model {
       const expenseItems = items.filter(
         i =>
           [BudgetItemType.Expense, BudgetItemType.Category, BudgetItemType.BalanceTracking].includes(i.type) &&
-          i.status !== BudgetItemStatus.COMPLETED
+          i.status !== BudgetItemStatus.COMPLETED &&
+          !i.excludeFromBalance
       );
       const accountOnlyExpenseItems = expenseItems.filter(i => i.fundingAccountId === this.accountId);
       const totalExpenses = expenseItems.reduce((sum, i) => sum + i.remaining, 0);

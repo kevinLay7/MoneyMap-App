@@ -5,13 +5,13 @@ import { InputHeader } from './input-header';
 import { Colors } from '@/constants/colors';
 
 interface TextInputProps extends BaseInputProps {
-  value: string;
-  onChangeText: (value: string) => void;
-  placeholder?: string;
-  disabled?: boolean;
-  infoText?: string;
-  type?: 'text' | 'password' | 'email' | 'phone' | 'currency';
-  tabIndex?: number;
+  readonly value: string;
+  readonly onChangeText: (value: string) => void;
+  readonly placeholder?: string;
+  readonly disabled?: boolean;
+  readonly infoText?: string;
+  readonly type?: 'text' | 'password' | 'email' | 'phone' | 'currency';
+  readonly tabIndex?: number;
 }
 
 /**
@@ -36,6 +36,7 @@ function extractCents(formatted: string): string {
 export function TextInput({
   icon,
   label,
+  iconAlign,
   value,
   onChangeText,
   error,
@@ -135,7 +136,14 @@ export function TextInput({
     >
       <View className={` ${multiLine ? 'flex-col items-start' : 'flex-row items-center'}`}>
         <View onLayout={handleHeaderLayout}>
-          <InputHeader icon={icon} label={label} infoText={infoText} disabled={disabled} required={required} />
+          <InputHeader
+            icon={icon}
+            label={label}
+            iconAlign={iconAlign}
+            infoText={infoText}
+            disabled={disabled}
+            required={required}
+          />
         </View>
         <RNTextInput
           ref={inputRef}

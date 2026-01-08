@@ -22,6 +22,7 @@ function MerchantSelectInputInternal({
   merchants,
   label = 'Merchant',
   icon = 'store',
+  iconAlign,
   error,
   selectedMerchantId,
   onChange,
@@ -71,7 +72,14 @@ function MerchantSelectInputInternal({
     <View
       className={`h-16 py-2 border-b-2 border-background-tertiary items-center flex-row ${noBorder ? 'border-none' : ''}`}
     >
-      <InputHeader icon={icon} label={label} infoText={infoText} disabled={disabled} required={required} />
+      <InputHeader
+        icon={icon}
+        label={label}
+        iconAlign={iconAlign}
+        infoText={infoText}
+        disabled={disabled}
+        required={required}
+      />
       <View className="ml-auto">
         {disabled ? (
           <ThemedText className="text-typography-900 opacity-60">{displayText}</ThemedText>

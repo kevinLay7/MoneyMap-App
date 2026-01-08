@@ -21,6 +21,7 @@ function AccountSelectInputInternal({
   accounts,
   label,
   icon,
+  iconAlign,
   error,
   selectedAccountId,
   onChange,
@@ -64,7 +65,13 @@ function AccountSelectInputInternal({
     <View
       className={`h-16 py-2 border-b-2 border-background-tertiary items-center flex-row ${noBorder ? 'border-none' : ''}`}
     >
-      <InputHeader icon="wallet" label="Account" disabled={disabled} required={required} />
+      <InputHeader
+        icon="wallet"
+        label="Account"
+        iconAlign={iconAlign}
+        disabled={disabled}
+        required={required}
+      />
       <View className="ml-auto">
         {disabled ? (
           <ThemedText className="text-typography-900 opacity-60">{displayText}</ThemedText>
