@@ -6,7 +6,7 @@ import Transaction from '@/model/models/transaction';
 import { BudgetItemType, BalanceTrackingMode, BudgetItemStatus } from '@/model/models/budget-item-enums';
 import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { TransactionService } from './transaction-service';
-import { Q } from '@nozbe/watermelondb';
+import { Database, Q } from '@nozbe/watermelondb';
 
 export interface CreateBudgetDto {
   startDate: Date;
@@ -28,6 +28,20 @@ export interface CreateBudgetItemDto {
   merchantId?: string;
   categoryId?: string;
   dueDate?: Date;
+  isAutoPay?: boolean;
+  excludeFromBalance?: boolean;
+}
+
+export interface UpdateBudgetItemDto {
+  budgetItemId: string;
+  budgetId?: string;
+  name?: string;
+  amount?: number;
+  trackingMode?: BalanceTrackingMode | null;
+  fundingAccountId?: string | null;
+  merchantId?: string | null;
+  categoryId?: string | null;
+  dueDate?: Date | null;
   isAutoPay?: boolean;
   excludeFromBalance?: boolean;
 }
@@ -98,6 +112,8 @@ export class BudgetService {
         }
         if (dto.excludeFromBalance !== undefined) {
           item.excludeFromBalance = dto.excludeFromBalance;
+        } else if (dto.type === BudgetItemType.BalanceTracking) {
+          item.excludeFromBalance = true;
         }
       });
 
@@ -144,6 +160,51 @@ export class BudgetService {
 
       // Delete the budget item
       await budgetItem.markAsDeleted();
+    });
+  }
+
+  /**
+   * Updates a budget item.
+   * @param dto - The data to update a budget item.
+   * @returns The updated budget item.
+   */
+  async updateBudgetItem(dto: UpdateBudgetItemDto): Promise<BudgetItem> {
+    return await this.database.write(async () => {
+      const budgetItem = await this.database.get<BudgetItem>('budget_items').find(dto.budgetItemId);
+      await budgetItem.update(item => {
+        if (dto.budgetId) {
+          item.budgetId = dto.budgetId;
+        }
+        if (dto.name !== undefined) {
+          item.name = dto.name;
+        }
+        if (dto.amount !== undefined) {
+          item.amount = dto.amount;
+        }
+        if (dto.trackingMode !== undefined) {
+          item.trackingMode = dto.trackingMode ?? null;
+        }
+        if ('fundingAccountId' in dto) {
+          item.fundingAccountId = dto.fundingAccountId ?? null;
+        }
+        if ('merchantId' in dto) {
+          item.merchantId = dto.merchantId ?? null;
+        }
+        if ('categoryId' in dto) {
+          item.categoryId = dto.categoryId ?? null;
+        }
+        if ('dueDate' in dto) {
+          item.dueDate = dto.dueDate ?? null;
+        }
+        if (dto.isAutoPay !== undefined) {
+          item.isAutoPay = dto.isAutoPay;
+        }
+        if (dto.excludeFromBalance !== undefined) {
+          item.excludeFromBalance = dto.excludeFromBalance;
+        }
+      });
+
+      return budgetItem;
     });
   }
 

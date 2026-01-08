@@ -1,71 +1,27 @@
-import { Header, ThemedText } from '@/components/shared';
-import { BackgroundContainer } from '@/components/ui/background-container';
-import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
-import AnimatedScrollView from '@/components/ui/animated-scrollview';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import database from '@/model/database';
-import { Card } from '@/components/ui/card';
+import { Alert, Pressable, ScrollView, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { FontAwesome6 } from '@expo/vector-icons';
+import { SharedModal, ThemedText } from '@/components/shared';
+import { Button } from '@/components/ui/button';
 import { TextInput } from '@/components/ui/inputs/text-input';
 import { DatePicker } from '@/components/ui/inputs/date-picker';
-import { Button } from '@/components/ui/button';
 import { AccountSelectInput } from '@/components/ui/inputs/account-select-input';
 import { MerchantSelectInput } from '@/components/ui/inputs/merchant-select-input';
 import { CategorySlectorModal } from '@/components/ui/inputs/category-selector-modal';
-import { BudgetService, CreateBudgetItemDto } from '@/services/budget-service';
-import { Pressable, View, Alert } from 'react-native';
 import { SwitchInput } from '@/components/ui/inputs/switch-input';
-import { BalanceTrackingMode, BudgetItemType } from '@/model/models/budget-item-enums';
-import Category from '@/model/models/category';
-import { useLocalSearchParams, router } from 'expo-router';
-import { FontAwesome6 } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
+import database from '@/model/database';
+import Category from '@/model/models/category';
+import { BudgetItemState } from '@/model/models/budget-item';
+import { BalanceTrackingMode, BudgetItemType } from '@/model/models/budget-item-enums';
+import { BudgetService, UpdateBudgetItemDto } from '@/services/budget-service';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
-interface TypeOption {
-  type: BudgetItemType;
-  label: string;
-  icon: string;
-}
-
-const TYPE_OPTIONS: TypeOption[] = [
-  { type: BudgetItemType.Income, label: 'Income', icon: 'arrow-down' },
-  { type: BudgetItemType.Expense, label: 'Expense', icon: 'arrow-up' },
-  { type: BudgetItemType.Category, label: 'Category', icon: 'tags' },
-  { type: BudgetItemType.BalanceTracking, label: 'Card', icon: 'credit-card' },
-];
-
-function TypeSelector({
-  selectedType,
-  onTypeChange,
-}: Readonly<{
-  selectedType: BudgetItemType;
-  onTypeChange: (type: BudgetItemType) => void;
-}>) {
-  const colorScheme = useColorScheme();
-  const iconColor = colorScheme === 'light' ? Colors.light.text : Colors.dark.text;
-
-  return (
-    <View className="flex-row justify-between mb-4">
-      {TYPE_OPTIONS.map(option => {
-        const isSelected = selectedType === option.type;
-        return (
-          <Pressable
-            key={option.type}
-            onPress={() => onTypeChange(option.type)}
-            className={`flex-1 mx-1 py-3 rounded-xl items-center ${
-              isSelected ? 'bg-primary' : 'bg-background-tertiary'
-            }`}
-          >
-            <FontAwesome6 name={option.icon} size={18} color={isSelected ? '#fff' : iconColor} />
-            <ThemedText type="defaultSemiBold" className={`mt-1 text-xs ${isSelected ? 'text-white' : ''}`}>
-              {option.label}
-            </ThemedText>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
+const formatTypeLabel = (type: BudgetItemType) => {
+  const label = type.replaceAll('_', ' ');
+  return label.replaceAll(/\b\w/g, char => char.toUpperCase());
+};
 
 function TrackingModeSelector({
   trackingMode,
@@ -128,13 +84,18 @@ function TrackingModeSelector({
   );
 }
 
-export default function CreateBudgetItem() {
-  const animatedRef = useAnimatedRef<any>();
-  const scrollOffset = useScrollOffset(animatedRef);
-  const { budgetId } = useLocalSearchParams<{ budgetId: string }>();
+interface BudgetItemEditSheetProps {
+  readonly visible: boolean;
+  readonly onClose: () => void;
+  readonly budgetItemState: BudgetItemState;
+}
 
-  // Form state
-  const [selectedType, setSelectedType] = useState<BudgetItemType>(BudgetItemType.Expense);
+export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: BudgetItemEditSheetProps) {
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const iconColor = colorScheme === 'light' ? Colors.light.text : Colors.dark.text;
+  const budgetService = useMemo(() => new BudgetService(database), []);
+
   const [name, setName] = useState('');
   const [amount, setAmount] = useState('');
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -143,32 +104,31 @@ export default function CreateBudgetItem() {
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [isManualAccountEntry, setIsManualAccountEntry] = useState(false);
   const [manualAccountName, setManualAccountName] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  // Expense-specific fields
+  const [isSaving, setIsSaving] = useState(false);
   const [dueDate, setDueDate] = useState<Date>(new Date());
   const [isAutoPay, setIsAutoPay] = useState(false);
   const [selectedMerchantId, setSelectedMerchantId] = useState<string | null>(null);
-  // BalanceTracking-specific fields
   const [excludeFromBalance, setExcludeFromBalance] = useState(false);
 
-  // Reset form when type changes
   useEffect(() => {
-    setName('');
-    setAmount('');
-    setSelectedAccountId(null);
-    setSelectedCategory(null);
-    setIsManualAccountEntry(false);
-    setManualAccountName('');
-    setDueDate(new Date());
-    setIsAutoPay(false);
-    setSelectedMerchantId(null);
-    setExcludeFromBalance(selectedType === BudgetItemType.BalanceTracking);
-  }, [selectedType]);
+    if (!visible) return;
+    setName(budgetItemState.name);
+    setAmount(budgetItemState.amount.toFixed(2));
+    setSelectedAccountId(budgetItemState.fundingAccountId);
+    setTrackingMode(budgetItemState.trackingMode ?? BalanceTrackingMode.Delta);
+    setSelectedCategory(budgetItemState.category ?? null);
+    setDueDate(budgetItemState.dueDate ?? new Date());
+    setIsAutoPay(budgetItemState.isAutoPay);
+    setSelectedMerchantId(budgetItemState.merchantId);
+    setExcludeFromBalance(budgetItemState.excludeFromBalance);
+
+    const manualEntry = budgetItemState.isBalanceTracking && !budgetItemState.fundingAccountId;
+    setIsManualAccountEntry(manualEntry);
+    setManualAccountName(manualEntry ? budgetItemState.name : '');
+  }, [budgetItemState, visible]);
 
   const isFormValid = useMemo(() => {
-    if (!budgetId) return false;
-
-    switch (selectedType) {
+    switch (budgetItemState.type) {
       case BudgetItemType.Income:
       case BudgetItemType.Expense:
         return name.trim().length > 0 && Number.parseFloat(amount) > 0;
@@ -182,31 +142,17 @@ export default function CreateBudgetItem() {
       default:
         return false;
     }
-  }, [
-    selectedType,
-    name,
-    amount,
-    selectedCategory,
-    selectedAccountId,
-    isManualAccountEntry,
-    manualAccountName,
-    budgetId,
-  ]);
+  }, [amount, budgetItemState.type, isManualAccountEntry, manualAccountName, name, selectedAccountId, selectedCategory]);
 
-  const handleCreateBudgetItem = useCallback(async () => {
-    if (!isFormValid || !budgetId) return;
-
-    setIsLoading(true);
+  const handleSave = async () => {
+    if (!isFormValid || isSaving) return;
+    setIsSaving(true);
 
     try {
-      const budgetService = new BudgetService(database);
+      let targetBudgetId = budgetItemState.budgetId;
+      let linkedAccountName: string | null = null;
 
-      let itemName = name;
-      let itemAmount = Number.parseFloat(amount) || 0;
-      let targetBudgetId = budgetId;
-
-      // For Expense items, validate that the due date falls within a budget's date range
-      if (selectedType === BudgetItemType.Expense) {
+      if (budgetItemState.type === BudgetItemType.Expense) {
         const budgetForDate = await budgetService.findBudgetByDate(dueDate);
         if (!budgetForDate) {
           Alert.alert(
@@ -214,87 +160,76 @@ export default function CreateBudgetItem() {
             `No budget exists for the selected due date (${dueDate.toLocaleDateString()}). Please select a date that falls within an existing budget period.`,
             [{ text: 'OK' }]
           );
-          setIsLoading(false);
+          setIsSaving(false);
           return;
         }
         targetBudgetId = budgetForDate.id;
       }
 
-      // Build the DTO based on type
-      const dto: CreateBudgetItemDto = {
+      if (
+        budgetItemState.type === BudgetItemType.BalanceTracking &&
+        !isManualAccountEntry &&
+        selectedAccountId
+      ) {
+        const account = await database.get('accounts').find(selectedAccountId);
+        linkedAccountName = (account as { name?: string }).name ?? null;
+      }
+
+      const dto: UpdateBudgetItemDto = {
+        budgetItemId: budgetItemState.itemId,
         budgetId: targetBudgetId,
-        name: itemName,
-        amount: itemAmount,
-        type: selectedType,
       };
 
-      switch (selectedType) {
+      switch (budgetItemState.type) {
         case BudgetItemType.Income:
-          if (selectedAccountId) {
-            dto.fundingAccountId = selectedAccountId;
-          }
+          dto.name = name.trim();
+          dto.amount = Number.parseFloat(amount) || 0;
+          dto.fundingAccountId = selectedAccountId;
+          dto.excludeFromBalance = excludeFromBalance;
           break;
         case BudgetItemType.Expense:
-          if (selectedAccountId) {
-            dto.fundingAccountId = selectedAccountId;
-          }
-          if (selectedMerchantId) {
-            dto.merchantId = selectedMerchantId;
-          }
+          dto.name = name.trim();
+          dto.amount = Number.parseFloat(amount) || 0;
+          dto.fundingAccountId = selectedAccountId;
+          dto.merchantId = selectedMerchantId;
           dto.dueDate = dueDate;
           dto.isAutoPay = isAutoPay;
+          dto.excludeFromBalance = excludeFromBalance;
           break;
         case BudgetItemType.Category:
+          dto.amount = Number.parseFloat(amount) || 0;
+          dto.excludeFromBalance = excludeFromBalance;
           if (selectedCategory) {
-            dto.name = selectedCategory.name;
             dto.categoryId = selectedCategory.id;
+            dto.name = selectedCategory.name;
           }
           break;
         case BudgetItemType.BalanceTracking:
           dto.trackingMode = trackingMode;
-          dto.amount = 0; // Balance tracking doesn't use amount
           dto.excludeFromBalance = excludeFromBalance;
           if (isManualAccountEntry) {
-            dto.name = manualAccountName;
-          } else if (selectedAccountId) {
+            dto.fundingAccountId = null;
+            dto.name = manualAccountName.trim();
+          } else {
             dto.fundingAccountId = selectedAccountId;
-            // Name will be set from account when available
-            const account = await database.get('accounts').find(selectedAccountId);
-            dto.name = (account as any).name || 'Credit Card';
+            if (linkedAccountName) {
+              dto.name = linkedAccountName;
+            }
           }
           break;
       }
 
-      await budgetService.createBudgetItem(dto);
-      router.back();
+      await budgetService.updateBudgetItem(dto);
+      onClose();
     } catch (error) {
-      console.error('Error creating budget item:', error);
+      console.error('Error updating budget item:', error);
     } finally {
-      setIsLoading(false);
+      setIsSaving(false);
     }
-  }, [
-    isFormValid,
-    budgetId,
-    selectedType,
-    name,
-    amount,
-    selectedAccountId,
-    selectedCategory,
-    trackingMode,
-    isManualAccountEntry,
-    manualAccountName,
-    dueDate,
-    isAutoPay,
-    selectedMerchantId,
-    excludeFromBalance,
-  ]);
-
-  const handleCategorySelect = (category: Category) => {
-    setSelectedCategory(category);
   };
 
   const renderTypeSpecificFields = () => {
-    switch (selectedType) {
+    switch (budgetItemState.type) {
       case BudgetItemType.Income:
         return (
           <>
@@ -304,6 +239,7 @@ export default function CreateBudgetItem() {
               value={name}
               onChangeText={setName}
               placeholder="e.g., Paycheck, Freelance"
+              iconAlign="center"
               required
             />
             <TextInput
@@ -313,12 +249,23 @@ export default function CreateBudgetItem() {
               onChangeText={setAmount}
               placeholder="0.00"
               type="currency"
+              iconAlign="center"
               required
             />
-            <AccountSelectInput selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} />
+            <AccountSelectInput
+              selectedAccountId={selectedAccountId}
+              onChange={setSelectedAccountId}
+              iconAlign="center"
+            />
+            <SwitchInput
+              icon="ban"
+              label="Exclude From Balance"
+              value={excludeFromBalance}
+              onValueChange={setExcludeFromBalance}
+              iconAlign="center"
+            />
           </>
         );
-
       case BudgetItemType.Expense:
         return (
           <>
@@ -328,6 +275,7 @@ export default function CreateBudgetItem() {
               value={name}
               onChangeText={setName}
               placeholder="e.g., Rent, Netflix, Utilities"
+              iconAlign="center"
               required
             />
             <TextInput
@@ -337,19 +285,44 @@ export default function CreateBudgetItem() {
               onChangeText={setAmount}
               placeholder="0.00"
               type="currency"
+              iconAlign="center"
               required
             />
-            <DatePicker icon="calendar" label="Due Date" value={dueDate} onChange={setDueDate} required />
-            <SwitchInput icon="credit-card" label="Auto-Pay" value={isAutoPay} onValueChange={setIsAutoPay} />
+            <DatePicker
+              icon="calendar"
+              label="Due Date"
+              value={dueDate}
+              onChange={setDueDate}
+              iconAlign="center"
+              required
+            />
+            <SwitchInput
+              icon="credit-card"
+              label="Auto-Pay"
+              value={isAutoPay}
+              onValueChange={setIsAutoPay}
+              iconAlign="center"
+            />
             <MerchantSelectInput
               selectedMerchantId={selectedMerchantId}
               onChange={setSelectedMerchantId}
               placeholder="Link to merchant..."
+              iconAlign="center"
             />
-            <AccountSelectInput selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} />
+            <AccountSelectInput
+              selectedAccountId={selectedAccountId}
+              onChange={setSelectedAccountId}
+              iconAlign="center"
+            />
+            <SwitchInput
+              icon="ban"
+              label="Exclude From Balance"
+              value={excludeFromBalance}
+              onValueChange={setExcludeFromBalance}
+              iconAlign="center"
+            />
           </>
         );
-
       case BudgetItemType.Category:
         return (
           <>
@@ -380,16 +353,23 @@ export default function CreateBudgetItem() {
               onChangeText={setAmount}
               placeholder="0.00"
               type="currency"
+              iconAlign="center"
               required
+            />
+            <SwitchInput
+              icon="ban"
+              label="Exclude From Balance"
+              value={excludeFromBalance}
+              onValueChange={setExcludeFromBalance}
+              iconAlign="center"
             />
             <CategorySlectorModal
               isVisible={showCategoryModal}
               onClose={() => setShowCategoryModal(false)}
-              onSelectCategory={handleCategorySelect}
+              onSelectCategory={setSelectedCategory}
             />
           </>
         );
-
       case BudgetItemType.BalanceTracking:
         return (
           <>
@@ -416,66 +396,76 @@ export default function CreateBudgetItem() {
                   value={manualAccountName}
                   onChangeText={setManualAccountName}
                   placeholder="e.g., Chase Sapphire"
+                  iconAlign="center"
                 />
               ) : (
-                <AccountSelectInput selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} noBorder />
+                <AccountSelectInput
+                  selectedAccountId={selectedAccountId}
+                  onChange={setSelectedAccountId}
+                  iconAlign="center"
+                  noBorder
+                />
               )}
             </View>
             <SwitchInput
               icon="eye-slash"
-              label="Exclude from Budget"
+              label="Exclude From Balance"
               value={excludeFromBalance}
               onValueChange={setExcludeFromBalance}
               description="Don't count against remaining balance"
+              iconAlign="center"
             />
           </>
         );
-
       default:
         return null;
     }
   };
 
-  const getTypeDescription = () => {
-    switch (selectedType) {
-      case BudgetItemType.Income:
-        return 'Expected money coming in during this budget period.';
-      case BudgetItemType.Expense:
-        return 'Planned spending for bills, subscriptions, or one-time expenses.';
-      case BudgetItemType.Category:
-        return 'Allocate a budget amount to a spending category.';
-      case BudgetItemType.BalanceTracking:
-        return 'Track a credit card balance against your budget.';
-      default:
-        return '';
-    }
-  };
-
   return (
-    <BackgroundContainer>
-      <Header
-        scrollOffset={scrollOffset}
-        centerComponent={<ThemedText type="subtitle">Add Budget Item</ThemedText>}
-        leftIcon="arrow-left"
-        noBackground
-      />
-
-      <AnimatedScrollView animatedRef={animatedRef} className="px-4">
-        <Card variant="elevated" rounded="xl" backgroundColor="secondary" padding="lg">
-          <TypeSelector selectedType={selectedType} onTypeChange={setSelectedType} />
-          <ThemedText type="default" className="text-text-secondary text-center">
-            {getTypeDescription()}
-          </ThemedText>
-        </Card>
-
-        <Card variant="elevated" rounded="xl" backgroundColor="secondary" padding="lg" className="mt-4">
-          {renderTypeSpecificFields()}
-        </Card>
-
-        <View className="mt-4 mb-10">
-          <Button title="Create Item" onPress={handleCreateBudgetItem} disabled={!isFormValid} loading={isLoading} />
+    <SharedModal
+      visible={visible}
+      onClose={onClose}
+      position="bottom"
+      width="100%"
+      height="85%"
+      borderColor={Colors.dark.backgroundTertiary}
+      borderWidth={2}
+      borderRadius={20}
+      backgroundColor={Colors.dark.backgroundSecondary}
+    >
+      <View className="w-full h-full rounded-2xl">
+        <View className="flex-row items-center justify-center py-4">
+          <View className="w-1/6 bg-text-secondary h-1 rounded-full"></View>
         </View>
-      </AnimatedScrollView>
-    </BackgroundContainer>
+
+        <View className="flex-row items-center px-4 pb-2">
+          <ThemedText type="title" className="text-lg">
+            Edit Budget Item
+          </ThemedText>
+          <Pressable onPress={onClose} className="ml-auto">
+            <ThemedText type="link">Close</ThemedText>
+          </Pressable>
+        </View>
+
+        <ScrollView
+          className="px-4"
+          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}
+        >
+          <View className="mb-4">
+            <View className="flex-row items-center mb-2">
+              <FontAwesome6 name="layer-group" size={12} color={iconColor} />
+                <ThemedText type="default" className="ml-2 text-text-secondary">
+                {formatTypeLabel(budgetItemState.type)}
+              </ThemedText>
+            </View>
+            {renderTypeSpecificFields()}
+          </View>
+          <View className="mb-6">
+            <Button title="Save Changes" onPress={handleSave} disabled={!isFormValid} loading={isSaving} />
+          </View>
+        </ScrollView>
+      </View>
+    </SharedModal>
   );
 }

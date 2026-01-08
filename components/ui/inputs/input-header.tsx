@@ -30,28 +30,33 @@ export function InputHeader({
     : theme === 'light'
       ? Colors.light.icon
       : Colors.dark.icon;
-  const iconContainerClass = `${iconAlignmentClass} justify-center relative ${iconAlign === 'left' ? 'mr-2 w-5' : ''}`;
+  const iconContainerClass = `${iconAlignmentClass} justify-center ${iconAlign === 'left' ? 'mr-2' : ''}`;
+  const iconSizeClass = iconAlign === 'left' ? 'w-5' : 'mr-0';
 
   return (
     <View className="flex-row items-center">
       <View className={iconContainerClass}>
-        {iconAlign === 'left' ? (
-          <FontAwesome6 name={icon as any} size={16} color={iconColor} />
-        ) : (
-          <IconCircle
-            input={icon}
-            size={36}
-            color="white"
-            backgroundColor="transparent"
-            borderSize={0}
-            opacity={disabled ? 70 : 100}
-          />
-        )}
-        {required && (
-          <View className="absolute top-0 right-1" style={{ marginRight: 8 }}>
-            <FontAwesome6 name="asterisk" size={10} color={Colors.error} />
+        <View className="flex-row items-center" style={{ marginRight: iconAlign === 'left' ? 0 : 6 }}>
+          <View className={iconSizeClass}>
+            {iconAlign === 'left' ? (
+              <FontAwesome6 name={icon as any} size={16} color={iconColor} />
+            ) : (
+              <IconCircle
+                input={icon}
+                size={36}
+                color="white"
+                backgroundColor="transparent"
+                borderSize={0}
+                opacity={disabled ? 70 : 100}
+              />
+            )}
           </View>
-        )}
+          {required && (
+            <ThemedText type="defaultSemiBold" accessibilityLabel="Required" color="error" style={{ marginLeft: -6 }}>
+              *
+            </ThemedText>
+          )}
+        </View>
       </View>
       <ThemedText className="mr-1">{label}</ThemedText>
       {infoText && <View className="">{/* <InfoPopover text={infoText} /> */}</View>}

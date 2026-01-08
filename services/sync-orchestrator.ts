@@ -172,6 +172,7 @@ class SyncOrchestrator {
     }
 
     // Schedule new push
+    console.log(`🕒 Scheduling push-only sync in ${PUSH_DEBOUNCE_DELAY / 1000}s`);
     this.pushDebounceTimer = setTimeout(() => {
       this.executePushOnly();
     }, PUSH_DEBOUNCE_DELAY);
@@ -264,9 +265,11 @@ class SyncOrchestrator {
     }
 
     try {
+      console.log('⬆️ Starting push-only sync');
       await this.runAfterInteractions(async () => {
         await pushOnlyChanges(this.syncApi!);
       });
+      console.log('✅ Push-only sync completed');
     } catch (error) {
       console.error('❌ Push-only sync failed:', error);
     } finally {

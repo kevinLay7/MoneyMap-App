@@ -16,6 +16,7 @@ import { useMoneyFormatter } from '@/hooks/format-money';
 import dayjs from '@/helpers/dayjs';
 import { FontAwesome } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
+import { SpendingByCategoryCard } from '@/components/home/spending/spending-by-category-card';
 import { useLocalSearchParams } from 'expo-router';
 import { useMemo, useState, useCallback } from 'react';
 import { View } from 'react-native';
@@ -176,7 +177,13 @@ function AccountDetailsContent({ account }: { account: Account }) {
           )}
 
           {transactions.length > 0 && (
-            <View className="mt-14">
+            <View className="mt-8">
+              <SpendingByCategoryCard transactions={transactions} />
+            </View>
+          )}
+
+          {transactions.length > 0 && (
+            <View className="mt-5">
               <ThemedText type="defaultSemiBold" className="mb-2 text-text-secondary">
                 Recent Transactions
               </ThemedText>

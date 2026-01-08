@@ -5,6 +5,7 @@ import { catchError, combineLatest, map, Observable, shareReplay, switchMap } fr
 import Budget from './budget';
 import Category from './category';
 import Merchant from './merchant';
+import Account from './account';
 import Transaction from './transaction';
 import dayjs from '@/helpers/dayjs';
 import {
@@ -76,6 +77,12 @@ export interface BudgetItemState {
   isOverBudget: boolean;
   /** Linked transactions for this budget item */
   linkedTransactions: Transaction[];
+  /** Balance tracking metrics (null when not applicable) */
+  balanceTrackingStartingBalance: number | null;
+  balanceTrackingCurrentBalance: number | null;
+  balanceTrackingCredits: number | null;
+  balanceTrackingAmountSpent: number | null;
+  balanceTrackingNetChange: number | null;
 
   remaining: number;
   /** Display status for UI (income, paid, overdue, due today, auto pay, upcoming) */
@@ -152,87 +159,153 @@ export default class BudgetItem extends Model {
     category: this.category.observe().pipe(catchError(() => of(null))),
     linkedTransactions: this.linkedTransactions.observe().pipe(catchError(() => of([]))),
   }).pipe(
-    switchMap(({ budget, merchant, category, linkedTransactions }) => {
-      // For category items, observe transactions within budget period
-      if (this.type === BudgetItemType.Category && this.categoryId && budget) {
-        const transactionsQuery = this.database
-          .get<Transaction>('transactions')
-          .query(Q.where('budget_item_id', this.id));
+    switchMap(({ item, budget, merchant, category, linkedTransactions }) => {
+      const categorySpending$ =
+        item.type === BudgetItemType.Category && item.categoryId && budget
+          ? this.database
+              .get<Transaction>('transactions')
+              .query(Q.where('budget_item_id', this.id))
+              .observe()
+              .pipe(
+                map(transactions => transactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0)),
+                catchError(() => of(0))
+              )
+          : of(0);
 
-        return transactionsQuery.observe().pipe(
-          map(transactions => {
-            const spending = transactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-            return { budget, merchant, category, spending, linkedTransactions };
-          }),
-          catchError(() => {
-            console.error('Error fetching linked transactions');
-            return of({ budget, merchant, category, spending: 0, linkedTransactions });
-          })
-        );
-      }
+      const fundingAccount$ = item.fundingAccountId
+        ? this.database
+            .get<Account>('accounts')
+            .query(Q.where('account_id', item.fundingAccountId))
+            .observe()
+            .pipe(
+              map(accounts => accounts[0] ?? null),
+              catchError(() => of(null))
+            )
+        : of(null);
 
-      return of({ budget, merchant, category, spending: 0, linkedTransactions });
+      const accountTransactions$ =
+        item.type === BudgetItemType.BalanceTracking && item.fundingAccountId && budget
+          ? this.database
+              .get<Transaction>('transactions')
+              .query(
+                Q.where('account_id', item.fundingAccountId),
+                Q.where('date', Q.gte(dayjs(budget.startDate).startOf('day').toISOString())),
+                Q.where('date', Q.lte(dayjs(budget.endDate).endOf('day').toISOString()))
+              )
+              .observe()
+              .pipe(catchError(() => of([])))
+          : of([]);
+
+      return combineLatest({
+        item: of(item),
+        budget: of(budget),
+        merchant: of(merchant),
+        category: of(category),
+        linkedTransactions: of(linkedTransactions),
+        categorySpending: categorySpending$,
+        fundingAccount: fundingAccount$,
+        accountTransactions: accountTransactions$,
+      });
     }),
-    map(({ budget, merchant, category, spending, linkedTransactions }): BudgetItemState => {
-      const dueDate = this.dueDate;
+    map(
+      ({
+        item,
+        budget,
+        merchant,
+        category,
+        linkedTransactions,
+        categorySpending,
+        fundingAccount,
+        accountTransactions,
+      }): BudgetItemState => {
+        const dueDate = item.dueDate;
       const daysUntilDue = dueDate ? Math.round(dayjs(dueDate).diff(dayjs(), 'day', true)) : null;
       const isOverdue = dueDate ? daysUntilDue !== null && daysUntilDue < 0 : false;
 
-      const totalSpending = linkedTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-      const spendingPercentage = (totalSpending / this.amount) * 100;
-      const isOverBudget = totalSpending > this.amount;
+      const totalSpending =
+        item.type === BudgetItemType.Category
+          ? categorySpending
+          : linkedTransactions.reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+      const spendingPercentage = item.amount > 0 ? (totalSpending / item.amount) * 100 : 0;
+      const isOverBudget = totalSpending > item.amount;
+
+      let balanceTrackingCredits: number | null = null;
+      let balanceTrackingAmountSpent: number | null = null;
+      let balanceTrackingNetChange: number | null = null;
+      let balanceTrackingCurrentBalance: number | null = null;
+      let balanceTrackingStartingBalance: number | null = null;
+
+      if (item.type === BudgetItemType.BalanceTracking && fundingAccount) {
+        balanceTrackingCredits = accountTransactions.reduce(
+          (sum, tx) => (tx.amount > 0 ? sum + tx.amount : sum),
+          0
+        );
+        balanceTrackingAmountSpent = accountTransactions.reduce(
+          (sum, tx) => (tx.amount < 0 ? sum + Math.abs(tx.amount) : sum),
+          0
+        );
+        balanceTrackingNetChange = balanceTrackingCredits - balanceTrackingAmountSpent;
+        balanceTrackingCurrentBalance = fundingAccount.balanceCurrent;
+        balanceTrackingStartingBalance = balanceTrackingCurrentBalance - balanceTrackingNetChange;
+      }
 
       // Compute display status using centralized logic
       const displayStatus = determineBudgetItemDisplayStatus(
-        this.type,
-        this.status,
+        item.type,
+        item.status,
         isOverdue,
         dueDate || undefined,
-        this.isAutoPay
+        item.isAutoPay
       );
 
       // Compute status color using centralized logic
       const statusColor = getBudgetItemStatusColor(displayStatus);
 
       // Compute tags using centralized logic
-      const tags = determineBudgetItemTags(this.status, isOverdue, dueDate || undefined, this.isAutoPay);
+      const tags = determineBudgetItemTags(item.type, item.status, isOverdue, dueDate || undefined, item.isAutoPay);
 
       return {
-        itemId: this.id,
-        budgetId: this.budgetId,
-        fundingAccountId: this.fundingAccountId ?? null,
-        merchantId: this.merchantId ?? null,
-        categoryId: this.categoryId ?? null,
-        name: this.name,
-        amount: this.amount,
-        type: this.type,
-        status: this.status,
-        trackingMode: this.trackingMode ?? null,
-        dueDate: this.dueDate ?? null,
-        isAutoPay: this.isAutoPay ?? false,
-        excludeFromBalance: this.excludeFromBalance ?? false,
-        createdAt: this.createdAt,
-        updatedAt: this.updatedAt,
+        itemId: item.id,
+        budgetId: item.budgetId,
+        fundingAccountId: item.fundingAccountId ?? null,
+        merchantId: item.merchantId ?? null,
+        categoryId: item.categoryId ?? null,
+        name: item.name,
+        amount: item.amount,
+        type: item.type,
+        status: item.status,
+        trackingMode: item.trackingMode ?? null,
+        dueDate: item.dueDate ?? null,
+        isAutoPay: item.isAutoPay ?? false,
+        excludeFromBalance: item.excludeFromBalance ?? false,
+        createdAt: item.createdAt,
+        updatedAt: item.updatedAt,
         budget,
         merchant,
         category,
         isOverdue,
         daysUntilDue,
-        isExpense: this.type === BudgetItemType.Expense,
-        isIncome: this.type === BudgetItemType.Income,
-        isBalanceTracking: this.type === BudgetItemType.BalanceTracking,
-        isCategory: this.type === BudgetItemType.Category,
-        isCompleted: this.status === BudgetItemStatus.COMPLETED,
+        isExpense: item.type === BudgetItemType.Expense,
+        isIncome: item.type === BudgetItemType.Income,
+        isBalanceTracking: item.type === BudgetItemType.BalanceTracking,
+        isCategory: item.type === BudgetItemType.Category,
+        isCompleted: item.status === BudgetItemStatus.COMPLETED,
         spending: totalSpending,
         spendingPercentage,
         isOverBudget,
         linkedTransactions: linkedTransactions || [],
-        remaining: this.amount - Math.min(totalSpending, this.amount),
+        balanceTrackingStartingBalance,
+        balanceTrackingCurrentBalance,
+        balanceTrackingCredits,
+        balanceTrackingAmountSpent,
+        balanceTrackingNetChange,
+        remaining: item.amount - Math.min(totalSpending, item.amount),
         displayStatus,
         statusColor,
         tags,
       };
-    }),
+      }
+    ),
     shareReplay(1)
   );
 }

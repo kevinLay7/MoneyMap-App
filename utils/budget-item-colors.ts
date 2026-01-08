@@ -50,6 +50,8 @@ export const getBudgetItemTagColor = (tag: BudgetItemTag): string => {
       return Colors.success;
     case BudgetItemTag.Recurring:
       return Colors.tertiary;
+    case BudgetItemTag.Tracking:
+      return Colors.dark.icon;
     default:
       return Colors.tertiary;
   }
@@ -114,12 +116,17 @@ export const determineBudgetItemDisplayStatus = (
  * Multiple tags can apply to a single item
  */
 export const determineBudgetItemTags = (
+  type: BudgetItemType,
   status: BudgetItemStatus,
   isOverdue: boolean,
   dueDate?: Date,
   isAutoPay?: boolean
 ): BudgetItemTag[] => {
   const tags: BudgetItemTag[] = [];
+
+  if (type === BudgetItemType.BalanceTracking) {
+    tags.push(BudgetItemTag.Tracking);
+  }
 
   if (status === BudgetItemStatus.PENDING) {
     tags.push(BudgetItemTag.Pending);

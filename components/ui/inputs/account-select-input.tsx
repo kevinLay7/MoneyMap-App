@@ -1,5 +1,4 @@
-import { View } from 'react-native';
-import { InputHeader } from './input-header';
+import { InputRow } from './base-input';
 import { withObservables } from '@nozbe/watermelondb/react';
 import Account from '@/model/models/account';
 import database from '@/model/database';
@@ -19,8 +18,8 @@ interface AccountSelectInputProps extends BaseInputProps {
 
 function AccountSelectInputInternal({
   accounts,
-  label,
-  icon,
+  label = 'Account',
+  icon = 'wallet',
   iconAlign,
   error,
   selectedAccountId,
@@ -62,34 +61,31 @@ function AccountSelectInputInternal({
   const displayText = selectedAccount ? `${selectedAccount.name} (...${selectedAccount.mask})` : 'Select an account';
 
   return (
-    <View
-      className={`h-16 py-2 border-b-2 border-background-tertiary items-center flex-row ${noBorder ? 'border-none' : ''}`}
+    <InputRow
+      icon={icon}
+      label={label}
+      iconAlign={iconAlign}
+      infoText={infoText}
+      disabled={disabled}
+      required={required}
+      error={error}
+      noBorder={noBorder}
     >
-      <InputHeader
-        icon="wallet"
-        label="Account"
-        iconAlign={iconAlign}
-        disabled={disabled}
-        required={required}
-      />
-      <View className="ml-auto">
-        {disabled ? (
-          <ThemedText className="text-typography-900 opacity-60">{displayText}</ThemedText>
-        ) : (
-          <RNPickerSelect
-            onValueChange={onChange}
-            items={items}
-            value={selectedAccountId}
-            style={getPickerSelectStyles('dark')}
-            placeholder={{ label: 'Select an account', value: null }}
-            disabled={disabled}
-            darkTheme={true}
-            textInputProps={{ pointerEvents: 'none' }}
-          />
-        )}
-      </View>
-      {error && <ThemedText className="text-error">{error}</ThemedText>}
-    </View>
+      {disabled ? (
+        <ThemedText className="text-typography-900 opacity-60">{displayText}</ThemedText>
+      ) : (
+        <RNPickerSelect
+          onValueChange={onChange}
+          items={items}
+          value={selectedAccountId}
+          style={getPickerSelectStyles('dark')}
+          placeholder={{ label: 'Select an account', value: null }}
+          disabled={disabled}
+          darkTheme={true}
+          textInputProps={{ pointerEvents: 'none' }}
+        />
+      )}
+    </InputRow>
   );
 }
 

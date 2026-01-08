@@ -3,10 +3,11 @@ import { TextInput as RNTextInput, useColorScheme, View, Text } from 'react-nati
 import { BaseInputProps } from './types';
 import { InputHeader } from './input-header';
 import { Colors } from '@/constants/colors';
+import { InputContainer } from './base-input';
 
 interface TextInputProps extends BaseInputProps {
   readonly value: string;
-  readonly onChangeText: (value: string) => void;
+  readonly onChangeText?: (value: string) => void;
   readonly placeholder?: string;
   readonly disabled?: boolean;
   readonly infoText?: string;
@@ -128,9 +129,10 @@ export function TextInput({
   const displayValue = type === 'currency' && value ? formatCurrency(extractCents(value)) : value;
 
   return (
-    <View
+    <InputContainer
       ref={containerRef}
-      className={`min-h-16 h-auto overflow-hidden flex pt-3 pb-2 border-b-2 border-background-tertiary`}
+      className="min-h-14 h-auto overflow-hidden flex pt-2 pb-1"
+      error={error}
       onTouchEnd={handlePress}
       onLayout={handleContainerLayout}
     >
@@ -178,6 +180,6 @@ export function TextInput({
           {displayValue}
         </Text>
       )}
-    </View>
+    </InputContainer>
   );
 }

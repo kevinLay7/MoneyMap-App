@@ -126,7 +126,7 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
               transform: [{ translateX: -224 }],
             }}
           >
-            <Card variant="elevated" rounded="lg" backgroundColor="secondary" padding="none" className="shadow-xl">
+            <Card variant="elevated" rounded="lg" backgroundColor="tertiary" padding="none" className="shadow-xl">
               <ScrollView className="max-h-64" nestedScrollEnabled>
                 {allBudgetsForDropdown.map(budget => {
                   const isSelected = budget.id === selectedBudgetId;

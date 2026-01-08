@@ -1,10 +1,8 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { BaseInputProps } from './types';
 import { Colors } from '@/constants/colors';
-import { View } from 'react-native';
-import { InputHeader } from './input-header';
+import { InputRow } from './base-input';
 import RNPickerSelect from 'react-native-picker-select';
-import { ThemedText } from '@/components/shared';
 
 interface SelectOption {
   label: string;
@@ -52,30 +50,26 @@ export function SelectInput({
   });
 
   return (
-    <View className="h-16 py-2 border-b-2 border-background-tertiary">
-      <View className="flex-row items-center">
-        <InputHeader
-          icon={icon}
-          label={label}
-          iconAlign={iconAlign}
-          infoText={infoText}
-          disabled={disabled}
-          required={required}
-        />
-        <View className="flex flex-1 flex-row-reverse">
-          <RNPickerSelect
-            onValueChange={onValueChange}
-            items={items}
-            value={value}
-            style={getPickerSelectStyles(theme)}
-            placeholder={{ label: placeholder, value: null }}
-            disabled={disabled}
-            darkTheme={true}
-            textInputProps={{ pointerEvents: 'none' }}
-          />
-        </View>
-      </View>
-      {error && <ThemedText className="text-error">{error}</ThemedText>}
-    </View>
+    <InputRow
+      icon={icon}
+      label={label}
+      iconAlign={iconAlign}
+      infoText={infoText}
+      disabled={disabled}
+      required={required}
+      error={error}
+      rightClassName="ml-auto flex-1 flex-row-reverse"
+    >
+      <RNPickerSelect
+        onValueChange={onValueChange}
+        items={items}
+        value={value}
+        style={getPickerSelectStyles(theme)}
+        placeholder={{ label: placeholder, value: null }}
+        disabled={disabled}
+        darkTheme={true}
+        textInputProps={{ pointerEvents: 'none' }}
+      />
+    </InputRow>
   );
 }

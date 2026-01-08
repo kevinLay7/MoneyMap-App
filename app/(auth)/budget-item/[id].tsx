@@ -1,6 +1,6 @@
-import { Pressable, View } from 'react-native';
-import { useMemo } from 'react';
-import { useLocalSearchParams } from 'expo-router';
+import { Alert, Pressable, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Q } from '@nozbe/watermelondb';
@@ -10,9 +10,11 @@ import { AnimatedNumber } from '@/components/ui/animated-number';
 import AnimatedScrollView from '@/components/ui/animated-scrollview';
 import { BackgroundContainer } from '@/components/ui/background-container';
 import { Card } from '@/components/ui/card';
+import { MenuPopover } from '@/components/ui/menu-popover';
 import IconCircle from '@/components/ui/icon-circle';
-import { SwitchInput } from '@/components/ui/inputs/switch-input';
-import { TextInput } from '@/components/ui/inputs/text-input';
+import { DetailsSection } from '@/components/budgets/budget-item-details';
+import { BudgetItemEditSheet } from '@/components/budgets/budget-item-edit-sheet';
+import { SpendingByCategoryCard } from '@/components/home/spending/spending-by-category-card';
 import { Colors } from '@/constants/colors';
 import dayjs from '@/helpers/dayjs';
 import { useMoneyFormatter } from '@/hooks/format-money';
@@ -23,6 +25,7 @@ import Account from '@/model/models/account';
 import BudgetItem, { BudgetItemState, BudgetItemTag } from '@/model/models/budget-item';
 import { getBudgetItemMerchantIconInput } from '@/utils/budget-item-icon';
 import { getBudgetItemProgressColor, getBudgetItemTagColor } from '@/utils/budget-item-colors';
+import { BudgetService } from '@/services/budget-service';
 
 const getTagIcon = (tag: BudgetItemTag): string => {
   switch (tag) {
@@ -38,6 +41,8 @@ const getTagIcon = (tag: BudgetItemTag): string => {
       return 'check';
     case BudgetItemTag.Recurring:
       return 'arrows-rotate';
+    case BudgetItemTag.Tracking:
+      return 'credit-card';
     default:
       return 'circle';
   }
@@ -81,6 +86,8 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
   const scrollOffset = useScrollOffset(animatedRef);
   const iconInput = getBudgetItemMerchantIconInput(budgetItemState);
   const formatMoney = useMoneyFormatter();
+  const budgetService = useMemo(() => new BudgetService(database), []);
+  const [isEditOpen, setIsEditOpen] = useState(false);
   const dueStatusLabel =
     budgetItemState.dueDate && budgetItemState.daysUntilDue !== null
       ? budgetItemState.daysUntilDue < 0
@@ -102,6 +109,24 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
   const fundingAccounts = useObservableCollection(fundingAccountsObservable);
   const fundingAccount = fundingAccounts[0];
 
+  const handleDelete = (closeMenu: () => void) => {
+    closeMenu();
+    Alert.alert('Delete Budget Item?', 'This action cannot be undone.', [
+      {
+        text: 'Cancel',
+        style: 'cancel',
+      },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await budgetService.deleteBudgetItem(budgetItemState.itemId);
+          router.back();
+        },
+      },
+    ]);
+  };
+
   return (
     <BackgroundContainer>
       <Header
@@ -117,15 +142,37 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
           </View>
         }
         rightComponent={
-          <Pressable onPress={() => {}}>
-            <FontAwesome6 name="ellipsis" size={24} color="white" />
-          </Pressable>
+          <MenuPopover trigger={<FontAwesome6 name="ellipsis" size={24} color="white" />}>
+            {({ close }) => (
+              <>
+                <Pressable
+                  className="flex-row items-center px-4 py-3"
+                  onPress={() => {
+                    close();
+                    setIsEditOpen(true);
+                  }}
+                >
+                  <FontAwesome6 name="pen-to-square" size={16} color="white" />
+                  <ThemedText type="default" className="ml-2">
+                    Edit
+                  </ThemedText>
+                </Pressable>
+                <Pressable className="flex-row items-center px-4 py-3" onPress={() => handleDelete(close)}>
+                  <FontAwesome6 name="trash" size={16} color="white" />
+                  <ThemedText type="default" className="ml-2">
+                    Delete
+                  </ThemedText>
+                </Pressable>
+              </>
+            )}
+          </MenuPopover>
         }
       />
 
       <AnimatedScrollView animatedRef={animatedRef}>
         <View className="p-4">
-          <Card backgroundColor="secondary" padding="lg">
+          <Pressable onPress={() => setIsEditOpen(true)}>
+            <Card backgroundColor="secondary" padding="lg">
             <View className="gap-2">
               <View className="flex-row items-center">
                 <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary">
@@ -194,36 +241,13 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
               </View>
             ) : null}
 
-            <View className="mt-5 border-t border-background-tertiary pt-5">
-              <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary mb-2">
-                Details
-              </ThemedText>
-              <TextInput
-                icon="building"
-                iconAlign="left"
-                label="Merchant"
-                value={budgetItemState.merchant ? budgetItemState.merchant.name : 'No merchant linked'}
-                onChangeText={() => {}}
-                disabled
-              />
-              <TextInput
-                icon="credit-card"
-                iconAlign="left"
-                label="Funding Account"
-                value={fundingAccount ? fundingAccount.name : 'No funding account'}
-                onChangeText={() => {}}
-                disabled
-              />
-              <SwitchInput
-                icon="ban"
-                iconAlign="left"
-                label="Exclude From Budget B"
-                value={budgetItemState.excludeFromBalance}
-                onValueChange={() => {}}
-                disabled
-              />
-            </View>
-          </Card>
+            <DetailsSection
+              budgetItemState={budgetItemState}
+              fundingAccountName={fundingAccount ? fundingAccount.name : 'No funding account'}
+              formatMoney={formatMoney}
+            />
+            </Card>
+          </Pressable>
 
           <View className="mt-6">
             <View className="flex-row items-center mb-2">
@@ -232,6 +256,14 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
                 <ThemedText type="subText">{budgetItemState.linkedTransactions.length}</ThemedText>
               </View>
             </View>
+            {budgetItemState.linkedTransactions.length > 0 && (
+              <View className="mb-4">
+                <SpendingByCategoryCard
+                  transactions={budgetItemState.linkedTransactions}
+                  title="Spending by Category"
+                />
+              </View>
+            )}
             <Card backgroundColor="secondary" className="overflow-hidden">
               {budgetItemState.linkedTransactions.length > 0 ? (
                 budgetItemState.linkedTransactions.map(transaction => (
@@ -248,6 +280,8 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
           </View>
         </View>
       </AnimatedScrollView>
+
+      <BudgetItemEditSheet visible={isEditOpen} onClose={() => setIsEditOpen(false)} budgetItemState={budgetItemState} />
     </BackgroundContainer>
   );
 }

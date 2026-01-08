@@ -1,5 +1,4 @@
-import { View } from 'react-native';
-import { InputHeader } from './input-header';
+import { InputRow } from './base-input';
 import { withObservables } from '@nozbe/watermelondb/react';
 import Merchant from '@/model/models/merchant';
 import database from '@/model/database';
@@ -69,35 +68,32 @@ function MerchantSelectInputInternal({
   const displayText = selectedMerchant ? selectedMerchant.name : placeholder;
 
   return (
-    <View
-      className={`h-16 py-2 border-b-2 border-background-tertiary items-center flex-row ${noBorder ? 'border-none' : ''}`}
+    <InputRow
+      icon={icon}
+      label={label}
+      iconAlign={iconAlign}
+      infoText={infoText}
+      disabled={disabled}
+      required={required}
+      error={error}
+      noBorder={noBorder}
+      className="h-16 py-2"
     >
-      <InputHeader
-        icon={icon}
-        label={label}
-        iconAlign={iconAlign}
-        infoText={infoText}
-        disabled={disabled}
-        required={required}
-      />
-      <View className="ml-auto">
-        {disabled ? (
-          <ThemedText className="text-typography-900 opacity-60">{displayText}</ThemedText>
-        ) : (
-          <RNPickerSelect
-            onValueChange={onChange}
-            items={items}
-            value={selectedMerchantId}
-            style={getPickerSelectStyles('dark')}
-            placeholder={{ label: placeholder, value: null }}
-            disabled={disabled}
-            darkTheme={true}
-            textInputProps={{ pointerEvents: 'none' }}
-          />
-        )}
-      </View>
-      {error && <ThemedText className="text-error">{error}</ThemedText>}
-    </View>
+      {disabled ? (
+        <ThemedText className="text-typography-900 opacity-60">{displayText}</ThemedText>
+      ) : (
+        <RNPickerSelect
+          onValueChange={onChange}
+          items={items}
+          value={selectedMerchantId}
+          style={getPickerSelectStyles('dark')}
+          placeholder={{ label: placeholder, value: null }}
+          disabled={disabled}
+          darkTheme={true}
+          textInputProps={{ pointerEvents: 'none' }}
+        />
+      )}
+    </InputRow>
   );
 }
 

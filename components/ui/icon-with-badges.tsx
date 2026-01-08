@@ -29,6 +29,8 @@ const getTagIcon = (tag: BudgetItemTag): string => {
       return 'check';
     case BudgetItemTag.Recurring:
       return 'arrows-rotate';
+    case BudgetItemTag.Tracking:
+      return 'credit-card';
     default:
       return 'circle';
   }
@@ -43,12 +45,14 @@ const getTagPriority = (tag: BudgetItemTag): number => {
       return 5;
     case BudgetItemTag.DueToday:
       return 4;
-    case BudgetItemTag.Paid:
+    case BudgetItemTag.Tracking:
       return 3;
-    case BudgetItemTag.AutoPay:
+    case BudgetItemTag.Paid:
       return 2;
-    case BudgetItemTag.Recurring:
+    case BudgetItemTag.AutoPay:
       return 1;
+    case BudgetItemTag.Recurring:
+      return 0;
     default:
       return 0;
   }

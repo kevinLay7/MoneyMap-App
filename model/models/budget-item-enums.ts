@@ -33,4 +33,5 @@ export enum BudgetItemTag {
   AutoPay = 'Auto pay',
   Paid = 'Paid',
   Recurring = 'Recurring',
+  Tracking = 'tracking',
 }
