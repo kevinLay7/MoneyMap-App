@@ -58,6 +58,7 @@ interface CategoryParentGroup {
 interface SpendingByCategoryCardProps {
   readonly transactions: Transaction[];
   readonly title?: string;
+  readonly withCard?: boolean;
 }
 
 type ChartMode = 'parents' | 'children' | 'transactions';
@@ -84,6 +85,7 @@ function formatTransactionLabel(transaction: Transaction) {
 export function SpendingByCategoryCard({
   transactions = [],
   title = 'Spending by Category',
+  withCard = true,
 }: SpendingByCategoryCardProps) {
   const formatMoney = useMoneyFormatter();
   const { width: windowWidth } = useWindowDimensions();
@@ -304,8 +306,8 @@ export function SpendingByCategoryCard({
     }
   }, [listHeight, animatedListMinHeight]);
 
-  return (
-    <Card variant="elevated" rounded="lg" backgroundColor="secondary" className="p-4 mb-4">
+  const content = (
+    <>
       <ThemedText type="subtitle" className="mb-4">
         {title}
       </ThemedText>
@@ -476,6 +478,16 @@ export function SpendingByCategoryCard({
           </Animated.View>
         </>
       )}
+    </>
+  );
+
+  if (!withCard) {
+    return <View className="p-4">{content}</View>;
+  }
+
+  return (
+    <Card variant="elevated" rounded="lg" backgroundColor="secondary" className="p-4 mb-4">
+      {content}
     </Card>
   );
 }
