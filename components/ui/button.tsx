@@ -40,7 +40,7 @@ interface ButtonProps {
     | 'gray'
     | 'text'
     | 'text-secondary';
-  width?: 'w-full' | 'w-1/2' | 'w-1/3' | 'w-1/4' | 'w-1/5' | 'w-4/5';
+  width?: 'w-auto' | 'w-full' | 'w-1/2' | 'w-1/3' | 'w-1/4' | 'w-1/5' | 'w-4/5';
   className?: string;
   variant?: 'contained' | 'outlined' | 'underlined';
   hapticWeight?: HapticWeight;

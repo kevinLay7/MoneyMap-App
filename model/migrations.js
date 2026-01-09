@@ -165,5 +165,21 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 14,
+      steps: [
+        createTable({
+          name: 'logs',
+          columns: [
+            { name: 'type', type: 'string', isIndexed: true },
+            { name: 'level', type: 'string', isIndexed: true },
+            { name: 'message', type: 'string' },
+            { name: 'metadata', type: 'string', isOptional: true },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
   ],
 });

@@ -1,6 +1,5 @@
 import { Database } from '@nozbe/watermelondb';
 import SQLiteAdapter from '@nozbe/watermelondb/adapters/sqlite';
-import { Platform } from 'react-native';
 
 import { schema } from './schema';
 import migrations from './migrations';
@@ -14,6 +13,7 @@ import Budget from './models/budget';
 import BudgetItem from './models/budget-item';
 import AccountDailyBalance from './models/account-daily-balance';
 import Merchant from './models/merchant';
+import Log from './models/log';
 
 // Create adapter with JSI disabled for dev client compatibility
 // JSI requires native build - enable it only when running built app
@@ -25,6 +25,8 @@ const adapter = new SQLiteAdapter({
   // Enable JSI after building: jsi: Platform.OS === 'ios'
   jsi: false,
   onSetUpError: error => {
+    // Use console.error here to avoid circular dependency with logging-service
+    // The logger isn't configured yet when database is being initialized
     console.error('Database setup error:', error);
   },
 });
@@ -32,7 +34,19 @@ const adapter = new SQLiteAdapter({
 // Then, make a Watermelon database from it!
 const database = new Database({
   adapter,
-  modelClasses: [Account, Transaction, Item, Sync, Category, TransactionSync, Budget, BudgetItem, AccountDailyBalance, Merchant],
+  modelClasses: [
+    Account,
+    Transaction,
+    Item,
+    Sync,
+    Category,
+    TransactionSync,
+    Budget,
+    BudgetItem,
+    AccountDailyBalance,
+    Merchant,
+    Log,
+  ],
 });
 
 export default database;

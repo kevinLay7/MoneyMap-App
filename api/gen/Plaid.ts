@@ -155,6 +155,24 @@ export class Plaid<SecurityDataType = unknown> {
    * No description
    *
    * @tags Plaid
+   * @name PlaidControllerGetLiabilities
+   * @summary Get liabilities for a Plaid item (credit cards, loans, etc.)
+   * @request GET:/plaid/{plaidItemId}/liabilities
+   */
+  plaidControllerGetLiabilities = (
+    plaidItemId: string,
+    params: RequestParams = {},
+  ) =>
+    this.http.request<object | null, void>({
+      path: `/plaid/${plaidItemId}/liabilities`,
+      method: "GET",
+      format: "json",
+      ...params,
+    });
+  /**
+   * No description
+   *
+   * @tags Plaid
    * @name PlaidControllerSyncAccountsForPlaidItem
    * @summary Sync accounts for a Plaid item. If the user has multiple plaid items, this will sync all of them.
    * @request POST:/plaid/items/sync

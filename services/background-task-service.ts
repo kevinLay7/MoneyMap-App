@@ -13,6 +13,8 @@ import dayjs from 'dayjs';
 import database from '@/model/database';
 import Item from '@/model/models/item';
 import { PlaidService } from './plaid-service';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 // Task name - single unified background task
 export const BACKGROUND_SYNC_TASK = 'background-sync';
@@ -65,7 +67,7 @@ export class BackgroundTaskService {
       try {
         await AsyncStorage.setItem(API_URL_KEY, apiUrl);
       } catch (error) {
-        console.error('Failed to store API URL:', error);
+        logger.error(LogType.Background, 'Failed to store API URL', { error });
       }
     }
   }
@@ -76,9 +78,9 @@ export class BackgroundTaskService {
   initializeAuth0(domain: string, clientId: string): void {
     try {
       auth0Instance = new Auth0({ domain, clientId });
-      console.log('Auth0 initialized for background tasks');
+      logger.info(LogType.Background, 'Auth0 initialized for background tasks');
     } catch (error) {
-      console.error('Failed to initialize Auth0 for background tasks:', error);
+      logger.error(LogType.Background, 'Failed to initialize Auth0 for background tasks', { error });
     }
   }
 
@@ -94,20 +96,20 @@ export class BackgroundTaskService {
    */
   private static async initializeInHeadlessContext(): Promise<boolean> {
     if (!auth0Instance) {
-      console.warn('Auth0 not initialized, cannot init headless context');
+      logger.warn(LogType.Background, 'Auth0 not initialized, cannot init headless context');
       return false;
     }
 
     try {
       const apiUrl = (await AsyncStorage.getItem(API_URL_KEY)) || process.env.EXPO_PUBLIC_API_URL;
       if (!apiUrl) {
-        console.warn('API URL not available');
+        logger.warn(LogType.Background, 'API URL not available');
         return false;
       }
 
       const credentials = await auth0Instance.credentialsManager.getCredentials();
       if (!credentials?.accessToken) {
-        console.warn('No access token available');
+        logger.warn(LogType.Background, 'No access token available');
         return false;
       }
 
@@ -122,7 +124,7 @@ export class BackgroundTaskService {
               const clientId = await getDeviceClientId();
               config.headers['x-client-id'] = clientId;
             } catch (error) {
-              console.error('Failed to get device client ID:', error);
+              logger.error(LogType.Background, 'Failed to get device client ID', { error });
             }
           }
           return config;
@@ -134,10 +136,10 @@ export class BackgroundTaskService {
       globalPlaidApi = new Plaid(httpClient);
       globalInitialized = true;
 
-      console.log('Background task service initialized in headless context');
+      logger.info(LogType.Background, 'Background task service initialized in headless context');
       return true;
     } catch (error) {
-      console.error('Failed to initialize headless context:', error);
+      logger.error(LogType.Background, 'Failed to initialize headless context', { error });
       return false;
     }
   }
@@ -161,7 +163,7 @@ export class BackgroundTaskService {
 
       return true;
     } catch (error) {
-      console.error('Failed to refresh auth token:', error);
+      logger.error(LogType.Background, 'Failed to refresh auth token', { error });
       return false;
     }
   }
@@ -176,7 +178,10 @@ export class BackgroundTaskService {
     if (syncInProgress && syncLockAcquiredAt) {
       const lockHeldFor = now - syncLockAcquiredAt;
       if (lockHeldFor > SYNC_LOCK_TIMEOUT) {
-        console.warn(`⚠️ Sync lock stale (held ${Math.round(lockHeldFor / 1000)}s), releasing`);
+        logger.warn(
+          LogType.Background,
+          `Sync lock stale (held ${Math.round(lockHeldFor / 1000)}s), releasing`
+        );
         this.releaseSyncLock();
       }
     }
@@ -203,17 +208,17 @@ export class BackgroundTaskService {
   private static async executeBackgroundSync(): Promise<BackgroundTaskResult> {
     // Initialize if needed (headless context)
     if (!globalInitialized || !globalSyncApi) {
-      console.log('Initializing in headless context...');
+      logger.info(LogType.Background, 'Initializing in headless context');
       const initialized = await this.initializeInHeadlessContext();
       if (!initialized) {
-        console.warn('Headless init failed, skipping background sync');
+        logger.warn(LogType.Background, 'Headless init failed, skipping background sync');
         return BackgroundTaskResult.Failed;
       }
     }
 
     // Acquire lock
     if (!this.acquireSyncLock()) {
-      console.log('Sync in progress, skipping background sync');
+      logger.info(LogType.Background, 'Sync in progress, skipping background sync');
       return BackgroundTaskResult.Success;
     }
 
@@ -222,8 +227,8 @@ export class BackgroundTaskService {
       await this.refreshAuthToken();
 
       // Execute full sync
-      const logger = new SyncLogger(1000);
-      await databaseSynchronize(globalSyncApi!, logger);
+      const syncLogger = new SyncLogger(1000);
+      await databaseSynchronize(globalSyncApi!, syncLogger);
 
       // Store execution time
       await AsyncStorage.setItem(LAST_SYNC_KEY, Date.now().toString());
@@ -233,7 +238,7 @@ export class BackgroundTaskService {
 
       return BackgroundTaskResult.Success;
     } catch (error) {
-      console.error('❌ Background sync failed:', error);
+      logger.error(LogType.Background, 'Background sync failed', { error });
       return BackgroundTaskResult.Failed;
     } finally {
       this.releaseSyncLock();
@@ -255,17 +260,17 @@ export class BackgroundTaskService {
       });
 
       if (staleItems.length === 0) {
-        console.log('✅ All Plaid items up to date');
+        logger.info(LogType.Background, 'All Plaid items up to date');
         return;
       }
 
-      console.log(`⚠️ ${staleItems.length} stale items found`);
+      logger.warn(LogType.Background, `${staleItems.length} stale items found`);
 
       // Trigger backend webhook check first
       try {
         await globalPlaidApi.plaidControllerCheckForUpdates();
       } catch (error) {
-        console.error('Plaid checkForUpdates failed:', error);
+        logger.error(LogType.Background, 'Plaid checkForUpdates failed', { error });
       }
 
       // Refresh stale items
@@ -273,15 +278,15 @@ export class BackgroundTaskService {
 
       for (const item of staleItems) {
         try {
-          console.log(`🔄 Refreshing: ${item.institutionName}`);
+          logger.info(LogType.Background, `Refreshing: ${item.institutionName}`);
           await plaidService.refeshItem(item.plaidItemId);
-          console.log(`✅ Refreshed: ${item.institutionName}`);
+          logger.info(LogType.Background, `Refreshed: ${item.institutionName}`);
         } catch (error) {
-          console.error(`❌ Failed to refresh ${item.institutionName}:`, error);
+          logger.error(LogType.Background, `Failed to refresh ${item.institutionName}`, { error });
         }
       }
     } catch (error) {
-      console.error('Stale item check failed:', error);
+      logger.error(LogType.Background, 'Stale item check failed', { error });
     }
   }
 
@@ -291,13 +296,13 @@ export class BackgroundTaskService {
    */
   registerTasks(): void {
     TaskManager.defineTask(BACKGROUND_SYNC_TASK, async () => {
-      console.log('📋 Background sync task triggered by OS');
+      logger.info(LogType.Background, 'Background sync task triggered by OS');
       const result = await BackgroundTaskService.executeBackgroundSync();
-      console.log('📋 Background sync task completed:', result);
+      logger.info(LogType.Background, 'Background sync task completed', { result });
       return result;
     });
 
-    console.log('✅ Background task definitions registered');
+    logger.info(LogType.Background, 'Background task definitions registered');
   }
 
   /**
@@ -308,7 +313,7 @@ export class BackgroundTaskService {
     try {
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
       if (isRegistered) {
-        console.log('✅ Background task already registered');
+        logger.info(LogType.Background, 'Background task already registered');
         return true;
       }
 
@@ -316,10 +321,10 @@ export class BackgroundTaskService {
         minimumInterval: 60, // 60 minutes (iOS may run less frequently)
       });
 
-      console.log('✅ Background task registered with 60 minute interval');
+      logger.info(LogType.Background, 'Background task registered with 60 minute interval');
       return true;
     } catch (error) {
-      console.error('❌ Failed to register background task:', error);
+      logger.error(LogType.Background, 'Failed to register background task', { error });
       return false;
     }
   }
@@ -332,10 +337,10 @@ export class BackgroundTaskService {
       const isRegistered = await TaskManager.isTaskRegisteredAsync(BACKGROUND_SYNC_TASK);
       if (isRegistered) {
         await TaskManager.unregisterTaskAsync(BACKGROUND_SYNC_TASK);
-        console.log('Background task unregistered');
+        logger.info(LogType.Background, 'Background task unregistered');
       }
     } catch (error) {
-      console.error('Failed to unregister background task:', error);
+      logger.error(LogType.Background, 'Failed to unregister background task', { error });
     }
   }
 
@@ -357,7 +362,7 @@ export class BackgroundTaskService {
    * Manually trigger background sync (for testing).
    */
   async triggerManualSync(): Promise<void> {
-    console.log('🧪 Manually triggering background sync...');
+    logger.info(LogType.Background, 'Manually triggering background sync');
     await BackgroundTaskService.executeBackgroundSync();
   }
 }

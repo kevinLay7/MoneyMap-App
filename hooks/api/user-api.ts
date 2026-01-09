@@ -3,6 +3,8 @@ import { Users } from '@/api/gen/Users';
 import { useDependency } from '@/context/dependencyContext';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { AxiosError } from 'axios';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export const useCreateUser = () => {
   const { usersApi } = useDependency();
@@ -21,7 +23,7 @@ export const useCreateUser = () => {
           ? error.response.data.message
           : null;
       const errorMessage = responseMessage || error.message || 'Failed to create user';
-      console.error('Create user error:', errorMessage);
+      logger.error(LogType.Auth, 'Create user error', { errorMessage });
       throw new Error(errorMessage);
     },
   });

@@ -12,6 +12,8 @@ import Account from '@/model/models/account';
 import { TransactionService } from './transaction-service';
 import { DailyBalanceService } from './daily-balance-service';
 import { WriterInterface } from '@nozbe/watermelondb/Database/WorkQueue';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export class PlaidService {
   private readonly transactionService: TransactionService;
@@ -47,7 +49,12 @@ export class PlaidService {
         const existingItems = await this.database.get<Item>('items').query().fetch();
         const existingItem = existingItems.find(item => item.institutionId === institutionId);
         if (existingItem) {
-          throw new Error('Item already exists');
+          Alert.alert(
+            'Account already linked',
+            'You already connected this institution. Please update the existing connection instead of adding a new one.',
+            [{ text: 'OK' }]
+          );
+          return;
         }
       }
 
@@ -76,7 +83,10 @@ export class PlaidService {
         : `Successfully connected ${institutionName}!`;
       Alert.alert('Success', successMessage, [{ text: 'OK' }]);
     } catch (error: any) {
-      console.error('Failed to handle Plaid Link success:', error);
+      logger.error(LogType.Plaid, 'Failed to handle Plaid Link success', { error });
+      if (error?.message?.startsWith('Duplicate accounts detected')) {
+        throw error;
+      }
       const errorMessage =
         error?.response?.data?.message || error?.message || 'Failed to connect account. Please try again.';
       Alert.alert('Error', errorMessage, [{ text: 'OK' }]);
@@ -178,26 +188,120 @@ export class PlaidService {
    */
   async fetchAndStoreAccounts(plaidItemId: string): Promise<void> {
     try {
+      logger.info(LogType.Plaid, 'Fetching accounts for item', { plaidItemId });
       const accountsResponse = await this.plaidApi.plaidControllerGetAccounts(plaidItemId);
 
       if (!accountsResponse?.data) {
-        console.warn('No accounts data received for item:', plaidItemId);
+        logger.warn(LogType.Plaid, 'No accounts data received for item', { plaidItemId });
         return;
       }
 
       const accounts: PlaidAccountDto[] = accountsResponse.data.flat();
+      logger.info(LogType.Plaid, 'Received accounts', {
+        plaidItemId,
+        count: accounts.length,
+        accountIds: accounts.map(account => account.account_id),
+      });
+      const items = await this.database.get<Item>('items').query().fetch();
+      const item = items.find(i => i.plaidItemId === plaidItemId);
 
-      await this.database.write(async () => {
-        // Find the Item record by plaidItemId
-        const items = await this.database.get<Item>('items').query().fetch();
-        const item = items.find(i => i.plaidItemId === plaidItemId);
+      if (!item) {
+        throw new Error(`Item not found for plaidItemId: ${plaidItemId}`);
+      }
+      logger.info(LogType.Plaid, 'Matched item for accounts sync', {
+        plaidItemId,
+        itemId: item.id,
+        institutionId: item.institutionId,
+        institutionName: item.institutionName,
+      });
 
-        if (!item) {
-          throw new Error(`Item not found for plaidItemId: ${plaidItemId}`);
+      const existingAccounts = await this.database.get<Account>('accounts').query().fetch();
+      logger.info(LogType.Plaid, 'Existing account records', {
+        count: existingAccounts.length,
+        accountIds: existingAccounts.map(account => account.accountId),
+      });
+      const seenAccountIds = new Set<string>();
+      const duplicateAccounts: string[] = [];
+      const duplicateExistingAccounts: string[] = [];
+
+      const formatAccountLabel = (accountDto: PlaidAccountDto) => {
+        const mask = accountDto.mask && typeof accountDto.mask === 'string' ? ` (...${accountDto.mask})` : '';
+        return `${accountDto.name}${mask}`;
+      };
+
+      const existingAccountsById = existingAccounts.reduce<Record<string, Account[]>>((acc, account) => {
+        const key = account.accountId;
+        acc[key] = acc[key] ? [...acc[key], account] : [account];
+        return acc;
+      }, {});
+      const preferredAccountById: Record<string, Account> = {};
+
+      for (const [accountId, matches] of Object.entries(existingAccountsById)) {
+        if (matches.length > 0) {
+          preferredAccountById[accountId] = matches[0];
+        }
+        if (matches.length > 1) {
+          duplicateExistingAccounts.push(accountId);
+        }
+      }
+      if (duplicateExistingAccounts.length > 0) {
+        logger.warn(LogType.Plaid, 'Found duplicate existing accounts', { duplicateExistingAccounts });
+      }
+
+      for (const accountDto of accounts) {
+        const accountId = accountDto.account_id;
+
+        if (seenAccountIds.has(accountId)) {
+          duplicateAccounts.push(formatAccountLabel(accountDto));
+          continue;
         }
 
-        // Get existing accounts to check for updates
-        const existingAccounts = await this.database.get<Account>('accounts').query().fetch();
+        seenAccountIds.add(accountId);
+
+        const hasCrossItemDuplicate = (existingAccountsById[accountId] ?? []).some(
+          match => match.itemId !== item.id
+        );
+        if (hasCrossItemDuplicate) {
+          duplicateAccounts.push(formatAccountLabel(accountDto));
+        }
+      }
+
+      if (duplicateAccounts.length > 0) {
+        const uniqueDuplicates = Array.from(new Set(duplicateAccounts));
+        const preview = uniqueDuplicates.slice(0, 4).join(', ');
+        const remainingCount = uniqueDuplicates.length - 4;
+        const details = uniqueDuplicates.length <= 4 ? preview : `${preview} and ${remainingCount} more`;
+        const institutionLabel = item.institutionName ?? 'this institution';
+        Alert.alert(
+          'Duplicate account detected',
+          `We found duplicate account(s) for ${institutionLabel}: ${details}. Please update the existing connection instead of adding a new one.`,
+          [{ text: 'OK' }]
+        );
+        throw new Error(`Duplicate accounts detected for ${institutionLabel}`);
+      }
+
+      await this.database.write(async () => {
+        if (duplicateExistingAccounts.length > 0) {
+          for (const accountId of duplicateExistingAccounts) {
+            const matches = existingAccountsById[accountId] ?? [];
+            const keepAccount =
+              matches.find(match => match.itemId === item.id) ??
+              matches.reduce((latest, current) =>
+                current.updatedAt.getTime() > latest.updatedAt.getTime() ? current : latest
+              );
+            preferredAccountById[accountId] = keepAccount;
+            for (const account of matches) {
+              if (account.id !== keepAccount.id) {
+                logger.warn(LogType.Plaid, 'Removing duplicate account record', {
+                  accountId,
+                  recordId: account.id,
+                  keptRecordId: keepAccount.id,
+                });
+                await account.destroyPermanently();
+              }
+            }
+          }
+        }
 
         // Import AccountService
         const { AccountService } = await import('@/services/account-service');
@@ -205,19 +309,41 @@ export class PlaidService {
 
         // Process each account
         for (const accountDto of accounts) {
-          const existingAccount = existingAccounts.find(acc => acc.accountId === accountDto.account_id);
+          const accountId = accountDto.account_id;
+          const existingAccount = preferredAccountById[accountId];
 
           if (existingAccount) {
+            logger.info(LogType.Plaid, 'Updating account from Plaid', {
+              accountId,
+              itemId: item.id,
+              recordId: existingAccount.id,
+              name: accountDto.name,
+              mask: accountDto.mask,
+            });
             // Update existing account using AccountService
             await accountService.updateAccountFromPlaid(existingAccount, accountDto, item.id, true);
           } else {
+            logger.info(LogType.Plaid, 'Creating account from Plaid', {
+              accountId,
+              itemId: item.id,
+              name: accountDto.name,
+              mask: accountDto.mask,
+            });
             // Create new account using AccountService
             await accountService.createAccountFromPlaid(accountDto, item.id, true);
           }
         }
       });
+
+      if (duplicateExistingAccounts.length > 0) {
+        Alert.alert(
+          'Duplicate accounts cleaned up',
+          'We detected duplicate account records and consolidated them. If you continue to see duplicates, please relink the institution.',
+          [{ text: 'OK' }]
+        );
+      }
     } catch (error) {
-      console.error('Failed to fetch and store accounts:', error);
+      logger.error(LogType.Plaid, 'Failed to fetch and store accounts', { error });
       throw error;
     }
   }
@@ -237,7 +363,7 @@ export class PlaidService {
         });
 
         if (!transactionsResponse?.data) {
-          console.warn('No transactions data received for item:', plaidItemId);
+          logger.warn(LogType.Plaid, 'No transactions data received for item', { plaidItemId });
           break;
         }
 
@@ -271,16 +397,16 @@ export class PlaidService {
       if (transactionsFetched) {
         setImmediate(async () => {
           try {
-            console.log('Calculating daily balances after transaction fetch');
+            logger.info(LogType.Plaid, 'Calculating daily balances after transaction fetch');
             await this.dailyBalanceService.calculateAllAccountBalances();
-            console.log('Daily balance calculation completed');
+            logger.info(LogType.Plaid, 'Daily balance calculation completed');
           } catch (error) {
-            console.error('Failed to calculate daily balances:', error);
+            logger.error(LogType.Plaid, 'Failed to calculate daily balances', { error });
           }
         });
       }
     } catch (error) {
-      console.error('Failed to fetch and store transactions:', error);
+      logger.error(LogType.Plaid, 'Failed to fetch and store transactions', { error });
       throw error;
     }
   }

@@ -11,6 +11,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode } from 'react';
 import { DemoProvider } from '@/context/demoContext';
 import { useProfileCheck } from '@/hooks/use-profile-check';
+import { LoggingProvider } from '@/context/loggingContext';
 
 // Conditionally import Auth0 - it requires native modules
 let Auth0Provider: React.ComponentType<{
@@ -27,6 +28,7 @@ try {
   useAuth0 = auth0.useAuth0;
 } catch {
   // Auth0 not available (native modules not built)
+  // Note: Using console.warn here because logger isn't initialized yet (LoggingProvider hasn't mounted)
   console.warn("Auth0 native module not available. Run 'npm run ios' to build native modules.");
   const Auth0ProviderFallback = ({ children }: { domain: string; clientId: string; children: ReactNode }) => (
     <>{children}</>
@@ -55,11 +57,13 @@ export default function RootLayout() {
       <QueryClientProvider client={queryClient}>
         <ColorSchemeProvider>
           <ProfileCheckWrapper>
-            <DependencyProvider>
-              <DemoProvider>
-                <RootLayoutContent />
-              </DemoProvider>
-            </DependencyProvider>
+            <LoggingProvider>
+              <DependencyProvider>
+                <DemoProvider>
+                  <RootLayoutContent />
+                </DemoProvider>
+              </DependencyProvider>
+            </LoggingProvider>
           </ProfileCheckWrapper>
         </ColorSchemeProvider>
       </QueryClientProvider>

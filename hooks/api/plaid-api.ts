@@ -2,6 +2,8 @@ import { PublicTokenDto } from "@/api/gen/data-contracts";
 import { useDependency } from "@/context/dependencyContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
+import { logger } from "@/services/logging-service";
+import { LogType } from "@/types/logging";
 
 export const useCreateLinkToken = () => {
   const { plaidApi } = useDependency();
@@ -20,7 +22,7 @@ export const useCreateLinkToken = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to create link token";
-      console.error("Create link token error:", errorMessage);
+      logger.error(LogType.Plaid, "Create link token error", { errorMessage });
     },
   });
 };
@@ -46,7 +48,9 @@ export const useExchangePublicToken = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to exchange public token";
-      console.error("Exchange public token error:", errorMessage);
+      logger.error(LogType.Plaid, "Exchange public token error", {
+        errorMessage,
+      });
     },
   });
 };
@@ -121,7 +125,7 @@ export const useSyncPlaidAccounts = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to sync accounts";
-      console.error("Sync accounts error:", errorMessage);
+      logger.error(LogType.Plaid, "Sync accounts error", { errorMessage });
     },
   });
 };
@@ -142,7 +146,7 @@ export const useHandlePlaidWebhook = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to handle webhook";
-      console.error("Handle webhook error:", errorMessage);
+      logger.error(LogType.Plaid, "Handle webhook error", { errorMessage });
     },
   });
 };

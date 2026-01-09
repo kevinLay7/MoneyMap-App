@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Model, Relation } from '@nozbe/watermelondb';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 // Extract the relation type from the declared type
 // WatermelonDB relations are declared as Model | undefined, not Relation<Model>
@@ -60,12 +62,12 @@ export function useModelWithRelations<T extends Model, R extends readonly (keyof
           error: error => {
             // Silently handle "Record not found" errors for optional relations
             // This is expected when a relation ID references a non-existent record
-            const isRecordNotFound = 
+            const isRecordNotFound =
               error?.message?.includes('Record not found') ||
               error?.message?.includes('not found');
             
             if (!isRecordNotFound) {
-              console.warn(`Error observing relation ${String(key)}:`, error);
+              logger.warn(LogType.Database, `Error observing relation ${String(key)}`, { error });
             }
             
             setRelations(prev => ({

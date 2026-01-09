@@ -20,6 +20,8 @@ import { clearDatabase, deleteDatabaseFile } from '@/helpers/database-helpers';
 import { useObservableCollection } from '@/hooks/use-observable';
 import { encryptionCredentialsService } from '@/services/encryption-credentials-service';
 import { backgroundTaskService } from '@/services/background-task-service';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 type TabType = 'account' | 'category' | 'item' | 'transaction' | 'sync' | 'transactionSync' | 'budget';
 
@@ -51,7 +53,7 @@ export default function DebugDataScreen() {
             await clearDatabase();
             Alert.alert('Success', 'Database cleared successfully');
           } catch (error: any) {
-            console.error('Failed to clear database:', error);
+            logger.error(LogType.UI, 'Failed to clear database', { error });
             Alert.alert('Error', error.message || 'Failed to clear database');
           }
         },
@@ -76,7 +78,7 @@ export default function DebugDataScreen() {
                 'Database file deleted. Please restart the app to recreate the database with the latest schema.'
               );
             } catch (error: any) {
-              console.error('Failed to delete database:', error);
+              logger.error(LogType.UI, 'Failed to delete database', { error });
               Alert.alert('Error', error.message || 'Failed to delete database file.');
             }
           },
@@ -96,7 +98,7 @@ export default function DebugDataScreen() {
             await encryptionCredentialsService.removeCredentials();
             Alert.alert('Success', 'Encryption credentials cleared successfully');
           } catch (error: any) {
-            console.error('Failed to clear encryption credentials:', error);
+            logger.error(LogType.UI, 'Failed to clear encryption credentials', { error });
             Alert.alert('Error', error.message || 'Failed to clear encryption credentials');
           }
         },
@@ -107,9 +109,9 @@ export default function DebugDataScreen() {
   const handleTriggerPlaidCheck = async () => {
     try {
       await backgroundTaskService.triggerPlaidCheck();
-      Alert.alert('Success', 'Plaid check triggered. Check console logs for details.');
+      Alert.alert('Success', 'Plaid check triggered. Check the logs screen for details.');
     } catch (error: any) {
-      console.error('Failed to trigger plaid check:', error);
+      logger.error(LogType.UI, 'Failed to trigger plaid check', { error });
       Alert.alert('Error', error.message || 'Failed to trigger plaid check');
     }
   };
@@ -126,7 +128,7 @@ Last Check: ${status.lastCheckTime?.toLocaleString() || 'Never'}
       `.trim();
       Alert.alert('Background Task Status', message);
     } catch (error: any) {
-      console.error('Failed to check task status:', error);
+      logger.error(LogType.UI, 'Failed to check task status', { error });
       Alert.alert('Error', error.message || 'Failed to check task status');
     }
   };

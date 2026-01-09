@@ -4,6 +4,8 @@ import { useDependency } from '@/context/dependencyContext';
 import { backgroundTaskService } from '@/services/background-task-service';
 import { syncOrchestrator } from '@/services/sync-orchestrator';
 import { useProfileCheck } from '@/hooks/use-profile-check';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 /**
  * Hook to manage background sync and foreground polling.
@@ -28,7 +30,7 @@ export function useBackgroundTasks() {
   // Initialize services
   useEffect(() => {
     if (!shouldInitialize) {
-      console.log('Skipping background task initialization: user profile not created yet');
+      logger.info(LogType.Background, 'Skipping background task initialization: user profile not created yet');
       return;
     }
 
@@ -51,7 +53,7 @@ export function useBackgroundTasks() {
         if (auth0Domain && auth0ClientId) {
           backgroundTaskService.initializeAuth0(auth0Domain, auth0ClientId);
         } else {
-          console.warn('Auth0 credentials not found, background tasks may fail');
+          logger.warn(LogType.Background, 'Auth0 credentials not found, background tasks may fail');
         }
 
         // Register background task definitions
@@ -60,9 +62,9 @@ export function useBackgroundTasks() {
         // Register with OS for background fetch
         const registered = await backgroundTaskService.registerBackgroundFetch();
         if (registered) {
-          console.log('✅ Background fetch registered');
+          logger.info(LogType.Background, 'Background fetch registered');
         } else {
-          console.error('❌ Failed to register background fetch');
+          logger.error(LogType.Background, 'Failed to register background fetch');
         }
 
         isInitializedRef.current = true;
@@ -72,7 +74,7 @@ export function useBackgroundTasks() {
           syncOrchestrator.startForeground();
         }
       } catch (error) {
-        console.error('Failed to initialize sync services:', error);
+        logger.error(LogType.Background, 'Failed to initialize sync services', { error });
       }
     };
 
@@ -96,13 +98,13 @@ export function useBackgroundTasks() {
 
       // App became active - start foreground sync
       if (!wasActive && isActive) {
-        console.log('📱 App active, starting foreground sync');
+        logger.info(LogType.Background, 'App active, starting foreground sync');
         syncOrchestrator.startForeground();
       }
 
       // App went to background - stop foreground sync
       if (wasActive && !isActive) {
-        console.log('📱 App inactive, stopping foreground sync');
+        logger.info(LogType.Background, 'App inactive, stopping foreground sync');
         syncOrchestrator.stopForeground();
       }
 

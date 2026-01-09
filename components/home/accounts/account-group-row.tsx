@@ -8,6 +8,8 @@ import { Fragment, useState, useEffect } from 'react';
 import { FontAwesome6 } from '@expo/vector-icons';
 import Account from '@/model/models/account';
 import { AccountRow } from './account-row';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export function AccountGroupRow({
   group,
@@ -87,7 +89,7 @@ export function AccountGroupRow({
                   key={account.id}
                   account={account}
                   onPress={() => {
-                    console.log('pushing to account details', account.id);
+                    logger.info(LogType.UI, 'Navigating to account details', { accountId: account.id });
                     router.push(`/(auth)/accounts/${account.id}`);
                   }}
                 />

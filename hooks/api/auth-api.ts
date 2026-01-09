@@ -1,6 +1,8 @@
 import { useDependency } from "@/context/dependencyContext";
 import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
+import { logger } from "@/services/logging-service";
+import { LogType } from "@/types/logging";
 
 export const useLogin = () => {
   const { authApi } = useDependency();
@@ -18,7 +20,7 @@ export const useLogin = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to login";
-      console.error("Login error:", errorMessage);
+      logger.error(LogType.Auth, "Login error", { errorMessage });
     },
   });
 };
@@ -43,7 +45,7 @@ export const useAuthCallback = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to process callback";
-      console.error("Auth callback error:", errorMessage);
+      logger.error(LogType.Auth, "Auth callback error", { errorMessage });
     },
   });
 };
@@ -64,8 +66,7 @@ export const useLogout = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to logout";
-      console.error("Logout error:", errorMessage);
+      logger.error(LogType.Auth, "Logout error", { errorMessage });
     },
   });
 };
-

@@ -10,6 +10,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/colors';
 import { Button } from '@/components/ui/button';
 import { UserResponseDto } from '@/api/gen/data-contracts';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export default function EncryptionKeyView() {
   const { usersApi } = useDependency();
@@ -32,7 +34,7 @@ export default function EncryptionKeyView() {
 
       const user = selfResponse.data as UserResponseDto;
       if (!user?.account?.salt) {
-        console.warn(user);
+        logger.warn(LogType.Auth, 'Account salt not found on user response', { user });
         throw new Error('Account salt not found');
       }
 

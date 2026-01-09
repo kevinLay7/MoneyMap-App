@@ -1,6 +1,8 @@
 import { pbkdf2, randomBytes, createCipheriv, createDecipheriv } from 'react-native-quick-crypto';
 import { Buffer } from '@craftzdog/react-native-buffer';
 import { encryptionCredentialsService } from './encryption-credentials-service';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 /**
  * Service for encrypting and decrypting sync records.
@@ -100,7 +102,7 @@ class SyncEncryptionService {
       throw new Error('Encryption credentials not found. User must be authenticated.');
     }
 
-    console.log('encryptedRecord', encryptedRecord);
+    logger.info(LogType.Sync, 'Decrypting encrypted record', { encryptedRecord });
     const combined = Buffer.from(encryptedRecord, 'base64');
 
     // Extract IV (first 16 bytes) and ciphertext (rest)

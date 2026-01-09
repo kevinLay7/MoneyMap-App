@@ -8,6 +8,8 @@ import { TransactionDto } from '@/api/gen/data-contracts';
 import { TransactionSource } from '@/types/transaction';
 import { executeInWriteContext } from '@/helpers/database-helpers';
 import dayjs from '@/helpers/dayjs';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export class TransactionService {
   constructor(private readonly database: Database) {}
@@ -74,17 +76,17 @@ export class TransactionService {
           let newCategory: Category | undefined;
 
           if (detailedCategory) {
-            console.log('Detailed category found:', detailedCategory);
+            logger.info(LogType.Database, 'Detailed category found', { detailedCategory });
             newCategory = categories.find(c => c.detailed.toLowerCase() === detailedCategory);
           }
 
           if (!newCategory && primaryCategory) {
-            console.log('Primary category found:', primaryCategory);
+            logger.info(LogType.Database, 'Primary category found', { primaryCategory });
             newCategory = categories.find(c => c.primary.toLowerCase() === primaryCategory);
           }
 
           if (!newCategory) {
-            console.log('No category found, using uncategorized');
+            logger.warn(LogType.Database, 'No category found, using uncategorized');
             newCategory = categories.find(c => c.name.toLowerCase() === 'uncategorized');
           }
 

@@ -5,6 +5,8 @@ import { Sync } from '@/api/gen/Sync';
 import SyncLogger from '@nozbe/watermelondb/sync/SyncLogger';
 import { syncEncryptionService } from '@/services/sync-encryption-service';
 import { DailyBalanceService } from '@/services/daily-balance-service';
+import { logger as appLogger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 /**
  * Table dependency order for sync operations.
@@ -32,7 +34,7 @@ const SYNC_TABLE_ORDER = [
 /**
  * Tables that should be excluded from sync operations
  */
-const EXCLUDED_TABLES: readonly string[] = [];
+const EXCLUDED_TABLES: readonly string[] = ['logs'];
 
 /**
  * Filters out excluded tables from changes object.
@@ -163,11 +165,35 @@ async function encryptChanges(changes: SyncDatabaseChangeSet): Promise<SyncDatab
 
     // Encrypt created records
     if (typedTableChanges.created?.length) {
+      // Log account creations being pushed to server
+      if (tableName === 'accounts') {
+        appLogger.info(LogType.Sync, 'Pushing account creations to server', {
+          count: typedTableChanges.created.length,
+          accounts: typedTableChanges.created.map((acc: any) => ({
+            id: acc.id,
+            accountId: acc.account_id,
+            name: acc.name,
+            mask: acc.mask,
+          })),
+        });
+      }
       encryptedTableChanges.created = await syncEncryptionService.encryptRecords(typedTableChanges.created);
     }
 
     // Encrypt updated records
     if (typedTableChanges.updated?.length) {
+      // Log account updates being pushed to server
+      if (tableName === 'accounts') {
+        appLogger.info(LogType.Sync, 'Pushing account updates to server', {
+          count: typedTableChanges.updated.length,
+          accounts: typedTableChanges.updated.map((acc: any) => ({
+            id: acc.id,
+            accountId: acc.account_id,
+            name: acc.name,
+            mask: acc.mask,
+          })),
+        });
+      }
       encryptedTableChanges.updated = await syncEncryptionService.encryptRecords(typedTableChanges.updated);
     }
 
@@ -207,11 +233,37 @@ async function decryptChanges(changes: SyncDatabaseChangeSet): Promise<SyncDatab
     // Decrypt created records (expecting encrypted strings)
     if (typedTableChanges.created?.length) {
       decryptedTableChanges.created = await syncEncryptionService.decryptRecords(typedTableChanges.created);
+
+      // Log account creations to help diagnose duplicates
+      if (tableName === 'accounts' && decryptedTableChanges.created.length > 0) {
+        appLogger.info(LogType.Sync, 'Received accounts to create from server', {
+          count: decryptedTableChanges.created.length,
+          accounts: decryptedTableChanges.created.map((acc: any) => ({
+            id: acc.id,
+            accountId: acc.account_id,
+            name: acc.name,
+            mask: acc.mask,
+          })),
+        });
+      }
     }
 
     // Decrypt updated records (expecting encrypted strings)
     if (typedTableChanges.updated?.length) {
       decryptedTableChanges.updated = await syncEncryptionService.decryptRecords(typedTableChanges.updated);
+
+      // Log account updates to help diagnose duplicates
+      if (tableName === 'accounts' && decryptedTableChanges.updated.length > 0) {
+        appLogger.info(LogType.Sync, 'Received accounts to update from server', {
+          count: decryptedTableChanges.updated.length,
+          accounts: decryptedTableChanges.updated.map((acc: any) => ({
+            id: acc.id,
+            accountId: acc.account_id,
+            name: acc.name,
+            mask: acc.mask,
+          })),
+        });
+      }
     }
 
     // Deleted items are just IDs, don't decrypt them
@@ -237,6 +289,18 @@ async function decryptChanges(changes: SyncDatabaseChangeSet): Promise<SyncDatab
  * Handles filtering, batching, normalization, and encryption of changes.
  */
 async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet, lastPulledAt: number): Promise<void> {
+  const summarizeChanges = (changesSummary: SyncDatabaseChangeSet) => {
+    return Object.entries(changesSummary).map(([tableName, tableChanges]) => {
+      const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+      return {
+        table: tableName,
+        created: typedTableChanges.created?.length || 0,
+        updated: typedTableChanges.updated?.length || 0,
+        deleted: typedTableChanges.deleted?.length || 0,
+      };
+    });
+  };
+
   // Filter out excluded tables before pushing
   const filteredChanges = filterExcludedTables(changes);
 
@@ -245,6 +309,11 @@ async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet
 
   // Encrypt records before sending to server
   const encryptedChanges = await encryptChanges(filteredCategoryChanges);
+  const changeSummary = summarizeChanges(encryptedChanges);
+  appLogger.info(LogType.Sync, 'Preparing to push changes', {
+    lastPulledAt,
+    tables: changeSummary,
+  });
 
   const BATCH_SIZE = 50;
 
@@ -269,6 +338,9 @@ async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet
         deleted: typedTableChanges.deleted || [],
       };
     }
+    appLogger.info(LogType.Sync, 'Pushing changes (single batch)', {
+      totalItems,
+    });
     await syncApi.syncControllerPushChanges({
       changes: normalizedChanges,
       lastPulledAt: String(lastPulledAt || 0),
@@ -356,6 +428,10 @@ async function pushChangesToServer(syncApi: Sync, changes: SyncDatabaseChangeSet
     batches.push(currentBatch);
   }
 
+  appLogger.info(LogType.Sync, 'Pushing changes (batched)', {
+    totalItems,
+    batches: batches.length,
+  });
   // Send each batch sequentially
   for (const batch of batches) {
     // Reconstruct changes object for this batch
@@ -386,6 +462,19 @@ export async function pushOnlyChanges(syncApi: Sync): Promise<void> {
   try {
     // Get local changes from WatermelonDB
     const localChanges = await fetchLocalChanges(database);
+    const changeSummary = Object.entries(localChanges.changes || {}).map(([tableName, tableChanges]) => {
+      const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
+      return {
+        table: tableName,
+        created: typedTableChanges.created?.length || 0,
+        updated: typedTableChanges.updated?.length || 0,
+        deleted: typedTableChanges.deleted?.length || 0,
+      };
+    });
+    appLogger.info(LogType.Sync, 'Local changes fetched', {
+      hasChanges: !!localChanges.changes && Object.keys(localChanges.changes).length > 0,
+      tables: changeSummary,
+    });
 
     // Return early if no changes exist
     if (!localChanges.changes || Object.keys(localChanges.changes).length === 0) {
@@ -401,7 +490,7 @@ export async function pushOnlyChanges(syncApi: Sync): Promise<void> {
     // Mark changes as synced after successful push
     await markLocalChangesAsSynced(database, localChanges);
   } catch (error) {
-    console.error('Push-only sync failed:', error);
+    appLogger.error(LogType.Sync, 'Push-only sync failed', { error });
     // Don't throw - allow the app to continue even if push fails
     // The changes will be retried on the next push or full sync
   }
@@ -466,22 +555,22 @@ function createSyncConfig(syncApi: Sync, logger: SyncLogger) {
     log: logger.newLog(),
     onWillApplyRemoteChanges: async (info: { remoteChangeCount: number }) => {
       if (info.remoteChangeCount > 0) {
-        console.log('onWillApplyRemoteChanges', info.remoteChangeCount);
+        appLogger.info(LogType.Sync, 'onWillApplyRemoteChanges', { remoteChangeCount: info.remoteChangeCount });
       }
     },
     onDidPullChanges: async (info: { remoteChangeCount: number }) => {
       // Calculate daily balances in background after pulling transaction changes
       // This runs asynchronously and doesn't block the sync completion
       if (info.remoteChangeCount > 0) {
-        console.log('Sync pulled changes, scheduling daily balance calculation');
+        appLogger.info(LogType.Sync, 'Sync pulled changes, scheduling daily balance calculation');
         // Use setImmediate to ensure this runs after sync completes, not blocking UI
         setImmediate(async () => {
           try {
             const dailyBalanceService = new DailyBalanceService(database);
             await dailyBalanceService.calculateAllAccountBalances();
-            console.log('Daily balance calculation completed');
+            appLogger.info(LogType.Sync, 'Daily balance calculation completed');
           } catch (error) {
-            console.error('Failed to calculate daily balances after sync:', error);
+            appLogger.error(LogType.Sync, 'Failed to calculate daily balances after sync', { error });
           }
         });
       }
@@ -501,7 +590,7 @@ export async function databaseSynchronize(syncApi: Sync, logger: SyncLogger) {
       error?.message?.includes('Cannot update a record with pending changes') || error?.name === 'Diagnostic error';
 
     if (isPendingChangesError) {
-      console.warn('Sync failed due to pending changes, retrying after marking changes as synced...');
+      appLogger.warn(LogType.Sync, 'Sync failed due to pending changes, retrying after marking changes as synced...');
 
       // Wait a moment for any active write transactions to complete
       await new Promise(resolve => setTimeout(resolve, 100));
@@ -513,11 +602,11 @@ export async function databaseSynchronize(syncApi: Sync, logger: SyncLogger) {
           await markLocalChangesAsSynced(database, localChanges);
         }
       } catch (markError) {
-        console.error('Error marking local changes as synced on retry:', markError);
+        appLogger.error(LogType.Sync, 'Error marking local changes as synced on retry', { error: markError });
       }
 
       // Retry sync once
-      console.log('Retrying sync after marking changes as synced');
+      appLogger.info(LogType.Sync, 'Retrying sync after marking changes as synced');
       await synchronize(createSyncConfig(syncApi, logger));
     } else {
       // Re-throw other errors

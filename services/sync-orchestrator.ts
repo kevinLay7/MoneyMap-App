@@ -9,6 +9,8 @@ import database from '@/model/database';
 import Item from '@/model/models/item';
 import { PlaidService } from './plaid-service';
 import { BudgetService } from './budget-service';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 // Intervals
 const FOREGROUND_FULL_SYNC_INTERVAL = 60 * 1000; // 60 seconds
@@ -63,7 +65,7 @@ class SyncOrchestrator {
   initialize(config: SyncOrchestratorConfig): void {
     this.syncApi = config.syncApi;
     this.plaidApi = config.plaidApi;
-    console.log('🎯 SyncOrchestrator initialized');
+    logger.info(LogType.Sync, 'SyncOrchestrator initialized');
   }
 
   /**
@@ -79,17 +81,17 @@ class SyncOrchestrator {
    */
   startForeground(): void {
     if (this.mode === 'foreground') {
-      console.log('SyncOrchestrator already in foreground mode');
+      logger.info(LogType.Sync, 'SyncOrchestrator already in foreground mode');
       return;
     }
 
     if (!this.isInitialized()) {
-      console.warn('SyncOrchestrator not initialized, cannot start foreground mode');
+      logger.warn(LogType.Sync, 'SyncOrchestrator not initialized, cannot start foreground mode');
       return;
     }
 
     this.mode = 'foreground';
-    console.log('🚀 SyncOrchestrator starting foreground mode');
+    logger.info(LogType.Sync, 'SyncOrchestrator starting foreground mode');
 
     // Immediate full sync on app resume
     this.executeFullSync();
@@ -118,7 +120,7 @@ class SyncOrchestrator {
       return;
     }
 
-    console.log('⏸️  SyncOrchestrator stopping foreground mode');
+    logger.info(LogType.Sync, 'SyncOrchestrator stopping foreground mode');
     this.mode = 'stopped';
 
     // Clear all timers
@@ -156,6 +158,7 @@ class SyncOrchestrator {
     this.dbSubscription = database.experimentalSubscribe(
       ['transactions', 'accounts', 'items', 'categories', 'budgets', 'budget_items'],
       () => {
+        logger.info(LogType.Sync, 'Database change detected, scheduling push');
         this.scheduleDebouncedPush();
       }
     );
@@ -172,7 +175,7 @@ class SyncOrchestrator {
     }
 
     // Schedule new push
-    console.log(`🕒 Scheduling push-only sync in ${PUSH_DEBOUNCE_DELAY / 1000}s`);
+    logger.info(LogType.Sync, `Scheduling push-only sync in ${PUSH_DEBOUNCE_DELAY / 1000}s`);
     this.pushDebounceTimer = setTimeout(() => {
       this.executePushOnly();
     }, PUSH_DEBOUNCE_DELAY);
@@ -189,7 +192,7 @@ class SyncOrchestrator {
     if (this.syncInProgress && this.syncLockAcquiredAt) {
       const lockHeldFor = now - this.syncLockAcquiredAt;
       if (lockHeldFor > SYNC_LOCK_TIMEOUT) {
-        console.warn(`⚠️ Sync lock stale (held ${Math.round(lockHeldFor / 1000)}s), force-releasing`);
+        logger.warn(LogType.Sync, `Sync lock stale (held ${Math.round(lockHeldFor / 1000)}s), force-releasing`);
         this.releaseSyncLock();
       }
     }
@@ -227,24 +230,24 @@ class SyncOrchestrator {
    */
   async executeFullSync(): Promise<void> {
     if (!this.syncApi) {
-      console.warn('SyncOrchestrator: syncApi not available');
+      logger.warn(LogType.Sync, 'SyncOrchestrator: syncApi not available');
       return;
     }
 
     if (!this.acquireSyncLock()) {
-      console.log('Sync in progress, skipping full sync');
+      logger.info(LogType.Sync, 'Sync in progress, skipping full sync');
       return;
     }
 
     try {
       await this.runAfterInteractions(async () => {
-        const logger = new SyncLogger(1000);
-        await databaseSynchronize(this.syncApi!, logger);
+        const syncLogger = new SyncLogger(1000);
+        await databaseSynchronize(this.syncApi!, syncLogger);
         const budgetService = new BudgetService(database);
         await budgetService.completeExpiredBudgetsAndItems();
       });
     } catch (error) {
-      console.error('❌ Full sync failed:', error);
+      logger.error(LogType.Sync, 'Full sync failed', { error });
     } finally {
       this.releaseSyncLock();
     }
@@ -255,23 +258,23 @@ class SyncOrchestrator {
    */
   async executePushOnly(): Promise<void> {
     if (!this.syncApi) {
-      console.warn('SyncOrchestrator: syncApi not available');
+      logger.warn(LogType.Sync, 'SyncOrchestrator: syncApi not available');
       return;
     }
 
     if (!this.acquireSyncLock()) {
-      console.log('Sync in progress, skipping push-only');
+      logger.info(LogType.Sync, 'Sync in progress, skipping push-only');
       return;
     }
 
     try {
-      console.log('⬆️ Starting push-only sync');
+      logger.info(LogType.Sync, 'Starting push-only sync');
       await this.runAfterInteractions(async () => {
         await pushOnlyChanges(this.syncApi!);
       });
-      console.log('✅ Push-only sync completed');
+      logger.info(LogType.Sync, 'Push-only sync completed');
     } catch (error) {
-      console.error('❌ Push-only sync failed:', error);
+      logger.error(LogType.Sync, 'Push-only sync failed', { error });
     } finally {
       this.releaseSyncLock();
     }
@@ -290,11 +293,11 @@ class SyncOrchestrator {
 
       if (lastCheck && now - lastCheck < PLAID_CHECK_INTERVAL) {
         const hoursRemaining = Math.round((PLAID_CHECK_INTERVAL - (now - lastCheck)) / (60 * 60 * 1000));
-        console.log(`⏭️ Plaid check skipped: ${hoursRemaining}h until next check`);
+        logger.info(LogType.Sync, `Plaid check skipped: ${hoursRemaining}h until next check`);
         return;
       }
 
-      console.log('🔍 Checking for stale Plaid items...');
+      logger.info(LogType.Sync, 'Checking for stale Plaid items');
 
       // Query items from database
       const items = await database.get<Item>('items').query().fetch();
@@ -306,15 +309,14 @@ class SyncOrchestrator {
       });
 
       if (staleItems.length === 0) {
-        console.log('✅ All Plaid items up to date');
+        logger.info(LogType.Sync, 'All Plaid items up to date');
         await AsyncStorage.setItem(LAST_PLAID_CHECK_KEY, now.toString());
         return;
       }
 
-      console.log(
-        `⚠️ ${staleItems.length} stale items found:`,
-        staleItems.map(i => i.institutionName)
-      );
+      logger.warn(LogType.Sync, `${staleItems.length} stale items found`, {
+        staleItems: staleItems.map(i => i.institutionName),
+      });
 
       // Refresh stale items (fire-and-forget, non-blocking)
       this.runAfterInteractions(async () => {
@@ -324,7 +326,7 @@ class SyncOrchestrator {
         try {
           await this.plaidApi.plaidControllerCheckForUpdates();
         } catch (error) {
-          console.error('Plaid checkForUpdates failed:', error);
+          logger.error(LogType.Sync, 'Plaid checkForUpdates failed', { error });
         }
 
         // Then refresh stale items
@@ -332,21 +334,21 @@ class SyncOrchestrator {
 
         for (const item of staleItems) {
           try {
-            console.log(`🔄 Refreshing: ${item.institutionName}`);
+            logger.info(LogType.Sync, `Refreshing: ${item.institutionName}`);
             await plaidService.refeshItem(item.plaidItemId);
-            console.log(`✅ Refreshed: ${item.institutionName}`);
+            logger.info(LogType.Sync, `Refreshed: ${item.institutionName}`);
           } catch (error) {
-            console.error(`❌ Failed to refresh ${item.institutionName}:`, error);
+            logger.error(LogType.Sync, `Failed to refresh ${item.institutionName}`, { error });
           }
         }
       }).catch(error => {
-        console.error('Plaid refresh failed:', error);
+        logger.error(LogType.Sync, 'Plaid refresh failed', { error });
       });
 
       // Update last check time
       await AsyncStorage.setItem(LAST_PLAID_CHECK_KEY, now.toString());
     } catch (error) {
-      console.error('Plaid stale check failed:', error);
+      logger.error(LogType.Sync, 'Plaid stale check failed', { error });
     }
   }
 
@@ -356,20 +358,20 @@ class SyncOrchestrator {
    */
   async executeBackgroundSync(): Promise<boolean> {
     if (!this.isInitialized()) {
-      console.warn('SyncOrchestrator not initialized for background sync');
+      logger.warn(LogType.Sync, 'SyncOrchestrator not initialized for background sync');
       return false;
     }
 
     if (!this.acquireSyncLock()) {
-      console.log('Sync in progress, skipping background sync');
+      logger.info(LogType.Sync, 'Sync in progress, skipping background sync');
       return true; // Not a failure, just skipped
     }
 
     try {
       // Full sync
-      const logger = new SyncLogger(1000);
-      await databaseSynchronize(this.syncApi!, logger);
-      console.log('✅ Background full sync completed');
+      const syncLogger = new SyncLogger(1000);
+      await databaseSynchronize(this.syncApi!, syncLogger);
+      logger.info(LogType.Sync, 'Background full sync completed');
       const budgetService = new BudgetService(database);
       await budgetService.completeExpiredBudgetsAndItems();
 
@@ -378,7 +380,7 @@ class SyncOrchestrator {
 
       return true;
     } catch (error) {
-      console.error('❌ Background sync failed:', error);
+      logger.error(LogType.Sync, 'Background sync failed', { error });
       return false;
     } finally {
       this.releaseSyncLock();
@@ -389,7 +391,7 @@ class SyncOrchestrator {
    * Force release sync lock (for debugging/recovery).
    */
   forceReleaseLock(): void {
-    console.warn('⚠️ Force releasing sync lock');
+    logger.warn(LogType.Sync, 'Force releasing sync lock');
     this.syncInProgress = false;
     this.syncLockAcquiredAt = null;
   }

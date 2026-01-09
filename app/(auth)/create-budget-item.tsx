@@ -268,7 +268,7 @@ export default function CreateBudgetItem() {
       await budgetService.createBudgetItem(dto);
       router.back();
     } catch (error) {
-      console.error('Error creating budget item:', error);
+      // TODO: handle error
     } finally {
       setIsLoading(false);
     }

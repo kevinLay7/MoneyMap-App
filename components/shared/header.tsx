@@ -80,6 +80,11 @@ export default function Header({
     setShowSettingsDrawer(false);
   }, [navigator]);
 
+  const handleOpenLogs = React.useCallback(async () => {
+    navigator.navigate('logs');
+    setShowSettingsDrawer(false);
+  }, [navigator]);
+
   // Combine animated styles
   const combinedHeaderStyles = useAnimatedStyle(
     () => ({
@@ -162,6 +167,21 @@ export default function Header({
               marginY="4"
             />
           )}
+
+          <Button
+            title="Logs"
+            onPress={handleOpenLogs}
+            iconLeft={
+              <FontAwesome6
+                name="list"
+                size={16}
+                color={colorScheme === 'light' ? 'white' : 'black'}
+                style={{ marginRight: 8 }}
+              />
+            }
+            className="justify-start"
+            marginY="4"
+          />
           <Pressable className="flex-1 h-full" onPress={() => setShowSettingsDrawer(false)} />
         </View>
         <View className="p-4 border-t border-border">
@@ -170,7 +190,7 @@ export default function Header({
         </View>
       </SafeAreaView>
     ),
-    [colorScheme, handleOpenAccountManagement, handleOpenSettings, handleOpenDebugData, clearCredentials]
+    [colorScheme, handleOpenAccountManagement, handleOpenSettings, handleOpenDebugData, handleOpenLogs, clearCredentials]
   );
 
   const shadowOpacity = useDerivedValue(() => {

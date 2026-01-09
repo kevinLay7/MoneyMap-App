@@ -169,43 +169,90 @@ export class BudgetService {
    * @returns The updated budget item.
    */
   async updateBudgetItem(dto: UpdateBudgetItemDto): Promise<BudgetItem> {
-    return await this.database.write(async () => {
-      const budgetItem = await this.database.get<BudgetItem>('budget_items').find(dto.budgetItemId);
-      await budgetItem.update(item => {
-        if (dto.budgetId) {
-          item.budgetId = dto.budgetId;
-        }
-        if (dto.name !== undefined) {
-          item.name = dto.name;
-        }
-        if (dto.amount !== undefined) {
-          item.amount = dto.amount;
-        }
-        if (dto.trackingMode !== undefined) {
-          item.trackingMode = dto.trackingMode ?? null;
-        }
-        if ('fundingAccountId' in dto) {
-          item.fundingAccountId = dto.fundingAccountId ?? null;
-        }
-        if ('merchantId' in dto) {
-          item.merchantId = dto.merchantId ?? null;
-        }
-        if ('categoryId' in dto) {
-          item.categoryId = dto.categoryId ?? null;
-        }
-        if ('dueDate' in dto) {
-          item.dueDate = dto.dueDate ?? null;
-        }
-        if (dto.isAutoPay !== undefined) {
-          item.isAutoPay = dto.isAutoPay;
-        }
-        if (dto.excludeFromBalance !== undefined) {
-          item.excludeFromBalance = dto.excludeFromBalance;
-        }
-      });
+    const budgetItem = await this.database.get<BudgetItem>('budget_items').find(dto.budgetItemId);
+    const oldCategoryId = budgetItem.categoryId;
+    const isCategoryChange =
+      'categoryId' in dto && dto.categoryId !== oldCategoryId && budgetItem.type === BudgetItemType.Category;
 
-      return budgetItem;
+    await this.database.write(async () => {
+      if (isCategoryChange) {
+        await this.unlinkTransactionsForBudgetItem(budgetItem.id);
+      }
+
+      await this.applyBudgetItemUpdate(budgetItem, dto);
+
+      if (isCategoryChange && dto.categoryId) {
+        await this.linkTransactionsForCategory(budgetItem, dto.categoryId);
+      }
     });
+
+    return budgetItem;
+  }
+
+  private async unlinkTransactionsForBudgetItem(budgetItemId: string): Promise<void> {
+    const linkedTransactions = await this.database
+      .get<Transaction>('transactions')
+      .query(Q.where('budget_item_id', budgetItemId))
+      .fetch();
+
+    for (const transaction of linkedTransactions) {
+      await transaction.update(t => {
+        t.budgetItemId = null;
+      });
+    }
+  }
+
+  private async applyBudgetItemUpdate(budgetItem: BudgetItem, dto: UpdateBudgetItemDto): Promise<void> {
+    await budgetItem.update(item => {
+      if (dto.budgetId) {
+        item.budgetId = dto.budgetId;
+      }
+      if (dto.name !== undefined) {
+        item.name = dto.name;
+      }
+      if (dto.amount !== undefined) {
+        item.amount = dto.amount;
+      }
+      if (dto.trackingMode !== undefined) {
+        item.trackingMode = dto.trackingMode ?? null;
+      }
+      if ('fundingAccountId' in dto) {
+        item.fundingAccountId = dto.fundingAccountId ?? null;
+      }
+      if ('merchantId' in dto) {
+        item.merchantId = dto.merchantId ?? null;
+      }
+      if ('categoryId' in dto) {
+        item.categoryId = dto.categoryId ?? null;
+      }
+      if ('dueDate' in dto) {
+        item.dueDate = dto.dueDate ?? null;
+      }
+      if (dto.isAutoPay !== undefined) {
+        item.isAutoPay = dto.isAutoPay;
+      }
+      if (dto.excludeFromBalance !== undefined) {
+        item.excludeFromBalance = dto.excludeFromBalance;
+      }
+    });
+  }
+
+  private async linkTransactionsForCategory(budgetItem: BudgetItem, categoryId: string): Promise<void> {
+    const budget = await budgetItem.budget.fetch();
+    if (!budget) {
+      return;
+    }
+
+    const transactionService = new TransactionService(this.database);
+    const transactionsToLink = await transactionService.findTransactionsForCategory(
+      categoryId,
+      budget.startDate,
+      budget.endDate
+    );
+
+    for (const transaction of transactionsToLink) {
+      await transactionService.linkTransactionToBudgetItem(transaction, budgetItem);
+    }
   }
 
   /**

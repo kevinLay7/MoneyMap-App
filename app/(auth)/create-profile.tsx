@@ -12,6 +12,8 @@ import { Card } from '@/components/ui/card';
 import { useRouter } from 'expo-router';
 import { encryptionCredentialsService } from '@/services';
 import { useQueryClient } from '@tanstack/react-query';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export default function CreateProfile() {
   const { user } = useAuth0();
@@ -43,7 +45,7 @@ export default function CreateProfile() {
           });
         }
       } catch (error) {
-        console.error('Failed to load user data:', error);
+        logger.error(LogType.Auth, 'Failed to load user data', { error });
       } finally {
         setIsLoading(false);
       }

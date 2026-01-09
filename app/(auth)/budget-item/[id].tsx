@@ -15,6 +15,7 @@ import IconCircle from '@/components/ui/icon-circle';
 import { DetailsSection } from '@/components/budgets/budget-item-details';
 import { BudgetItemEditSheet } from '@/components/budgets/budget-item-edit-sheet';
 import { SpendingByCategoryCard } from '@/components/home/spending/spending-by-category-card';
+import { CreditUtilizationCard } from '@/components/budgets/credit-utilization-card';
 import { Colors } from '@/constants/colors';
 import dayjs from '@/helpers/dayjs';
 import { useMoneyFormatter } from '@/hooks/format-money';
@@ -172,7 +173,7 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
       <AnimatedScrollView animatedRef={animatedRef}>
         <View className="p-4">
           <Pressable onPress={() => setIsEditOpen(true)}>
-            <Card backgroundColor="secondary" padding="lg">
+            <Card backgroundColor="secondary" padding="lg" className="flex-none">
             <View className="gap-2">
               <View className="flex-row items-center">
                 <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary">
@@ -249,13 +250,17 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
             </Card>
           </Pressable>
 
-          <View className="mt-6">
-            <View className="flex-row items-center mb-2">
-              <ThemedText type="defaultSemiBold">Linked Transactions</ThemedText>
-              <View className="ml-2 rounded-full bg-background-secondary px-2 py-0.5">
-                <ThemedText type="subText">{budgetItemState.linkedTransactions.length}</ThemedText>
-              </View>
+          {/* Credit Utilization Card for Credit Card Accounts */}
+          {fundingAccount?.type === 'credit' && fundingAccount.balanceAvailable !== undefined && (
+            <View className="mt-4">
+              <CreditUtilizationCard
+                currentBalance={fundingAccount.balanceCurrent}
+                availableBalance={fundingAccount.balanceAvailable}
+              />
             </View>
+          )}
+
+          <View className="mt-6">
             {budgetItemState.linkedTransactions.length > 0 && (
               <View className="mb-4">
                 <SpendingByCategoryCard
@@ -264,6 +269,12 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
                 />
               </View>
             )}
+            <View className="flex-row items-center mb-2">
+              <ThemedText type="defaultSemiBold">Linked Transactions</ThemedText>
+              <View className="ml-2 rounded-full bg-background-secondary px-2 py-0.5">
+                <ThemedText type="subText">{budgetItemState.linkedTransactions.length}</ThemedText>
+              </View>
+            </View>
             <Card backgroundColor="secondary" className="overflow-hidden">
               {budgetItemState.linkedTransactions.length > 0 ? (
                 budgetItemState.linkedTransactions.map(transaction => (

@@ -10,6 +10,9 @@ import Budget from '@/model/models/budget';
 import BudgetItem from '@/model/models/budget-item';
 import AccountDailyBalance from '@/model/models/account-daily-balance';
 import Merchant from '@/model/models/merchant';
+import Log from '@/model/models/log';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 /**
  * Clears all data from the WatermelonDB database
@@ -28,6 +31,7 @@ export async function clearDatabase(): Promise<void> {
     const budgetItems = await database.get<BudgetItem>('budget_items').query().fetch();
     const accountDailyBalances = await database.get<AccountDailyBalance>('account_daily_balances').query().fetch();
     const merchants = await database.get<Merchant>('merchants').query().fetch();
+    const logs = await database.get<Log>('logs').query().fetch();
 
     // Delete all records permanently
     await Promise.all([
@@ -41,6 +45,7 @@ export async function clearDatabase(): Promise<void> {
       ...budgetItems.map(record => record.destroyPermanently()),
       ...accountDailyBalances.map(record => record.destroyPermanently()),
       ...merchants.map(record => record.destroyPermanently()),
+      ...logs.map(record => record.destroyPermanently()),
     ]);
   });
 }
@@ -113,7 +118,7 @@ export async function deleteDatabaseFile(): Promise<void> {
       const FileSystem = require('expo-file-system');
       if (FileSystem?.deleteAsync) {
         await FileSystem.deleteAsync(dbPath, { idempotent: true });
-        console.log('✅ Database file deleted using expo-file-system');
+        logger.info(LogType.Database, 'Database file deleted using expo-file-system');
         deleted = true;
       }
     } catch (e) {
@@ -126,7 +131,7 @@ export async function deleteDatabaseFile(): Promise<void> {
         const RNFS = require('react-native-fs');
         if (RNFS?.unlink) {
           await RNFS.unlink(dbPath);
-          console.log('✅ Database file deleted using react-native-fs');
+          logger.info(LogType.Database, 'Database file deleted using react-native-fs');
           deleted = true;
         }
       } catch (e) {
@@ -145,7 +150,7 @@ export async function deleteDatabaseFile(): Promise<void> {
       );
     }
   } catch (error: any) {
-    console.error('Failed to delete database file:', error);
+    logger.error(LogType.Database, 'Failed to delete database file', { error });
     throw error;
   }
 }

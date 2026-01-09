@@ -3,6 +3,8 @@ import Account from '@/model/models/account';
 import Transaction from '@/model/models/transaction';
 import AccountDailyBalance from '@/model/models/account-daily-balance';
 import dayjs from 'dayjs';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 /**
  * Service for calculating and storing daily account balances.
@@ -24,12 +26,12 @@ export class DailyBalanceService {
         try {
           await this.calculateDailyBalancesForAccount(account);
         } catch (error) {
-          console.error(`Failed to calculate daily balances for account ${account.id}:`, error);
+          logger.error(LogType.Database, `Failed to calculate daily balances for account ${account.id}`, { error });
           // Continue with other accounts
         }
       }
     } catch (error) {
-      console.error('Failed to calculate daily balances for all accounts:', error);
+      logger.error(LogType.Database, 'Failed to calculate daily balances for all accounts', { error });
     }
   }
 
@@ -173,4 +175,3 @@ export class DailyBalanceService {
     });
   }
 }
-

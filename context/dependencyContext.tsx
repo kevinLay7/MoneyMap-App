@@ -7,6 +7,8 @@ import { Users } from '@/api/gen/Users';
 import { createContext, useContext, useMemo } from 'react';
 import { useAuth0 } from 'react-native-auth0';
 import { getDeviceClientId } from '@/utils/device-client-id';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 export const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 interface DependencyContextType {
@@ -53,7 +55,7 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
           httpClient.instance.defaults.headers.common.Authorization = `Bearer ${credentials.accessToken}`;
         }
       } catch (error) {
-        console.error('error setting up initial auth', error);
+        logger.error(LogType.Auth, 'Error setting up initial auth', { error });
         delete httpClient.instance.defaults.headers.common.Authorization;
       }
     };
@@ -67,7 +69,7 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
             const clientId = await getDeviceClientId();
             config.headers['x-client-id'] = clientId;
           } catch (error) {
-            console.error('Failed to get device client ID:', error);
+            logger.error(LogType.Auth, 'Failed to get device client ID', { error });
           }
         }
         return config;
@@ -94,7 +96,7 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
         const MAX_RETRIES = 1;
 
         if (retryCount >= MAX_RETRIES) {
-          console.warn(`Max retries (${MAX_RETRIES}) reached for 401 response, clearing session`, {
+          logger.warn(LogType.Auth, `Max retries (${MAX_RETRIES}) reached for 401 response, clearing session`, {
             url: config.url,
             method: config.method,
           });
@@ -114,12 +116,12 @@ export const DependencyProvider = ({ children }: { children: React.ReactNode }) 
 
             return httpClient.instance(config);
           } else {
-            console.log('no credentials available during token refresh, clearing session');
+            logger.warn(LogType.Auth, 'No credentials available during token refresh, clearing session');
             //wait clearCredentials();
             return Promise.reject(error);
           }
         } catch (refreshError) {
-          console.error('token refresh failed, clearing session', refreshError);
+          logger.error(LogType.Auth, 'Token refresh failed, clearing session', { error: refreshError });
 
           return Promise.reject(error);
         }

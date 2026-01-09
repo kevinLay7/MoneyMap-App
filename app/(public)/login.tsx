@@ -6,6 +6,8 @@ import LottieView from 'lottie-react-native';
 import financeAnimation from '../../assets/lottie/Finance.json';
 import { BackgroundContainer } from '@/components/ui/background-container';
 import { ThemedText } from '@/components/shared';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export default function Login() {
   const { authorize } = useAuth0();
@@ -24,7 +26,7 @@ export default function Login() {
         { ephemeralSession: true }
       );
     } catch (e: any) {
-      console.error('Auth0 login error:', e);
+      logger.error(LogType.Auth, 'Auth0 login error', { error: e });
     }
   };
 

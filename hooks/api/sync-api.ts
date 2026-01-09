@@ -2,6 +2,8 @@ import { PullChangesDto, PushChangesDto } from "@/api/gen/data-contracts";
 import { useDependency } from "@/context/dependencyContext";
 import { useMutation } from "@tanstack/react-query";
 import { AxiosError } from "axios";
+import { logger } from "@/services/logging-service";
+import { LogType } from "@/types/logging";
 
 export interface PullChangesResponse {
   changes: Record<
@@ -32,7 +34,7 @@ export const usePullChanges = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to pull changes";
-      console.error("Pull changes error:", errorMessage);
+      logger.error(LogType.Sync, "Pull changes error", { errorMessage });
     },
   });
 };
@@ -53,8 +55,7 @@ export const usePushChanges = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to push changes";
-      console.error("Push changes error:", errorMessage);
+      logger.error(LogType.Sync, "Push changes error", { errorMessage });
     },
   });
 };
-

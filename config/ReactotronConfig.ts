@@ -1,6 +1,10 @@
 import Reactotron from 'reactotron-react-native';
 import { Platform } from 'react-native';
 
+// Note: This file is imported at module initialization time in app/_layout.tsx
+// Cannot use the logger here as LoggingProvider hasn't been set up yet
+// Use console.log/warn instead
+
 if (__DEV__) {
   try {
     // Determine the correct host based on platform

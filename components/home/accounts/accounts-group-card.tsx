@@ -16,6 +16,8 @@ import { PlaidService } from '@/services/plaid-service';
 import { useFilteredAccounts } from '@/hooks/use-filtered-accounts';
 import { AccountGroupRow } from './account-group-row';
 import { AddAccountModal } from './add-account-modal';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export function AccountsGroupCard() {
   const { plaidApi } = useDependency();
@@ -71,14 +73,14 @@ export function AccountsGroupCard() {
       );
 
       if (!response?.data) {
-        console.error('No response received from Plaid API');
+        logger.error(LogType.Plaid, 'No response received from Plaid API');
         return;
       }
 
       const linkToken = response.data?.linkToken || response.data;
 
       if (!linkToken || typeof linkToken !== 'string' || !linkToken.startsWith('link-')) {
-        console.error('Invalid link token received:', response.data);
+        logger.error(LogType.Plaid, 'Invalid link token received', { response: response.data });
         return;
       }
 
@@ -101,12 +103,12 @@ export function AccountsGroupCard() {
         },
         onExit: (linkExit: LinkExit) => {
           if (linkExit.error) {
-            console.error('Plaid Link exit error:', linkExit.error);
+            logger.error(LogType.Plaid, 'Plaid Link exit error', { error: linkExit.error });
           }
         },
       });
     } catch (error) {
-      console.error('Failed to create Plaid Link token:', error);
+      logger.error(LogType.Plaid, 'Failed to create Plaid Link token', { error });
     }
   };
 

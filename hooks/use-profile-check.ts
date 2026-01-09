@@ -4,6 +4,8 @@ import { HttpClient } from '@/api/gen/http-client';
 import { Users } from '@/api/gen/Users';
 import { AxiosError } from 'axios';
 import { encryptionCredentialsService } from '@/services/encryption-credentials-service';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
@@ -60,7 +62,7 @@ export function useProfileCheck() {
             }
 
             // For other errors, log and assume no profile
-            console.error('Error checking profile:', error);
+            logger.error(LogType.Auth, 'Error checking profile', { error });
             return { hasProfile: false };
           }
         })(),

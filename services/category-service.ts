@@ -1,6 +1,8 @@
 import { Categories } from '@/api/gen/Categories';
 import { Database } from '@nozbe/watermelondb';
 import Category from '@/model/models/category';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 export class CateogryService {
   constructor(
@@ -94,7 +96,7 @@ export class CateogryService {
         });
       }
     } catch (error) {
-      console.error('Error loading categories to database:', error);
+      logger.error(LogType.Database, 'Error loading categories to database', { error });
       throw error;
     }
   }

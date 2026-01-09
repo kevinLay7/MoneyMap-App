@@ -3,6 +3,8 @@ import { RequestParams } from "@/api/gen/http-client";
 import { useDependency } from "@/context/dependencyContext";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AxiosError } from "axios";
+import { logger } from "@/services/logging-service";
+import { LogType } from "@/types/logging";
 
 export const useGetCategories = () => {
   const { categoryApi } = useDependency();
@@ -52,7 +54,7 @@ export const useCreateCategory = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to create category";
-      console.error("Create category error:", errorMessage);
+      logger.error(LogType.Api, "Create category error", { errorMessage });
     },
   });
 };
@@ -82,8 +84,7 @@ export const useUpdateCategory = () => {
           : null;
       const errorMessage =
         responseMessage || error.message || "Failed to update category";
-      console.error("Update category error:", errorMessage);
+      logger.error(LogType.Api, "Update category error", { errorMessage });
     },
   });
 };
-

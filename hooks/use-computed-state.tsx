@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Observable } from '@nozbe/watermelondb/utils/rx';
+import { logger } from '@/services/logging-service';
+import { LogType } from '@/types/logging';
 
 /**
  * Hook to observe a computed state observable from a WatermelonDB model.
@@ -30,7 +32,7 @@ export function useComputedState<T>(observable$: Observable<T> | undefined | nul
           error?.message?.includes('Record not found') || error?.message?.includes('not found');
 
         if (!isRecordNotFound) {
-          console.warn('Error in computed state observable:', error);
+          logger.warn(LogType.Database, 'Error in computed state observable', { error });
         }
 
         setState(null);
@@ -42,4 +44,3 @@ export function useComputedState<T>(observable$: Observable<T> | undefined | nul
 
   return state;
 }
-

@@ -29,6 +29,7 @@ export default function AuthLayout() {
       <Stack.Screen name="create-budget" />
       <Stack.Screen name="create-budget-item" />
       <Stack.Screen name="debug-data" />
+      <Stack.Screen name="logs" />
       <Stack.Screen name="encryption-key" />
       <Stack.Screen name="accounts/[id]" />
     </Stack>

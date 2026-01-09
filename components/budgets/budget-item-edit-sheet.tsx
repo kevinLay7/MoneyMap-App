@@ -222,7 +222,7 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
       await budgetService.updateBudgetItem(dto);
       onClose();
     } catch (error) {
-      console.error('Error updating budget item:', error);
+      // TODO: handle error
     } finally {
       setIsSaving(false);
     }
