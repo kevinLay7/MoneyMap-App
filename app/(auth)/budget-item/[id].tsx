@@ -137,7 +137,7 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
         centerComponent={
           <View className="flex-row items-center">
             <IconCircle input={iconInput} color="white" size={28} />
-            <ThemedText type="subtitle" className="ml-1">
+            <ThemedText type="subtitle" className="ml-1" color="white">
               {budgetItemState.name}
             </ThemedText>
           </View>
@@ -174,79 +174,79 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
         <View className="p-4">
           <Pressable onPress={() => setIsEditOpen(true)}>
             <Card backgroundColor="secondary" padding="lg" className="flex-none">
-            <View className="gap-2">
-              <View className="flex-row items-center">
-                <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary">
-                  Amount
-                </ThemedText>
-                <ThemedText type="subText" className="ml-auto uppercase tracking-widest text-text-secondary">
-                  {dueLabel}
-                </ThemedText>
-              </View>
-              <View className="flex-row items-center">
-                <AnimatedNumber value={budgetItemState.amount} textStyle={{ fontSize: 32, lineHeight: 38 }} />
-                <View className="ml-auto">
-                  <ThemedText type="subtitle">{dueDateDisplay}</ThemedText>
-                  {dueStatusLabel ? (
-                    <ThemedText type="subText" className=" ml-auto text-text-secondary mt-1">
-                      {dueStatusLabel}
-                    </ThemedText>
-                  ) : null}
-                </View>
-              </View>
-            </View>
-            {budgetItemState.isCategory ? (
-              <View className="mt-4">
-                <View className="flex-row items-center mb-2">
-                  <ThemedText type="subText" className="text-text-secondary">
-                    Spent {formatMoney(budgetItemState.spending)}
+              <View className="gap-2">
+                <View className="flex-row items-center">
+                  <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary">
+                    Amount
                   </ThemedText>
-                  <ThemedText type="subText" className="ml-auto text-text-secondary">
-                    Remaining {formatMoney(budgetItemState.remaining)}
+                  <ThemedText type="subText" className="ml-auto uppercase tracking-widest text-text-secondary">
+                    {dueLabel}
                   </ThemedText>
                 </View>
-                <View className="h-2 bg-background-tertiary rounded-full overflow-hidden">
-                  <View
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${Math.min(budgetItemState.spendingPercentage, 100)}%`,
-                      backgroundColor: getBudgetItemProgressColor(
-                        budgetItemState.isOverBudget,
-                        budgetItemState.spendingPercentage
-                      ),
-                    }}
-                  />
-                </View>
-              </View>
-            ) : null}
-
-            {budgetItemState.tags.length > 0 ? (
-              <View className="mt-6 border-t border-background-tertiary pt-5">
-                <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary">
-                  Status
-                </ThemedText>
-                <View className="mt-3 flex-row flex-wrap items-center">
-                  {budgetItemState.tags.map((tag, index) => (
-                    <View
-                      key={index.toString() + tag}
-                      className="flex-row items-center px-3 py-1 rounded-full mr-2 mb-2"
-                      style={{ backgroundColor: getBudgetItemTagColor(tag) }}
-                    >
-                      <FontAwesome6 name={getTagIcon(tag) as any} size={12} color="white" />
-                      <ThemedText type="default" className="ml-2 text-white">
-                        {formatTagDisplay(tag)}
+                <View className="flex-row items-center">
+                  <AnimatedNumber value={budgetItemState.amount} textStyle={{ fontSize: 32, lineHeight: 38 }} />
+                  <View className="ml-auto">
+                    <ThemedText type="subtitle">{dueDateDisplay}</ThemedText>
+                    {dueStatusLabel ? (
+                      <ThemedText type="subText" className=" ml-auto text-text-secondary mt-1">
+                        {dueStatusLabel}
                       </ThemedText>
-                    </View>
-                  ))}
+                    ) : null}
+                  </View>
                 </View>
               </View>
-            ) : null}
+              {budgetItemState.isCategory ? (
+                <View className="mt-4">
+                  <View className="flex-row items-center mb-2">
+                    <ThemedText type="subText" className="text-text-secondary">
+                      Spent {formatMoney(budgetItemState.spending)}
+                    </ThemedText>
+                    <ThemedText type="subText" className="ml-auto text-text-secondary">
+                      Remaining {formatMoney(budgetItemState.remaining)}
+                    </ThemedText>
+                  </View>
+                  <View className="h-2 bg-background-tertiary rounded-full overflow-hidden">
+                    <View
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${Math.min(budgetItemState.spendingPercentage, 100)}%`,
+                        backgroundColor: getBudgetItemProgressColor(
+                          budgetItemState.isOverBudget,
+                          budgetItemState.spendingPercentage
+                        ),
+                      }}
+                    />
+                  </View>
+                </View>
+              ) : null}
 
-            <DetailsSection
-              budgetItemState={budgetItemState}
-              fundingAccountName={fundingAccount ? fundingAccount.name : 'No funding account'}
-              formatMoney={formatMoney}
-            />
+              {budgetItemState.tags.length > 0 ? (
+                <View className="mt-6 border-t border-background-tertiary pt-5">
+                  <ThemedText type="subText" className="uppercase tracking-widest text-text-secondary">
+                    Status
+                  </ThemedText>
+                  <View className="mt-3 flex-row flex-wrap items-center">
+                    {budgetItemState.tags.map((tag, index) => (
+                      <View
+                        key={index.toString() + tag}
+                        className="flex-row items-center px-3 py-1 rounded-full mr-2 mb-2"
+                        style={{ backgroundColor: getBudgetItemTagColor(tag) }}
+                      >
+                        <FontAwesome6 name={getTagIcon(tag) as any} size={12} color="white" />
+                        <ThemedText type="default" className="ml-2 text-white">
+                          {formatTagDisplay(tag)}
+                        </ThemedText>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              ) : null}
+
+              <DetailsSection
+                budgetItemState={budgetItemState}
+                fundingAccountName={fundingAccount ? fundingAccount.name : 'No funding account'}
+                formatMoney={formatMoney}
+              />
             </Card>
           </Pressable>
 
@@ -293,7 +293,11 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
         </View>
       </AnimatedScrollView>
 
-      <BudgetItemEditSheet visible={isEditOpen} onClose={() => setIsEditOpen(false)} budgetItemState={budgetItemState} />
+      <BudgetItemEditSheet
+        visible={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        budgetItemState={budgetItemState}
+      />
     </BackgroundContainer>
   );
 }

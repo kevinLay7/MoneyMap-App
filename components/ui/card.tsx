@@ -47,7 +47,7 @@ export function Card({
   onLongPress,
   padding = 'md',
   rounded = 'lg',
-  variant = 'default',
+  variant = 'elevated',
   backgroundColor = 'default',
   className,
   hapticWeight = 'light',

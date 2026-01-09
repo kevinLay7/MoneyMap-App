@@ -162,7 +162,7 @@ function AccountDetailsContent({ account }: { account: Account }) {
         centerComponent={
           <View className="flex-row items-center">
             <IconCircle input={item?.institutionLogo ?? account?.name?.[0] ?? ''} color="white" size={28} />
-            <ThemedText type="subtitle" className="font-semibold text-typography-900 ml-1">
+            <ThemedText type="subtitle" color="white" className="font-semibold text-typography-900 ml-1 ">
               {account?.name}
             </ThemedText>
           </View>

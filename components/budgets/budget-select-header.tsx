@@ -10,6 +10,7 @@ import { useHaptics } from '@/hooks/useHaptics';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Button } from '../ui/button';
 import { router } from 'expo-router';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 interface BudgetSelectHeaderProps {
   onBudgetChange?: (budgetId: string) => void;
@@ -20,6 +21,7 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | null>(null);
   const { impact } = useHaptics();
   const { width: screenWidth } = useWindowDimensions();
+  const colorScheme = useColorScheme();
 
   // Initialize selected budget to the latest by startDate
   useEffect(() => {
@@ -106,7 +108,9 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
               <View className="mr-2">
                 <FontAwesome6 name="calendar" size={16} color="white" />
               </View>
-              <ThemedText type="subtitle">{formatDateRange(selectedBudget)}</ThemedText>
+              <ThemedText type="subtitle" color="white">
+                {formatDateRange(selectedBudget)}
+              </ThemedText>
             </View>
             <ThemedText type="default" className="ml-2">
               {showDropdown ? (
@@ -137,7 +141,12 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
                       onPress={() => handleBudgetSelect(budget)}
                       className="px-4 py-3 border-b border-border last:border-b-0 active:bg-background-tertiary flex-row items-center"
                     >
-                      <FontAwesome6 name="calendar" size={16} color="white" className="mr-2" />
+                      <FontAwesome6
+                        name="calendar"
+                        size={16}
+                        color={colorScheme === 'light' ? 'black' : 'white'}
+                        className="mr-2"
+                      />
                       <ThemedText
                         type={isSelected ? 'defaultBold' : 'default'}
                         className={`${isSelected ? 'font-semibold' : 'font-medium'} ${isPast ? 'opacity-60' : ''}`}
@@ -152,7 +161,7 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
                   title=" Create New"
                   iconLeft={<FontAwesome6 name="plus" size={14} color="black" />}
                   size="sm"
-                  color="white"
+                  color="negative"
                   onPress={() => {
                     router.push('/(auth)/create-budget');
                   }}

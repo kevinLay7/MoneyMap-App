@@ -6,6 +6,7 @@ import Animated, {
   withSpring,
   interpolate,
 } from 'react-native-reanimated';
+import { useThemeColor } from '@/hooks/use-theme-color';
 
 interface AnimatedNumberProps {
   value: number;
@@ -64,6 +65,8 @@ export function AnimatedNumber({
   decimals = 2,
   textStyle,
 }: AnimatedNumberProps) {
+  const textColor = useThemeColor({}, 'text');
+
   const formattedValue = value.toLocaleString(undefined, {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals,
@@ -74,7 +77,7 @@ export function AnimatedNumber({
   return (
     <View style={styles.container}>
       {characters.map((char, index) => (
-        <AnimatedDigit key={`${index}-${char}`} digit={char} textStyle={textStyle} />
+        <AnimatedDigit key={`${index}-${char}`} digit={char} textStyle={[{ color: textColor }, textStyle]} />
       ))}
     </View>
   );
@@ -93,7 +96,6 @@ const styles = StyleSheet.create({
     height: DIGIT_HEIGHT,
     fontSize: 28,
     fontWeight: '700',
-    color: 'white',
     lineHeight: DIGIT_HEIGHT,
     textAlign: 'center',
   },

@@ -14,7 +14,11 @@ export default function RecurringScreen() {
       <Header
         scrollOffset={scrollOffset}
         backgroundHex={Colors.primary}
-        centerComponent={<ThemedText type="subtitle">Recurring</ThemedText>}
+        centerComponent={
+          <ThemedText type="subtitle" color="white">
+            Recurring
+          </ThemedText>
+        }
       />
 
       <AnimatedScrollView animatedRef={animatedRef}>

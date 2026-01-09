@@ -181,7 +181,11 @@ export default function TransactionsScreen() {
       <Header
         scrollOffset={scrollOffset}
         backgroundHex={Colors.primary}
-        centerComponent={<ThemedText type="subtitle">Transactions</ThemedText>}
+        centerComponent={
+          <ThemedText type="subtitle" color="white">
+            Transactions
+          </ThemedText>
+        }
       />
       <View className="w-full h-full">
         <FlashList
