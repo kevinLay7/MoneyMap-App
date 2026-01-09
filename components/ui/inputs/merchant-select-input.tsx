@@ -59,13 +59,11 @@ function MerchantSelectInputInternal({
     },
   });
 
-  // Don't render if no merchants exist
-  if (!merchants || merchants.length === 0) {
-    return null;
-  }
-
   const selectedMerchant = merchants.find(m => m.id === selectedMerchantId);
   const displayText = selectedMerchant ? selectedMerchant.name : placeholder;
+
+  // Show message if no merchants exist
+  const noMerchantsAvailable = !merchants || merchants.length === 0;
 
   return (
     <InputRow
@@ -81,6 +79,8 @@ function MerchantSelectInputInternal({
     >
       {disabled ? (
         <ThemedText className="text-typography-900 opacity-60">{displayText}</ThemedText>
+      ) : noMerchantsAvailable ? (
+        <ThemedText className="text-text-secondary">No merchants available</ThemedText>
       ) : (
         <RNPickerSelect
           onValueChange={onChange}

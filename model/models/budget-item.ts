@@ -175,26 +175,9 @@ export default class BudgetItem extends Model {
       const fundingAccount$ = item.fundingAccountId
         ? this.database
             .get<Account>('accounts')
-            .query(Q.where('account_id', item.fundingAccountId))
-            .observe()
-            .pipe(
-              map(accounts => accounts[0] ?? null),
-              catchError(() => of(null))
-            )
+            .findAndObserve(item.fundingAccountId)
+            .pipe(catchError(() => of(null)))
         : of(null);
-
-      const accountTransactions$ =
-        item.type === BudgetItemType.BalanceTracking && item.fundingAccountId && budget
-          ? this.database
-              .get<Transaction>('transactions')
-              .query(
-                Q.where('account_id', item.fundingAccountId),
-                Q.where('date', Q.gte(dayjs(budget.startDate).startOf('day').toISOString())),
-                Q.where('date', Q.lte(dayjs(budget.endDate).endOf('day').toISOString()))
-              )
-              .observe()
-              .pipe(catchError(() => of([])))
-          : of([]);
 
       return combineLatest({
         item: of(item),
@@ -204,8 +187,33 @@ export default class BudgetItem extends Model {
         linkedTransactions: of(linkedTransactions),
         categorySpending: categorySpending$,
         fundingAccount: fundingAccount$,
-        accountTransactions: accountTransactions$,
-      });
+      }).pipe(
+        switchMap(({ item, budget, merchant, category, linkedTransactions, categorySpending, fundingAccount }) => {
+          const accountTransactions$ =
+            item.type === BudgetItemType.BalanceTracking && fundingAccount && budget
+              ? this.database
+                  .get<Transaction>('transactions')
+                  .query(
+                    Q.where('account_id', fundingAccount.accountId),
+                    Q.where('date', Q.gte(dayjs(budget.startDate).startOf('day').toISOString())),
+                    Q.where('date', Q.lte(dayjs(budget.endDate).endOf('day').toISOString()))
+                  )
+                  .observe()
+                  .pipe(catchError(() => of([])))
+              : of([]);
+
+          return combineLatest({
+            item: of(item),
+            budget: of(budget),
+            merchant: of(merchant),
+            category: of(category),
+            linkedTransactions: of(linkedTransactions),
+            categorySpending: of(categorySpending),
+            fundingAccount: of(fundingAccount),
+            accountTransactions: accountTransactions$,
+          });
+        })
+      );
     }),
     map(
       ({
@@ -236,15 +244,17 @@ export default class BudgetItem extends Model {
       let balanceTrackingStartingBalance: number | null = null;
 
       if (item.type === BudgetItemType.BalanceTracking && fundingAccount) {
-        balanceTrackingCredits = accountTransactions.reduce(
+        // In Plaid: positive = charges/spending, negative = payments/credits
+        // For credit cards: positive increases balance (new charges), negative decreases balance (payments)
+        balanceTrackingAmountSpent = accountTransactions.reduce(
           (sum, tx) => (tx.amount > 0 ? sum + tx.amount : sum),
           0
         );
-        balanceTrackingAmountSpent = accountTransactions.reduce(
+        balanceTrackingCredits = accountTransactions.reduce(
           (sum, tx) => (tx.amount < 0 ? sum + Math.abs(tx.amount) : sum),
           0
         );
-        balanceTrackingNetChange = balanceTrackingCredits - balanceTrackingAmountSpent;
+        balanceTrackingNetChange = balanceTrackingAmountSpent - balanceTrackingCredits;
         balanceTrackingCurrentBalance = fundingAccount.balanceCurrent;
         balanceTrackingStartingBalance = balanceTrackingCurrentBalance - balanceTrackingNetChange;
       }

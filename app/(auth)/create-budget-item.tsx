@@ -12,7 +12,7 @@ import { AccountSelectInput } from '@/components/ui/inputs/account-select-input'
 import { MerchantSelectInput } from '@/components/ui/inputs/merchant-select-input';
 import { CategorySlectorModal } from '@/components/ui/inputs/category-selector-modal';
 import { BudgetService, CreateBudgetItemDto } from '@/services/budget-service';
-import { Pressable, View, Alert } from 'react-native';
+import { Pressable, View, Alert, ScrollView } from 'react-native';
 import { SwitchInput } from '@/components/ui/inputs/switch-input';
 import { BalanceTrackingMode, BudgetItemType } from '@/model/models/budget-item-enums';
 import Category from '@/model/models/category';
@@ -20,6 +20,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { FontAwesome6 } from '@expo/vector-icons';
 import { Colors } from '@/constants/colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import Budget from '@/model/models/budget';
 
 interface TypeOption {
   type: BudgetItemType;
@@ -128,10 +129,116 @@ function TrackingModeSelector({
   );
 }
 
+function BudgetSelector({
+  selectedBudgetId,
+  onBudgetChange,
+  budgets,
+}: Readonly<{
+  selectedBudgetId: string | null;
+  onBudgetChange: (budgetId: string) => void;
+  budgets: Budget[];
+}>) {
+  const [showDropdown, setShowDropdown] = useState(false);
+  const colorScheme = useColorScheme();
+  const iconColor = colorScheme === 'light' ? Colors.light.text : Colors.dark.text;
+
+  const selectedBudget = budgets.find(b => b.id === selectedBudgetId);
+
+  const formatDateRange = (budget: Budget | undefined) => {
+    if (!budget?.startDate || !budget?.endDate) {
+      return 'Select a budget period';
+    }
+    const start = budget.startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const end = budget.endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    return `${start} - ${end}`;
+  };
+
+  const sortedBudgets = useMemo(() => {
+    return [...budgets].sort((a, b) => {
+      if (!a.startDate || !b.startDate) return 0;
+      return b.startDate.getTime() - a.startDate.getTime();
+    });
+  }, [budgets]);
+
+  return (
+    <>
+      {showDropdown && (
+        <Pressable
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 40 }}
+          onPress={() => setShowDropdown(false)}
+        />
+      )}
+      <View className="relative z-50">
+        <Pressable
+          onPress={() => setShowDropdown(!showDropdown)}
+          className="h-16 py-2 border-b-2 border-background-tertiary flex-row items-center"
+        >
+          <View className="flex-row items-center">
+            <View className="w-12 justify-center relative">
+              <FontAwesome6 name="calendar" size={20} color={Colors.primary} style={{ marginLeft: 8 }} />
+              <View className="absolute top-0 right-1" style={{ marginRight: 8 }}>
+                <FontAwesome6 name="asterisk" size={10} color={Colors.error} />
+              </View>
+            </View>
+            <ThemedText type="defaultSemiBold">Budget Period</ThemedText>
+          </View>
+          <View className="ml-auto flex-row items-center">
+            <ThemedText type="default" className={selectedBudget ? '' : 'text-text-secondary'}>
+              {formatDateRange(selectedBudget)}
+            </ThemedText>
+            <FontAwesome6
+              name={showDropdown ? 'chevron-up' : 'chevron-down'}
+              size={12}
+              color={Colors.dark.textSecondary}
+              className="ml-2"
+            />
+          </View>
+        </Pressable>
+
+        {showDropdown && sortedBudgets.length > 0 && (
+          <Card variant="elevated" rounded="lg" backgroundColor="tertiary" padding="none" className="mt-2 shadow-xl">
+            <ScrollView className="max-h-64" nestedScrollEnabled>
+              {sortedBudgets.map(budget => {
+                const isSelected = budget.id === selectedBudgetId;
+                return (
+                  <Pressable
+                    key={budget.id}
+                    onPress={() => {
+                      onBudgetChange(budget.id);
+                      setShowDropdown(false);
+                    }}
+                    className="px-4 py-3 border-b border-border last:border-b-0 active:bg-background-tertiary flex-row items-center"
+                  >
+                    <FontAwesome6 name="calendar" size={16} color={iconColor} className="mr-2" />
+                    <ThemedText type={isSelected ? 'defaultBold' : 'default'}>
+                      {formatDateRange(budget)}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </Card>
+        )}
+      </View>
+    </>
+  );
+}
+
 export default function CreateBudgetItem() {
   const animatedRef = useAnimatedRef<any>();
   const scrollOffset = useScrollOffset(animatedRef);
   const { budgetId } = useLocalSearchParams<{ budgetId: string }>();
+
+  // Load all budgets for category selection
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+
+  useEffect(() => {
+    const loadBudgets = async () => {
+      const allBudgets = await database.get<Budget>('budgets').query().fetch();
+      setBudgets(allBudgets);
+    };
+    loadBudgets();
+  }, []);
 
   // Form state
   const [selectedType, setSelectedType] = useState<BudgetItemType>(BudgetItemType.Expense);
@@ -141,9 +248,9 @@ export default function CreateBudgetItem() {
   const [trackingMode, setTrackingMode] = useState<BalanceTrackingMode>(BalanceTrackingMode.Delta);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [isManualAccountEntry, setIsManualAccountEntry] = useState(false);
-  const [manualAccountName, setManualAccountName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  // Category-specific fields
+  const [categoryBudgetId, setCategoryBudgetId] = useState<string | null>(budgetId || null);
   // Expense-specific fields
   const [dueDate, setDueDate] = useState<Date>(new Date());
   const [isAutoPay, setIsAutoPay] = useState(false);
@@ -157,8 +264,6 @@ export default function CreateBudgetItem() {
     setAmount('');
     setSelectedAccountId(null);
     setSelectedCategory(null);
-    setIsManualAccountEntry(false);
-    setManualAccountName('');
     setDueDate(new Date());
     setIsAutoPay(false);
     setSelectedMerchantId(null);
@@ -173,25 +278,13 @@ export default function CreateBudgetItem() {
       case BudgetItemType.Expense:
         return name.trim().length > 0 && Number.parseFloat(amount) > 0;
       case BudgetItemType.Category:
-        return selectedCategory !== null && Number.parseFloat(amount) > 0;
+        return selectedCategory !== null && Number.parseFloat(amount) > 0 && categoryBudgetId !== null;
       case BudgetItemType.BalanceTracking:
-        if (isManualAccountEntry) {
-          return manualAccountName.trim().length > 0;
-        }
         return selectedAccountId !== null;
       default:
         return false;
     }
-  }, [
-    selectedType,
-    name,
-    amount,
-    selectedCategory,
-    selectedAccountId,
-    isManualAccountEntry,
-    manualAccountName,
-    budgetId,
-  ]);
+  }, [selectedType, name, amount, selectedCategory, selectedAccountId, budgetId, categoryBudgetId]);
 
   const handleCreateBudgetItem = useCallback(async () => {
     if (!isFormValid || !budgetId) return;
@@ -245,22 +338,21 @@ export default function CreateBudgetItem() {
           dto.isAutoPay = isAutoPay;
           break;
         case BudgetItemType.Category:
-          if (selectedCategory) {
+          if (selectedCategory && categoryBudgetId) {
             dto.name = selectedCategory.name;
             dto.categoryId = selectedCategory.id;
+            dto.budgetId = categoryBudgetId; // Use the selected budget for category items
           }
           break;
         case BudgetItemType.BalanceTracking:
           dto.trackingMode = trackingMode;
-          dto.amount = 0; // Balance tracking doesn't use amount
           dto.excludeFromBalance = excludeFromBalance;
-          if (isManualAccountEntry) {
-            dto.name = manualAccountName;
-          } else if (selectedAccountId) {
+          if (selectedAccountId) {
             dto.fundingAccountId = selectedAccountId;
-            // Name will be set from account when available
+            // Get account balance and name
             const account = await database.get('accounts').find(selectedAccountId);
             dto.name = (account as any).name || 'Credit Card';
+            dto.amount = Math.abs((account as any).balanceCurrent || 0); // Use account's current balance
           }
           break;
       }
@@ -281,12 +373,11 @@ export default function CreateBudgetItem() {
     selectedAccountId,
     selectedCategory,
     trackingMode,
-    isManualAccountEntry,
-    manualAccountName,
     dueDate,
     isAutoPay,
     selectedMerchantId,
     excludeFromBalance,
+    categoryBudgetId,
   ]);
 
   const handleCategorySelect = (category: Category) => {
@@ -353,6 +444,11 @@ export default function CreateBudgetItem() {
       case BudgetItemType.Category:
         return (
           <>
+            <BudgetSelector
+              selectedBudgetId={categoryBudgetId}
+              onBudgetChange={setCategoryBudgetId}
+              budgets={budgets}
+            />
             <Pressable
               onPress={() => setShowCategoryModal(true)}
               className="h-16 py-2 border-b-2 border-background-tertiary flex-row items-center"
@@ -401,25 +497,7 @@ export default function CreateBudgetItem() {
             </ThemedText>
             <TrackingModeSelector trackingMode={trackingMode} onTrackingModeChange={setTrackingMode} />
             <View className="mt-4">
-              <View className="flex-row items-center justify-between mb-2">
-                <ThemedText type="defaultSemiBold">Account</ThemedText>
-                <Pressable onPress={() => setIsManualAccountEntry(!isManualAccountEntry)}>
-                  <ThemedText type="link" className="text-sm">
-                    {isManualAccountEntry ? 'Select linked account' : 'Enter manually'}
-                  </ThemedText>
-                </Pressable>
-              </View>
-              {isManualAccountEntry ? (
-                <TextInput
-                  icon="credit-card"
-                  label="Card Name"
-                  value={manualAccountName}
-                  onChangeText={setManualAccountName}
-                  placeholder="e.g., Chase Sapphire"
-                />
-              ) : (
-                <AccountSelectInput selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} noBorder />
-              )}
+              <AccountSelectInput selectedAccountId={selectedAccountId} onChange={setSelectedAccountId} required />
             </View>
             <SwitchInput
               icon="eye-slash"

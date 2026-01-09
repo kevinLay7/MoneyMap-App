@@ -102,8 +102,6 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
   const [trackingMode, setTrackingMode] = useState<BalanceTrackingMode>(BalanceTrackingMode.Delta);
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
-  const [isManualAccountEntry, setIsManualAccountEntry] = useState(false);
-  const [manualAccountName, setManualAccountName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [dueDate, setDueDate] = useState<Date>(new Date());
   const [isAutoPay, setIsAutoPay] = useState(false);
@@ -121,10 +119,6 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
     setIsAutoPay(budgetItemState.isAutoPay);
     setSelectedMerchantId(budgetItemState.merchantId);
     setExcludeFromBalance(budgetItemState.excludeFromBalance);
-
-    const manualEntry = budgetItemState.isBalanceTracking && !budgetItemState.fundingAccountId;
-    setIsManualAccountEntry(manualEntry);
-    setManualAccountName(manualEntry ? budgetItemState.name : '');
   }, [budgetItemState, visible]);
 
   const isFormValid = useMemo(() => {
@@ -135,14 +129,11 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
       case BudgetItemType.Category:
         return selectedCategory !== null && Number.parseFloat(amount) > 0;
       case BudgetItemType.BalanceTracking:
-        if (isManualAccountEntry) {
-          return manualAccountName.trim().length > 0;
-        }
         return selectedAccountId !== null;
       default:
         return false;
     }
-  }, [amount, budgetItemState.type, isManualAccountEntry, manualAccountName, name, selectedAccountId, selectedCategory]);
+  }, [amount, budgetItemState.type, name, selectedAccountId, selectedCategory]);
 
   const handleSave = async () => {
     if (!isFormValid || isSaving) return;
@@ -166,11 +157,7 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
         targetBudgetId = budgetForDate.id;
       }
 
-      if (
-        budgetItemState.type === BudgetItemType.BalanceTracking &&
-        !isManualAccountEntry &&
-        selectedAccountId
-      ) {
+      if (budgetItemState.type === BudgetItemType.BalanceTracking && selectedAccountId) {
         const account = await database.get('accounts').find(selectedAccountId);
         linkedAccountName = (account as { name?: string }).name ?? null;
       }
@@ -207,14 +194,9 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
         case BudgetItemType.BalanceTracking:
           dto.trackingMode = trackingMode;
           dto.excludeFromBalance = excludeFromBalance;
-          if (isManualAccountEntry) {
-            dto.fundingAccountId = null;
-            dto.name = manualAccountName.trim();
-          } else {
-            dto.fundingAccountId = selectedAccountId;
-            if (linkedAccountName) {
-              dto.name = linkedAccountName;
-            }
+          dto.fundingAccountId = selectedAccountId;
+          if (linkedAccountName) {
+            dto.name = linkedAccountName;
           }
           break;
       }
@@ -381,31 +363,12 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
             </ThemedText>
             <TrackingModeSelector trackingMode={trackingMode} onTrackingModeChange={setTrackingMode} />
             <View className="mt-4">
-              <View className="flex-row items-center justify-between mb-2">
-                <ThemedText type="defaultSemiBold">Account</ThemedText>
-                <Pressable onPress={() => setIsManualAccountEntry(!isManualAccountEntry)}>
-                  <ThemedText type="link" className="text-sm">
-                    {isManualAccountEntry ? 'Select linked account' : 'Enter manually'}
-                  </ThemedText>
-                </Pressable>
-              </View>
-              {isManualAccountEntry ? (
-                <TextInput
-                  icon="credit-card"
-                  label="Card Name"
-                  value={manualAccountName}
-                  onChangeText={setManualAccountName}
-                  placeholder="e.g., Chase Sapphire"
-                  iconAlign="center"
-                />
-              ) : (
-                <AccountSelectInput
-                  selectedAccountId={selectedAccountId}
-                  onChange={setSelectedAccountId}
-                  iconAlign="center"
-                  noBorder
-                />
-              )}
+              <AccountSelectInput
+                selectedAccountId={selectedAccountId}
+                onChange={setSelectedAccountId}
+                iconAlign="center"
+                required
+              />
             </View>
             <SwitchInput
               icon="eye-slash"

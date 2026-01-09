@@ -446,5 +446,21 @@ export class BudgetService {
         });
       }
     }
+
+    // Update balance tracking budget items linked to this account
+    const balanceTrackingItems: BudgetItem[] = await this.database
+      .get<BudgetItem>('budget_items')
+      .query(
+        Q.where('funding_account_id', internalAccount?.id ?? ''),
+        Q.where('type', BudgetItemType.BalanceTracking),
+        Q.where('status', Q.notEq(BudgetItemStatus.COMPLETED))
+      )
+      .fetch();
+
+    for (const item of balanceTrackingItems) {
+      await item.update(budgetItem => {
+        budgetItem.amount = Math.abs(internalAccount?.balanceCurrent ?? 0);
+      });
+    }
   }
 }

@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
-import { View, ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
+import { View, ActivityIndicator, NativeScrollEvent, NativeSyntheticEvent, Pressable } from 'react-native';
 import { useAnimatedRef, useScrollOffset } from 'react-native-reanimated';
 import { useFocusEffect } from '@react-navigation/native';
 import { ThemedText, Header } from '@/components/shared';
@@ -7,13 +7,20 @@ import { BackgroundContainer } from '@/components/ui/background-container';
 import { SearchInput } from '@/components/ui/inputs/search-input';
 import { useMoneyFormatter } from '@/hooks/format-money';
 import { useObservableCollection } from '@/hooks/use-observable';
-import { EnhancedTransactionRow, DateHeader, PendingHeader } from '@/components/transaction';
+import {
+  EnhancedTransactionRow,
+  DateHeader,
+  PendingHeader,
+  TransactionFilterModal,
+  TransactionFilters,
+} from '@/components/transaction';
 import database from '@/model/database';
 import Transaction from '@/model/models/transaction';
 import dayjs from '@/helpers/dayjs';
 import { Colors } from '@/constants/colors';
 import { Q } from '@nozbe/watermelondb';
 import { FlashList } from '@shopify/flash-list';
+import { FontAwesome6 } from '@expo/vector-icons';
 
 type ListItem =
   | { type: 'pending-header' }
@@ -31,6 +38,8 @@ export default function TransactionsScreen() {
   const [isFocused, setIsFocused] = useState(false);
 
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [filters, setFilters] = useState<TransactionFilters>({ accountIds: [] });
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   const formatMoney = useMoneyFormatter();
 
@@ -48,18 +57,23 @@ export default function TransactionsScreen() {
     if (!isFocused) return null;
 
     const searchQuery = debouncedQuery.trim().toLowerCase();
+    const queryConditions = [
+      Q.where('date', Q.gte(oldestDate.toISOString())),
+      Q.where('date', Q.lte(dayjs().endOf('day').toISOString())),
+      Q.where('name', Q.like(`${Q.sanitizeLikeString(searchQuery)}%`)),
+    ];
+
+    // Add account filter if any accounts are selected
+    if (filters.accountIds.length > 0) {
+      queryConditions.push(Q.where('account_id', Q.oneOf(filters.accountIds)));
+    }
 
     const query = database
       .get<Transaction>('transactions')
-      .query(
-        Q.where('date', Q.gte(oldestDate.toISOString())),
-        Q.where('date', Q.lte(dayjs().endOf('day').toISOString())),
-        Q.where('name', Q.like(`${Q.sanitizeLikeString(searchQuery)}%`)),
-        Q.sortBy('date', Q.desc)
-      );
+      .query(...queryConditions, Q.sortBy('date', Q.desc));
 
     return query.observe();
-  }, [isFocused, oldestDate, debouncedQuery]);
+  }, [isFocused, oldestDate, debouncedQuery, filters.accountIds]);
 
   const transactions = useObservableCollection(transactionsQuery);
 
@@ -165,15 +179,32 @@ export default function TransactionsScreen() {
     );
   }, [isLoadingMore]);
 
+  const hasActiveFilters = filters.accountIds.length > 0;
+
   const ListHeader = useMemo(
     () => (
       <View className="w-full px-4">
-        <View className="mb-4">
-          <SearchInput onQueryChange={setDebouncedQuery} placeholder="Search transactions" />
+        <View className="mb-4 flex-row items-center">
+          <View className="flex-1 mr-3">
+            <SearchInput onQueryChange={setDebouncedQuery} placeholder="Search transactions" />
+          </View>
+          <Pressable
+            onPress={() => setShowFilterModal(true)}
+            className={`h-10 w-10 rounded-full items-center justify-center ${
+              hasActiveFilters ? 'bg-primary' : 'bg-background-tertiary'
+            }`}
+          >
+            <FontAwesome6 name="filter" size={16} color="white" />
+            {hasActiveFilters && (
+              <View className="absolute -top-1 -right-1 bg-error w-5 h-5 rounded-full items-center justify-center">
+                <ThemedText className="text-white text-xs font-bold">{filters.accountIds.length}</ThemedText>
+              </View>
+            )}
+          </Pressable>
         </View>
       </View>
     ),
-    []
+    [hasActiveFilters, filters.accountIds.length]
   );
 
   return (
@@ -220,6 +251,12 @@ export default function TransactionsScreen() {
           style={{ paddingBottom: 60 }}
         />
       </View>
+      <TransactionFilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        onApply={setFilters}
+        currentFilters={filters}
+      />
     </BackgroundContainer>
   );
 }

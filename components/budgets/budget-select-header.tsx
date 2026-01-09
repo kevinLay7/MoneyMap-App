@@ -23,22 +23,35 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
   const { width: screenWidth } = useWindowDimensions();
   const colorScheme = useColorScheme();
 
-  // Initialize selected budget to the latest by startDate
+  // Initialize selected budget to the current budget (one that includes today)
   useEffect(() => {
     if (budgets.length > 0 && !selectedBudgetId) {
-      // We should default to the current budget, or if there's not a current
-      // we should default to the latest budget.
-      const currentBudget = budgets.find(b => b.startDate && b.startDate <= new Date());
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      // Find budget where today falls between startDate and endDate
+      const currentBudget = budgets.find(b => {
+        if (!b.startDate || !b.endDate) return false;
+        const start = new Date(b.startDate);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(b.endDate);
+        end.setHours(0, 0, 0, 0);
+        return start <= today && today <= end;
+      });
+
       if (currentBudget) {
         setSelectedBudgetId(currentBudget.id);
         onBudgetChange?.(currentBudget.id);
       } else {
-        const latestBudget = budgets.sort((a, b) => {
+        // If no current budget, fall back to the most recent one
+        const latestBudget = [...budgets].sort((a, b) => {
           if (!a.startDate || !b.startDate) return 0;
           return b.startDate.getTime() - a.startDate.getTime();
         })[0];
-        setSelectedBudgetId(latestBudget.id);
-        onBudgetChange?.(latestBudget.id);
+        if (latestBudget) {
+          setSelectedBudgetId(latestBudget.id);
+          onBudgetChange?.(latestBudget.id);
+        }
       }
     }
   }, [budgets, selectedBudgetId, onBudgetChange]);
@@ -159,7 +172,7 @@ function BudgetSelectHeaderInternal({ budgets, onBudgetChange }: { budgets: Budg
 
                 <Button
                   title=" Create New"
-                  iconLeft={<FontAwesome6 name="plus" size={14} color="black" />}
+                  iconLeft={<FontAwesome6 name="plus" size={14} color={colorScheme === 'light' ? 'black' : 'white'} />}
                   size="sm"
                   color="negative"
                   onPress={() => {
