@@ -12,6 +12,7 @@
 
 import {
   CreateLinkTokenDto,
+  LiabilitiesGetResponseDto,
   PlaidAccountDto,
   PlaidApiItemResponseDto,
   PlaidItemCombinedResponseDto,
@@ -163,7 +164,7 @@ export class Plaid<SecurityDataType = unknown> {
     plaidItemId: string,
     params: RequestParams = {},
   ) =>
-    this.http.request<object | null, void>({
+    this.http.request<LiabilitiesGetResponseDto, void>({
       path: `/plaid/${plaidItemId}/liabilities`,
       method: "GET",
       format: "json",

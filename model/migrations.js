@@ -181,5 +181,14 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 15,
+      steps: [
+        addColumns({
+          table: 'accounts',
+          columns: [{ name: 'plaid_liability', type: 'string', isOptional: true }],
+        }),
+      ],
+    },
   ],
 });

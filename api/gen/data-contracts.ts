@@ -457,6 +457,121 @@ export interface TransactionsSyncResponseDto {
   request_id: string;
 }
 
+export interface CreditCardLiabilityDto {
+  /** The ID of the account */
+  account_id: string;
+  /** The various interest rates that apply to the account */
+  aprs: string[];
+  /** Whether the account is overdue or not */
+  is_overdue: object | null;
+  /** The amount of the last payment */
+  last_payment_amount: object | null;
+  /** The date of the last payment in ISO 8601 format */
+  last_payment_date: object | null;
+  /** The date of the last statement in ISO 8601 format */
+  last_statement_issue_date: object | null;
+  /** The minimum payment due for the next billing cycle */
+  minimum_payment_amount: object | null;
+  /** The due date for the next payment in ISO 8601 format */
+  next_payment_due_date: object | null;
+}
+
+export interface MortgageLiabilityDto {
+  /** The ID of the account */
+  account_id: string;
+  /** The account number */
+  account_number: object | null;
+  /** The current outstanding amount charged for late payment */
+  current_late_fee: object | null;
+  /** Total amount held in escrow to pay taxes and insurance */
+  escrow_balance: object | null;
+  /** Whether the borrower has private mortgage insurance in effect */
+  has_pmi: object | null;
+  /** Whether the borrower will pay a prepayment penalty */
+  has_prepayment_penalty: object | null;
+  /** The interest rate on the loan */
+  interest_rate: object;
+  /** The amount of the last payment */
+  last_payment_amount: object | null;
+  /** The date of the last payment */
+  last_payment_date: object | null;
+  /** The type of loan */
+  loan_type_description: object | null;
+  /** The original principal amount of the mortgage */
+  origination_principal_amount: object | null;
+  /** The amount of principal paid year-to-date */
+  ytd_principal_paid: object | null;
+}
+
+export interface StudentLoanLiabilityDto {
+  /** The ID of the account */
+  account_id: string;
+  /** The account number */
+  account_number: object | null;
+  /** The dates of each payment */
+  disbursement_dates: object | null;
+  /** The date the loan is expected to be paid off */
+  expected_payoff_date: object | null;
+  /** The guarantor of the loan */
+  guarantor: object | null;
+  /** The interest rate on the loan */
+  interest_rate_percentage: number;
+  /** Whether the loan is overdue */
+  is_overdue: object | null;
+  /** The amount of the last payment */
+  last_payment_amount: object | null;
+  /** The date of the last payment */
+  last_payment_date: object | null;
+  /** The date of the last statement */
+  last_statement_issue_date: object | null;
+  /** The ID of the loan */
+  loan_name: object | null;
+  /** The status of the loan */
+  loan_status: object | null;
+  /** The minimum payment amount */
+  minimum_payment_amount: object | null;
+  /** The due date for the next payment */
+  next_payment_due_date: object | null;
+  /** The date on which the loan was initially lent */
+  origination_date: object | null;
+  /** The original principal amount of the loan */
+  origination_principal_amount: object | null;
+  /** The outstanding interest amount */
+  outstanding_interest_amount: object | null;
+  /** The payment reference number */
+  payment_reference_number: object | null;
+  /** Information about the student loan repayment plan */
+  repayment_plan: object | null;
+  /** The sequence number of the loan */
+  sequence_number: object | null;
+  /** The servicer of the loan */
+  servicer_address: object | null;
+  /** Year-to-date interest paid on the loan */
+  ytd_interest_paid: object | null;
+  /** Year-to-date principal paid on the loan */
+  ytd_principal_paid: object | null;
+}
+
+export interface LiabilitiesObjectDto {
+  /** Credit card liabilities */
+  credit: CreditCardLiabilityDto[] | null;
+  /** Mortgage liabilities */
+  mortgage: MortgageLiabilityDto[] | null;
+  /** Student loan liabilities */
+  student: StudentLoanLiabilityDto[] | null;
+}
+
+export interface LiabilitiesGetResponseDto {
+  /** An array of accounts associated with the Item */
+  accounts: PlaidAccountDto[];
+  /** Metadata about the Item */
+  item: object;
+  /** An object containing liability accounts */
+  liabilities: LiabilitiesObjectDto;
+  /** A unique identifier for the request */
+  request_id: string;
+}
+
 export interface PlaidSyncDto {
   /**
    * The ID of the Plaid sync

@@ -172,7 +172,15 @@ function UncategorizedTransactionItem({
 }
 
 // Main Component
-export function UncategorizedTransactionsCard() {
+interface UncategorizedTransactionsCardProps {
+  readonly title?: string;
+  readonly onHasTransactionsChange?: (hasTransactions: boolean) => void;
+}
+
+export function UncategorizedTransactionsCard({
+  title = 'Review Transactions',
+  onHasTransactionsChange,
+}: UncategorizedTransactionsCardProps) {
   const transactionService = new TransactionService(database);
 
   // State
@@ -246,13 +254,17 @@ export function UncategorizedTransactionsCard() {
     setDisplayItems(uncategorizedTransactions.slice(position.min, position.max));
   }, [position, uncategorizedTransactions]);
 
+  useEffect(() => {
+    onHasTransactionsChange?.(uncategorizedTransactions.length > 0);
+  }, [onHasTransactionsChange, uncategorizedTransactions.length]);
+
   if (uncategorizedTransactions.length === 0) {
     return null;
   }
 
   return (
     <Card variant="elevated" rounded="xl" backgroundColor="secondary" className="mb-4">
-      <ThemedText type="subtitle">Review Transactions</ThemedText>
+      {title ? <ThemedText type="subtitle">{title}</ThemedText> : null}
 
       <View
         className="h-64"

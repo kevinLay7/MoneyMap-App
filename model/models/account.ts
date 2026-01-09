@@ -4,6 +4,7 @@ import { catchError, map, shareReplay } from 'rxjs';
 import { of } from '@nozbe/watermelondb/utils/rx';
 import Item from './item';
 import Transaction from './transaction';
+import { PlaidLiability } from '@/model/types/plaid-liability';
 
 /**
  * Computed state emitted by Account.computedState$
@@ -46,6 +47,7 @@ export default class Account extends Model {
   @field('balance_available') balanceAvailable?: number;
   @field('iso_currency_code') isoCurrencyCode?: string;
   @field('unofficial_currency_code') unofficialCurrencyCode?: string;
+  @field('plaid_liability') plaidLiability?: string;
 
   @readonly @date('created_at') createdAt!: Date;
   @readonly @date('updated_at') updatedAt!: Date;
@@ -83,4 +85,17 @@ export default class Account extends Model {
     }),
     shareReplay(1)
   );
+
+  /**
+   * Parses and returns the Plaid liability data stored as JSON string
+   * @returns Parsed liability data or null if not available or invalid
+   */
+  getLiabilityData(): PlaidLiability | null {
+    if (!this.plaidLiability) return null;
+    try {
+      return JSON.parse(this.plaidLiability);
+    } catch {
+      return null;
+    }
+  }
 }

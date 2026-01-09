@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect } from 'react';
+import React, { useMemo, useRef, useEffect, useState } from 'react';
 import { LineChart } from 'react-native-gifted-charts';
 import { CurveType } from 'gifted-charts-core';
 import { View, useWindowDimensions } from 'react-native';
@@ -35,7 +35,8 @@ export function BalanceLineChart({
   containerPadding = 16,
 }: BalanceLineChartProps) {
   const { width: windowWidth } = useWindowDimensions();
-  const chartWidth = windowWidth - containerPadding * 2;
+  const [containerWidth, setContainerWidth] = useState<number | null>(null);
+  const chartWidth = containerWidth ?? windowWidth - containerPadding * 3;
   const onFocusChangeRef = useRef(onFocusChange);
   const clearTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -118,7 +119,12 @@ export function BalanceLineChart({
   );
 
   const chartConfig = useMemo(
-    () => ({
+    () => {
+      const endSpacing = 16;
+      const pointCount = Math.max(chartData.data.length - 1, 1);
+      const spacing = Math.max((chartWidth - endSpacing) / pointCount, 0);
+
+      return {
       thickness: 2,
       height,
       adjustToWidth: true,
@@ -138,8 +144,8 @@ export function BalanceLineChart({
       startOpacity: 0.3,
       endOpacity: 0,
       initialSpacing: 0,
-      endSpacing: 0,
-      spacing: chartWidth / Math.max(chartData.data.length - 1, 1),
+      endSpacing,
+      spacing,
       curved: true,
       curveType: CurveType.QUADRATIC,
       // Values are normalized to start at 0, maxValue is the range
@@ -158,7 +164,8 @@ export function BalanceLineChart({
         pointerEvents: 'auto' as const,
         showPointerStrip: true,
       },
-    }),
+      };
+    },
     [height, chartWidth, chartData, handlePointerMove, lineColor]
   );
 
@@ -167,7 +174,10 @@ export function BalanceLineChart({
   }
 
   return (
-    <View style={{ width: chartWidth, height, overflow: 'hidden' }}>
+    <View
+      style={{ width: '100%', height, overflow: 'hidden' }}
+      onLayout={event => setContainerWidth(event.nativeEvent.layout.width)}
+    >
       <LineChart {...chartConfig} />
     </View>
   );

@@ -256,6 +256,7 @@ function BudgetItemDetailsContent({ budgetItemState }: { budgetItemState: Budget
               <CreditUtilizationCard
                 currentBalance={fundingAccount.balanceCurrent}
                 availableBalance={fundingAccount.balanceAvailable}
+                liability={fundingAccount.getLiabilityData()}
               />
             </View>
           )}

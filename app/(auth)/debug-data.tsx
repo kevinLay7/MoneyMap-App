@@ -134,13 +134,15 @@ Last Check: ${status.lastCheckTime?.toLocaleString() || 'Never'}
   };
 
   const accountColumns: TableColumn<Account>[] = [
+    { key: 'id', label: 'ID', width: 150 },
     { key: 'accountId', label: 'Account ID', width: 150 },
     { key: 'name', label: 'Name', width: 150 },
+    { key: 'officialName', label: 'Official Name', width: 180 },
     { key: 'type', label: 'Type', width: 100 },
     { key: 'subtype', label: 'Subtype', width: 100 },
     {
       key: 'balanceCurrent',
-      label: 'Balance',
+      label: 'Balance Current',
       width: 120,
       render: item => (
         <ThemedText type="default" className="text-text-secondary">
@@ -148,8 +150,51 @@ Last Check: ${status.lastCheckTime?.toLocaleString() || 'Never'}
         </ThemedText>
       ),
     },
+    {
+      key: 'balanceAvailable',
+      label: 'Balance Available',
+      width: 140,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          {typeof item.balanceAvailable === 'number' ? `$${item.balanceAvailable.toFixed(2)}` : '-'}{' '}
+          {item.isoCurrencyCode || ''}
+        </ThemedText>
+      ),
+    },
     { key: 'mask', label: 'Mask', width: 80 },
+    { key: 'isoCurrencyCode', label: 'ISO Currency', width: 120 },
+    { key: 'unofficialCurrencyCode', label: 'Unofficial Currency', width: 140 },
+    {
+      key: 'plaidLiability',
+      label: 'Liability',
+      width: 260,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary" numberOfLines={2}>
+          {item.plaidLiability || '-'}
+        </ThemedText>
+      ),
+    },
     { key: 'itemId', label: 'Item ID', width: 150 },
+    {
+      key: 'createdAt',
+      label: 'Created',
+      width: 160,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          {item.createdAt?.toLocaleString() || '-'}
+        </ThemedText>
+      ),
+    },
+    {
+      key: 'updatedAt',
+      label: 'Updated',
+      width: 160,
+      render: item => (
+        <ThemedText type="default" className="text-text-secondary">
+          {item.updatedAt?.toLocaleString() || '-'}
+        </ThemedText>
+      ),
+    },
   ];
 
   const renderAccountList = () => (

@@ -19,7 +19,11 @@ import { AddAccountModal } from './add-account-modal';
 import { logger } from '@/services/logging-service';
 import { LogType } from '@/types/logging';
 
-export function AccountsGroupCard() {
+interface AccountsGroupCardProps {
+  readonly title?: string;
+}
+
+export function AccountsGroupCard({ title = 'Accounts' }: AccountsGroupCardProps) {
   const { plaidApi } = useDependency();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [items, setItems] = useState<Item[]>([]);
@@ -154,18 +158,7 @@ export function AccountsGroupCard() {
         onSelectItem={item => createLinkToken(item.plaidItemId)}
         onAddNew={() => createLinkToken()}
       />
-      <View className="flex-row justify-between items-center">
-        <ThemedText type="subtitle">Accounts</ThemedText>
 
-        <Button
-          onPress={handleAddAccount}
-          title={<FontAwesome6 name="plus" size={18} color={Colors.dark.text} />}
-          color="background"
-          circular
-          size="sm"
-          hapticWeight="light"
-        />
-      </View>
       <View>
         {accounts.length === 0 ? (
           <View className="items-center py-4">
@@ -189,6 +182,18 @@ export function AccountsGroupCard() {
             />
           ))
         )}
+
+        <View className="flex-row items-center">
+          <View className="w-1/2 ml-auto mr-auto">
+            <Button
+              title=" Add Account"
+              color="negative"
+              size="sm"
+              iconLeft={<FontAwesome6 name="plus" size={14} color={Colors.dark.text} />}
+              onPress={handleAddAccount}
+            />
+          </View>
+        </View>
       </View>
     </Card>
   );

@@ -3,13 +3,16 @@ import { Svg, Circle } from 'react-native-svg';
 import { Card } from '@/components/ui/card';
 import { ThemedText } from '@/components/shared';
 import { useMoneyFormatter } from '@/hooks/format-money';
+import { PlaidLiability } from '@/model/types/plaid-liability';
+import dayjs from '@/helpers/dayjs';
 
 interface CreditUtilizationCardProps {
   currentBalance: number;
   availableBalance: number;
+  liability?: PlaidLiability | null;
 }
 
-export function CreditUtilizationCard({ currentBalance, availableBalance }: CreditUtilizationCardProps) {
+export function CreditUtilizationCard({ currentBalance, availableBalance, liability }: CreditUtilizationCardProps) {
   const formatMoney = useMoneyFormatter();
 
   // Calculate credit limit and utilization
@@ -34,7 +37,7 @@ export function CreditUtilizationCard({ currentBalance, availableBalance }: Cred
   const progress = (utilization / 100) * circumference;
 
   return (
-    <Card backgroundColor="secondary" padding="lg">
+    <Card backgroundColor="secondary" padding="lg" className="flex-none w-full">
       <View className="flex-row items-center">
         {/* Circular Progress */}
         <View className="mr-6">
@@ -93,6 +96,48 @@ export function CreditUtilizationCard({ currentBalance, availableBalance }: Cred
           </View>
         </View>
       </View>
+
+      {/* Liability Details */}
+      {liability && (
+        <View className="mt-4 border-t border-background-tertiary pt-4">
+          <View className="flex-row justify-between mb-2">
+            <ThemedText type="default" className="text-text-secondary">
+              Minimum Payment
+            </ThemedText>
+            <ThemedText type="defaultSemiBold">
+              {formatMoney(liability.minimum_payment_amount || 0)}
+            </ThemedText>
+          </View>
+          {liability.last_payment_date && (
+            <View className="flex-row justify-between mb-2">
+              <ThemedText type="default" className="text-text-secondary">
+                Last Payment
+              </ThemedText>
+              <ThemedText type="default">
+                {formatMoney(liability.last_payment_amount || 0)} on{' '}
+                {dayjs(liability.last_payment_date).format('MMM D, YYYY')}
+              </ThemedText>
+            </View>
+          )}
+          {liability.next_payment_due_date && (
+            <View className="flex-row justify-between mb-2">
+              <ThemedText type="default" className="text-text-secondary">
+                Next Payment Due
+              </ThemedText>
+              <ThemedText type="default">
+                {dayjs(liability.next_payment_due_date).format('MMM D, YYYY')}
+              </ThemedText>
+            </View>
+          )}
+          {liability.is_overdue && (
+            <View className="mt-2 px-3 py-2 bg-red-500/20 rounded-lg">
+              <ThemedText type="defaultSemiBold" className="text-red-500">
+                Payment Overdue
+              </ThemedText>
+            </View>
+          )}
+        </View>
+      )}
     </Card>
   );
 }

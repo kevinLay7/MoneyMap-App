@@ -335,6 +335,15 @@ export class PlaidService {
         }
       });
 
+      const shouldFetchLiabilities = accounts.some(account => {
+        const accountType = typeof account.type === 'string' ? account.type.toLowerCase() : '';
+        return accountType === 'credit' || accountType === 'loan';
+      });
+
+      if (shouldFetchLiabilities) {
+        await this.fetchAndStoreLiabilities(plaidItemId);
+      }
+
       if (duplicateExistingAccounts.length > 0) {
         Alert.alert(
           'Duplicate accounts cleaned up',
@@ -408,6 +417,83 @@ export class PlaidService {
     } catch (error) {
       logger.error(LogType.Plaid, 'Failed to fetch and store transactions', { error });
       throw error;
+    }
+  }
+
+  /**
+   * Fetches liability data from Plaid API and stores it in the database
+   * @param plaidItemId - The Plaid item ID to fetch liabilities for
+   */
+  async fetchAndStoreLiabilities(plaidItemId: string): Promise<void> {
+    try {
+      logger.info(LogType.Plaid, 'Fetching liabilities for item', { plaidItemId });
+
+      const response = await this.plaidApi.plaidControllerGetLiabilities(plaidItemId);
+
+      if (!response?.data) {
+        logger.info(LogType.Plaid, 'No liability data returned', { plaidItemId });
+        return;
+      }
+
+      // Log raw response to understand structure
+      logger.info(LogType.Plaid, 'Raw liability response', {
+        plaidItemId,
+        responseType: typeof response.data,
+        isArray: Array.isArray(response.data),
+        data: response.data,
+      });
+
+      const liabilityGroups = response.data?.liabilities;
+      if (!liabilityGroups) {
+        logger.info(LogType.Plaid, 'No liability groups returned', { plaidItemId });
+        return;
+      }
+
+      const liabilities = [
+        ...(liabilityGroups.credit ?? []),
+        ...(liabilityGroups.mortgage ?? []),
+        ...(liabilityGroups.student ?? []),
+      ];
+
+      if (liabilities.length === 0) {
+        logger.info(LogType.Plaid, 'No liabilities found for item', { plaidItemId });
+        return;
+      }
+
+      await this.database.write(async () => {
+        const accounts = await this.database.get<Account>('accounts').query().fetch();
+
+        for (const liability of liabilities) {
+          // Skip if liability doesn't have account_id
+          if (!liability?.account_id) {
+            logger.warn(LogType.Plaid, 'Liability missing account_id', { liability });
+            continue;
+          }
+
+          const account = accounts.find(a => a.accountId === liability.account_id);
+          if (account) {
+            await account.update(acc => {
+              acc.plaidLiability = JSON.stringify(liability);
+            });
+            logger.info(LogType.Plaid, 'Stored liability for account', {
+              accountId: liability.account_id,
+              accountName: account.name,
+            });
+          } else {
+            logger.warn(LogType.Plaid, 'Account not found for liability', {
+              accountId: liability.account_id,
+            });
+          }
+        }
+      });
+
+      logger.info(LogType.Plaid, 'Successfully stored liabilities', {
+        plaidItemId,
+        count: liabilities.length,
+      });
+    } catch (error) {
+      logger.error(LogType.Plaid, 'Failed to fetch liabilities', { plaidItemId, error });
+      // Don't throw - liability fetch failure shouldn't block account linking
     }
   }
 }

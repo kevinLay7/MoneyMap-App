@@ -308,9 +308,11 @@ export function SpendingByCategoryCard({
 
   const content = (
     <>
-      <ThemedText type="subtitle" className="mb-4">
-        {title}
-      </ThemedText>
+      {title ? (
+        <ThemedText type="subtitle" className="mb-4">
+          {title}
+        </ThemedText>
+      ) : null}
 
       {parentGroups.length === 0 ? (
         <ThemedText type="subText" className="text-text-secondary">
