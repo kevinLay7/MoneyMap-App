@@ -397,7 +397,7 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
       borderRadius={20}
       backgroundColor={Colors.dark.backgroundSecondary}
     >
-      <View className="w-full h-full rounded-2xl">
+      <View className="w-full h-full rounded-2xl flex-1">
         <View className="flex-row items-center justify-center py-4">
           <View className="w-1/6 bg-text-secondary h-1 rounded-full"></View>
         </View>
@@ -411,10 +411,7 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
           </Pressable>
         </View>
 
-        <ScrollView
-          className="px-4"
-          contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 16) }}
-        >
+        <ScrollView className="px-4 flex-1">
           <View className="mb-4">
             <View className="flex-row items-center mb-2">
               <FontAwesome6 name="layer-group" size={12} color={iconColor} />
@@ -424,10 +421,11 @@ export function BudgetItemEditSheet({ visible, onClose, budgetItemState }: Budge
             </View>
             {renderTypeSpecificFields()}
           </View>
-          <View className="mb-6">
-            <Button title="Save Changes" onPress={handleSave} disabled={!isFormValid} loading={isSaving} />
-          </View>
         </ScrollView>
+
+        <View className="px-4 pb-4" style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
+          <Button title="Save Changes" onPress={handleSave} disabled={!isFormValid} loading={isSaving} />
+        </View>
       </View>
     </SharedModal>
   );

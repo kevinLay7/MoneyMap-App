@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 15,
+  version: 16,
   tables: [
     tableSchema({
       name: 'merchants',
@@ -147,7 +147,7 @@ export const schema = appSchema({
         { name: 'end_date', type: 'number' },
         { name: 'balance', type: 'number' },
         { name: 'balance_source', type: 'string' },
-        { name: 'account_balance_source', type: 'string' },
+        // account_balance_source removed in v16 - always use Available balance
         { name: 'account_id', type: 'string', isIndexed: true, isOptional: true },
         { name: 'duration', type: 'string' },
         { name: 'created_at', type: 'number' },

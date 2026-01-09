@@ -3,12 +3,6 @@ export enum BudgetBalanceSource {
   Manual = 'manual',
 }
 
-export enum AccountBalanceSrouce {
-  Default = 'default',
-  Current = 'current',
-  Available = 'available',
-}
-
 export enum BudgetFrequencyEnum {
   ONETIME = 'ONETIME',
   DAILY = 'DAILY',

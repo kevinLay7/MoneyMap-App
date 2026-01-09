@@ -190,5 +190,13 @@ export default schemaMigrations({
         }),
       ],
     },
+    {
+      toVersion: 16,
+      steps: [
+        // Removed account_balance_source column from budgets table
+        // Column still exists in DB but is no longer used - always use Available balance
+        // WatermelonDB doesn't support dropping columns, so it remains in the DB schema
+      ],
+    },
   ],
 });

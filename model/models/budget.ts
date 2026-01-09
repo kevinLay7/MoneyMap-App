@@ -1,4 +1,4 @@
-import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
+import { BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { Model, Query } from '@nozbe/watermelondb';
 import { children, date, field, lazy, readonly, relation } from '@nozbe/watermelondb/decorators';
 import { of } from '@nozbe/watermelondb/utils/rx';
@@ -76,7 +76,6 @@ export default class Budget extends Model {
   @field('balance') balance!: number;
 
   @field('balance_source') balanceSource!: BudgetBalanceSource;
-  @field('account_balance_source') accountBalanceSource!: AccountBalanceSrouce;
   @field('account_id') accountId!: string | null;
   @field('duration') duration!: BudgetDuration;
   @field('status') status!: BudgetStatus;
@@ -146,6 +145,7 @@ export default class Budget extends Model {
 
   /**
    * Calculates the effective balance based on balance source configuration
+   * Always uses Available balance for account-based budgets
    */
   private getEffectiveBalance(account: Account | null): number {
     if (this.balanceSource === BudgetBalanceSource.Manual) {
@@ -154,9 +154,8 @@ export default class Budget extends Model {
     if (!account) {
       return this.balance;
     }
-    return this.accountBalanceSource === AccountBalanceSrouce.Available
-      ? (account.balanceAvailable ?? 0)
-      : account.balanceCurrent;
+    // Always use Available balance for budgeting
+    return account.balanceAvailable ?? 0;
   }
 
   /**

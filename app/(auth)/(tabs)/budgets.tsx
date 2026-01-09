@@ -94,7 +94,7 @@ export default function BudgetsScreen() {
         centerComponent={
           <BudgetSelectHeader selectedBudgetId={selectedBudgetId} onBudgetChange={setSelectedBudgetId} />
         }
-        rightComponent={<BudgetMenu selectedBudgetId={selectedBudgetId} />}
+        rightComponent={<BudgetMenu selectedBudgetId={selectedBudgetId} budgetState={budgetState ?? null} />}
       />
 
       <AnimatedScrollView animatedRef={animatedRef} className="h-full w-full">

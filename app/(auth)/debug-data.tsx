@@ -506,7 +506,6 @@ Last Check: ${status.lastCheckTime?.toLocaleString() || 'Never'}
       ),
     },
     { key: 'balanceSource', label: 'Balance Source', width: 130 },
-    { key: 'accountBalanceSource', label: 'Account Source', width: 130 },
     { key: 'duration', label: 'Duration', width: 100 },
     {
       key: 'accountId',

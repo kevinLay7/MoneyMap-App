@@ -1,111 +1,77 @@
-import { View, Alert } from 'react-native';
-import { Button } from '../ui/button';
+import { Pressable, Alert } from 'react-native';
 import { FontAwesome6 } from '@expo/vector-icons';
-import { SharedModal } from '../shared';
 import { useState } from 'react';
-import { Colors } from '@/constants/colors';
 import { useNavigation } from 'expo-router';
 import database from '@/model/database';
 import { BudgetService } from '@/services/budget-service';
+import { BudgetState } from '@/model/models/budget';
+import { BudgetEditSheet } from './budget-edit-sheet';
+import { MenuPopover } from '@/components/ui/menu-popover';
+import { ThemedText } from '@/components/shared';
 
-export function BudgetMenu({ selectedBudgetId }: { selectedBudgetId: string | null }) {
-  const [showMenu, setShowMenu] = useState(false);
+export function BudgetMenu({
+  selectedBudgetId,
+  budgetState,
+}: {
+  selectedBudgetId: string | null;
+  budgetState: BudgetState | null;
+}) {
+  const [showEditSheet, setShowEditSheet] = useState(false);
   const navigator = useNavigation<any>();
-  const budgetService = new BudgetService(database);
-
-  const handleDeletePress = () => {
-    setShowMenu(false);
-    Alert.alert('Delete Budget?', 'This action cannot be undone.', [
-      {
-        text: 'Cancel',
-        style: 'cancel',
-      },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
-          if (selectedBudgetId) {
-            await budgetService.deleteBudget(selectedBudgetId);
-          }
-        },
-      },
-    ]);
-  };
 
   return (
     <>
-      <Button
-        title=""
-        color="negative"
-        iconRight={<FontAwesome6 name="ellipsis" size={24} color="white" />}
-        onPress={() => setShowMenu(true)}
-        hapticWeight="light"
-      />
-
-      <SharedModal
-        visible={showMenu}
-        onClose={() => setShowMenu(false)}
-        position="bottom"
-        width="100%"
-        height="50%"
-        borderColor={Colors.dark.backgroundTertiary}
-        borderWidth={2}
-        borderRadius={20}
-        backgroundColor={Colors.dark.backgroundSecondary}
-      >
-        <View className="w-full h-full rounded-2xl">
-          <View key="menu-drawer-bar" className="flex-row items-center justify-center py-4">
-            <View className="w-1/6 bg-text-secondary h-1 rounded-full"></View>
-          </View>
-
-          <View key="menu-drawer-content" className="flex-1 px-4">
-            <Button
-              color="negative"
-              size="sm"
-              position="left"
-              title="  Create Budget"
-              iconLeft={<FontAwesome6 name="plus" size={18} color="white" />}
-              width="w-1/2"
+      <MenuPopover trigger={<FontAwesome6 name="ellipsis" size={24} color="white" />}>
+        {({ close }) => (
+          <>
+            <Pressable
+              className="flex-row items-center px-4 py-3"
               onPress={() => {
-                setShowMenu(false);
+                close();
                 navigator.navigate('create-budget');
               }}
-            />
-            <Button
-              color="negative"
-              size="sm"
-              position="left"
-              title="  Edit Budget"
-              iconLeft={<FontAwesome6 name="edit" size={18} color="white" />}
-              width="w-1/2"
-              onPress={() => {}}
-            />
-            <Button
-              position="left"
-              size="sm"
-              title="   Delete Budget"
-              color="negative"
-              iconLeft={<FontAwesome6 name="trash" size={18} color="white" />}
-              width="w-1/2"
-              onPress={handleDeletePress}
-            />
-            <View className="h-1 bg-text-secondary rounded-full my-6"></View>
-
-            <Button
-              position="left"
-              size="sm"
-              title="   Add Budget Item"
-              color="negative"
-              iconLeft={<FontAwesome6 name="location-dot" size={18} color="white" />}
-              width="w-1/2"
+            >
+              <FontAwesome6 name="plus" size={16} color="white" />
+              <ThemedText type="default" className="ml-2">
+                Create Budget
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              className="flex-row items-center px-4 py-3"
               onPress={() => {
-                setShowMenu(false);
+                close();
+                setShowEditSheet(true);
+              }}
+              disabled={!budgetState}
+            >
+              <FontAwesome6 name="pen-to-square" size={16} color="white" />
+              <ThemedText type="default" className="ml-2" style={{ opacity: !budgetState ? 0.5 : 1 }}>
+                Edit Budget
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              className="flex-row items-center px-4 py-3 border-t border-background-tertiary"
+              onPress={() => {
+                close();
                 navigator.navigate('create-budget-item', { budgetId: selectedBudgetId });
               }}
-            />
-          </View>
-        </View>
-      </SharedModal>
+            >
+              <FontAwesome6 name="location-dot" size={16} color="white" />
+              <ThemedText type="default" className="ml-2">
+                Add Budget Item
+              </ThemedText>
+            </Pressable>
+          </>
+        )}
+      </MenuPopover>
+
+      {budgetState && (
+        <BudgetEditSheet
+          visible={showEditSheet}
+          onClose={() => setShowEditSheet(false)}
+          budgetState={budgetState}
+        />
+      )}
     </>
   );
 }

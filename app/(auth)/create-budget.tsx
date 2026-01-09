@@ -9,7 +9,7 @@ import { Q } from '@nozbe/watermelondb';
 import BudgetModel from '@/model/models/budget';
 import { Card } from '@/components/ui/card';
 import { DatePicker } from '@/components/ui/inputs/date-picker';
-import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
+import { BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { SelectInput } from '@/components/ui/inputs/select-input';
 import dayjs from 'dayjs';
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,6 @@ export default function CreateBudget() {
   const [startDate, setStartDate] = useState<Date>(new Date());
   const [endDate, setEndDate] = useState<Date>(dayjs().add(1, 'day').toDate());
   const [balanceSource, setBalanceSource] = useState<BudgetBalanceSource | null>(null);
-  const [accountBalanceSource, setAccountBalanceSource] = useState<AccountBalanceSrouce | null>(null);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -39,7 +38,6 @@ export default function CreateBudget() {
         setPreviousBudget(previousBudget);
         setDuration(previousBudget?.duration);
         setBalanceSource(previousBudget?.balanceSource);
-        setAccountBalanceSource(previousBudget?.accountBalanceSource);
         setSelectedAccountId(previousBudget?.accountId);
       });
 
@@ -63,29 +61,20 @@ export default function CreateBudget() {
   }, [duration, startDate]);
 
   const createBudget = useCallback(async () => {
-    if (
-      !balanceSource ||
-      !startDate ||
-      !endDate ||
-      !balanceSource ||
-      (balanceSource === BudgetBalanceSource.Account && !accountBalanceSource) ||
-      !duration
-    )
-      return;
+    if (!balanceSource || !startDate || !endDate || !balanceSource || !duration) return;
 
     const newBudgetDto: CreateBudgetDto = {
       startDate: startDate,
       endDate: endDate,
       balance: 0,
       balanceSource: balanceSource,
-      accountBalanceSource: accountBalanceSource ?? AccountBalanceSrouce.Default,
       accountId: selectedAccountId ?? '',
       duration: duration!,
     };
 
     const budgetService = new BudgetService(database);
     await budgetService.createBudget(newBudgetDto);
-  }, [startDate, endDate, balanceSource, accountBalanceSource, selectedAccountId, duration]);
+  }, [startDate, endDate, balanceSource, selectedAccountId, duration]);
 
   return (
     <BackgroundContainer>
@@ -133,39 +122,18 @@ export default function CreateBudget() {
             }))}
           />
           {balanceSource === BudgetBalanceSource.Account && (
-            <>
-              <AccountSelectInput
-                selectedAccountId={selectedAccountId}
-                onChange={(accountId: string | null) => {
-                  setSelectedAccountId(accountId);
-                }}
-              />
-
-              <SelectInput
-                icon="wallet"
-                items={Object.values(AccountBalanceSrouce)
-                  .filter(source => source !== AccountBalanceSrouce.Default)
-                  .map(accountBalanceSource => ({
-                    label: accountBalanceSource.charAt(0).toUpperCase() + accountBalanceSource.slice(1),
-                    value: accountBalanceSource,
-                  }))}
-                label="Account Balance Source"
-                value={accountBalanceSource}
-                onValueChange={value => setAccountBalanceSource(value as AccountBalanceSrouce)}
-              />
-            </>
+            <AccountSelectInput
+              selectedAccountId={selectedAccountId}
+              onChange={(accountId: string | null) => {
+                setSelectedAccountId(accountId);
+              }}
+            />
           )}
 
           <Button
             title="Create Budget"
             onPress={createBudget}
-            disabled={
-              !duration ||
-              !startDate ||
-              !endDate ||
-              !balanceSource ||
-              (balanceSource === BudgetBalanceSource.Account && !accountBalanceSource)
-            }
+            disabled={!duration || !startDate || !endDate || !balanceSource}
           />
         </Card>
       </AnimatedScrollView>

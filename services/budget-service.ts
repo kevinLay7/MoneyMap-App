@@ -4,7 +4,7 @@ import Budget, { BudgetStatus } from '@/model/models/budget';
 import BudgetItem from '@/model/models/budget-item';
 import Transaction from '@/model/models/transaction';
 import { BudgetItemType, BalanceTrackingMode, BudgetItemStatus } from '@/model/models/budget-item-enums';
-import { AccountBalanceSrouce, BudgetBalanceSource, BudgetDuration } from '@/types/budget';
+import { BudgetBalanceSource, BudgetDuration } from '@/types/budget';
 import { TransactionService } from './transaction-service';
 import { Database, Q } from '@nozbe/watermelondb';
 
@@ -13,7 +13,6 @@ export interface CreateBudgetDto {
   endDate: Date;
   balance: number;
   balanceSource: BudgetBalanceSource;
-  accountBalanceSource: AccountBalanceSrouce;
   accountId: string;
   duration: BudgetDuration;
 }
@@ -46,6 +45,13 @@ export interface UpdateBudgetItemDto {
   excludeFromBalance?: boolean;
 }
 
+export interface UpdateBudgetDto {
+  budgetId: string;
+  balance?: number;
+  balanceSource?: BudgetBalanceSource;
+  accountId?: string | null;
+}
+
 export class BudgetService {
   constructor(private readonly database: Database) {}
 
@@ -61,7 +67,6 @@ export class BudgetService {
         budget.endDate = createBudgetDto.endDate;
         budget.balance = createBudgetDto.balance;
         budget.balanceSource = createBudgetDto.balanceSource;
-        budget.accountBalanceSource = createBudgetDto.accountBalanceSource;
         budget.accountId = createBudgetDto.accountId;
         budget.duration = createBudgetDto.duration;
         budget.status = BudgetStatus.Active;
@@ -374,6 +379,35 @@ export class BudgetService {
   }
 
   /**
+   * Updates a budget with the provided data.
+   * @param dto - The data to update the budget with.
+   * @returns The updated budget.
+   */
+  async updateBudget(dto: UpdateBudgetDto): Promise<Budget> {
+    return await this.database.write(async () => {
+      const budget = await this.database.get<Budget>('budgets').find(dto.budgetId);
+      await budget.update(record => {
+        if (dto.balance !== undefined) {
+          record.balance = dto.balance;
+        }
+        if (dto.balanceSource !== undefined) {
+          record.balanceSource = dto.balanceSource;
+        }
+        if (dto.accountId !== undefined) {
+          record.accountId = dto.accountId;
+        }
+      });
+
+      // If balance source is Account, update the balance from the account
+      if (budget.balanceSource === BudgetBalanceSource.Account && budget.accountId) {
+        await this.updateBudgetBalancesForAccount(budget.accountId);
+      }
+
+      return budget;
+    });
+  }
+
+  /**
    * Updates the balance of a budget.
    * @param budgetId - The id of the budget to update.
    * @param balance - The new balance value.
@@ -429,22 +463,11 @@ export class BudgetService {
     const currentBudgets = budgets.filter(budget => isDateBetween(new Date(), budget.startDate, budget.endDate));
 
     for (const budget of currentBudgets) {
-      if (budget.accountBalanceSource === AccountBalanceSrouce.Current) {
-        await budget.update(budget => {
-          budget.status = this.getBudgetStatus(budget);
-          budget.balance = internalAccount?.balanceCurrent ?? 0;
-        });
-      } else if (budget.accountBalanceSource === AccountBalanceSrouce.Available) {
-        await budget.update(budget => {
-          budget.status = this.getBudgetStatus(budget);
-          budget.balance = internalAccount?.balanceAvailable ?? 0;
-        });
-      } else {
-        await budget.update(budget => {
-          budget.status = this.getBudgetStatus(budget);
-          budget.balance = 0;
-        });
-      }
+      // Always use Available balance for account-based budgets
+      await budget.update(budget => {
+        budget.status = this.getBudgetStatus(budget);
+        budget.balance = internalAccount?.balanceAvailable ?? 0;
+      });
     }
 
     // Update balance tracking budget items linked to this account
