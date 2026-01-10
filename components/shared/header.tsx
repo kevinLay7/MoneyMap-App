@@ -6,12 +6,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Animated, { useAnimatedStyle, useDerivedValue, type SharedValue } from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import Constants from 'expo-constants';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Button } from '@/components/ui/button';
 import { Colors } from '@/constants/colors';
 import { SharedModal } from '@/components/shared/shared-modal';
 
-import { getDeviceClientId } from '@/utils/device-client-id';
 import { ThemedText } from './themed-text';
 
 type HeaderProps = {
@@ -71,17 +71,12 @@ export default function Header({
   }, [navigator]);
 
   const handleOpenSettings = React.useCallback(async () => {
-    navigator.navigate('Settings');
+    navigator.navigate('settings');
     setShowSettingsDrawer(false);
   }, [navigator]);
 
   const handleOpenDebugData = React.useCallback(async () => {
     navigator.navigate('debug-data');
-    setShowSettingsDrawer(false);
-  }, [navigator]);
-
-  const handleOpenLogs = React.useCallback(async () => {
-    navigator.navigate('logs');
     setShowSettingsDrawer(false);
   }, [navigator]);
 
@@ -168,29 +163,17 @@ export default function Header({
             />
           )}
 
-          <Button
-            title="Logs"
-            onPress={handleOpenLogs}
-            iconLeft={
-              <FontAwesome6
-                name="list"
-                size={16}
-                color={colorScheme === 'light' ? 'white' : 'black'}
-                style={{ marginRight: 8 }}
-              />
-            }
-            className="justify-start"
-            marginY="4"
-          />
           <Pressable className="flex-1 h-full" onPress={() => setShowSettingsDrawer(false)} />
         </View>
         <View className="p-4 border-t border-border">
-          <ThemedText>{getDeviceClientId()}</ThemedText>
+          <ThemedText className="text-text-secondary text-sm mb-3">
+            Version {Constants.expoConfig?.version || '1.0.0'}
+          </ThemedText>
           <Button title="Logout" onPress={async () => await clearCredentials()} color="error" />
         </View>
       </SafeAreaView>
     ),
-    [colorScheme, handleOpenAccountManagement, handleOpenSettings, handleOpenDebugData, handleOpenLogs, clearCredentials]
+    [colorScheme, handleOpenAccountManagement, handleOpenSettings, handleOpenDebugData, clearCredentials]
   );
 
   const shadowOpacity = useDerivedValue(() => {
