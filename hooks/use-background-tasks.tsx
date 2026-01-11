@@ -3,6 +3,7 @@ import { AppState, AppStateStatus } from 'react-native';
 import { useDependency } from '@/context/dependencyContext';
 import { backgroundTaskService } from '@/services/background-task-service';
 import { syncOrchestrator } from '@/services/sync-orchestrator';
+import { notificationOrchestrator } from '@/services/notification-orchestrator';
 import { useProfileCheck } from '@/hooks/use-profile-check';
 import { logger } from '@/services/logging-service';
 import { LogType } from '@/types/logging';
@@ -69,6 +70,9 @@ export function useBackgroundTasks() {
 
         isInitializedRef.current = true;
 
+        // Start notification orchestrator (watches for budget item changes)
+        await notificationOrchestrator.start();
+
         // Start foreground mode if app is already active
         if (appState.current === 'active') {
           syncOrchestrator.startForeground();
@@ -83,6 +87,7 @@ export function useBackgroundTasks() {
     // Cleanup on unmount
     return () => {
       syncOrchestrator.stopForeground();
+      notificationOrchestrator.stop();
     };
   }, [syncApi, plaidApi, shouldInitialize]);
 

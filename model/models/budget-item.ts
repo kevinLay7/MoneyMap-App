@@ -7,6 +7,7 @@ import Category from './category';
 import Merchant from './merchant';
 import Account from './account';
 import Transaction from './transaction';
+import BudgetItemNotification from './budget-item-notification';
 import dayjs from '@/helpers/dayjs';
 import {
   getBudgetItemStatusColor,
@@ -100,6 +101,7 @@ export default class BudgetItem extends Model {
     merchants: { type: 'belongs_to', key: 'merchant_id' },
     categories: { type: 'belongs_to', key: 'category_id' },
     transactions: { type: 'has_many', foreignKey: 'budget_item_id' },
+    budget_item_notifications: { type: 'has_many', foreignKey: 'budget_item_id' },
   } as const;
 
   @field('budget_id') budgetId!: string;
@@ -145,6 +147,7 @@ export default class BudgetItem extends Model {
   @relation('merchants', 'merchant_id') merchant!: Merchant;
   @relation('categories', 'category_id') category!: Category;
   @children('transactions') linkedTransactions!: Query<Transaction>;
+  @children('budget_item_notifications') notificationRecords!: Query<BudgetItemNotification>;
 
   /**
    * Computed observable that emits BudgetItemState whenever the budget item

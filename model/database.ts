@@ -11,9 +11,11 @@ import Category from './models/category';
 import TransactionSync from './models/transaction-sync';
 import Budget from './models/budget';
 import BudgetItem from './models/budget-item';
+import BudgetItemNotification from './models/budget-item-notification';
 import AccountDailyBalance from './models/account-daily-balance';
 import Merchant from './models/merchant';
 import Log from './models/log';
+import NotificationSettings from './models/notification-settings';
 
 // Create adapter with JSI disabled for dev client compatibility
 // JSI requires native build - enable it only when running built app
@@ -43,9 +45,11 @@ const database = new Database({
     TransactionSync,
     Budget,
     BudgetItem,
+    BudgetItemNotification,
     AccountDailyBalance,
     Merchant,
     Log,
+    NotificationSettings,
   ],
 });
 

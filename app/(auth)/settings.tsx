@@ -11,6 +11,9 @@ import { SwitchInput } from '@/components/ui/inputs/switch-input';
 import { Button } from '@/components/ui/button';
 import { Colors } from '@/constants/colors';
 import { getDeviceClientId } from '@/utils/device-client-id';
+import { useNotificationSettings } from '@/hooks/use-notification-settings';
+import { TimePicker } from '@/components/ui/inputs/time-picker';
+import { CheckboxInput } from '@/components/ui/inputs/checkbox-input';
 
 const BIOMETRIC_LOCK_KEY = '@biometric_lock_enabled';
 const HAPTICS_KEY = '@haptics_enabled';
@@ -22,6 +25,16 @@ export default function SettingsScreen() {
   const [biometricLockEnabled, setBiometricLockEnabled] = useState(false);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Notification settings
+  const {
+    settings: notificationSettings,
+    isLoading: notificationsLoading,
+    updateSettings: updateNotificationSettings,
+    requestPermissions,
+    permissionStatus,
+    isAvailable: notificationsAvailable,
+  } = useNotificationSettings();
 
   // Load settings from AsyncStorage on mount
   useEffect(() => {
@@ -136,19 +149,83 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          {/* Notifications Section */}
+          {!notificationsLoading && notificationSettings && (
+            <View className="mb-6">
+              <ThemedText type="defaultSemiBold" className="mb-3 text-text-secondary">
+                Notifications
+              </ThemedText>
+              <View className="bg-background-secondary rounded-lg border border-border px-3">
+                {!notificationsAvailable && (
+                  <View className="py-3 px-1">
+                    <ThemedText type="default" className="text-yellow-500 text-sm mb-1">
+                      ⚠️ Notifications require native build
+                    </ThemedText>
+                    <ThemedText type="default" className="text-text-secondary text-xs">
+                      Run 'npm run ios' to enable notification features
+                    </ThemedText>
+                  </View>
+                )}
+                <SwitchInput
+                  icon="bell"
+                  label="Bill Reminders"
+                  description="Get notified about upcoming bills"
+                  value={notificationSettings.billRemindersEnabled}
+                  disabled={!notificationsAvailable}
+                  onValueChange={async value => {
+                    if (value && permissionStatus !== 'granted') {
+                      const granted = await requestPermissions();
+                      if (!granted) {
+                        return;
+                      }
+                    }
+                    await updateNotificationSettings({ billRemindersEnabled: value });
+                  }}
+                />
+
+                {notificationSettings.billRemindersEnabled && (
+                  <>
+                    <TimePicker
+                      icon="clock"
+                      label="Reminder Time"
+                      hour={notificationSettings.reminderTimeHour}
+                      minute={notificationSettings.reminderTimeMinute}
+                      onChange={async (hour, minute) => {
+                        await updateNotificationSettings({
+                          reminderTimeHour: hour,
+                          reminderTimeMinute: minute,
+                        });
+                      }}
+                    />
+
+                    <CheckboxInput
+                      label="Notify on due date"
+                      value={notificationSettings.notifyOnDueDate}
+                      onValueChange={async value => {
+                        await updateNotificationSettings({ notifyOnDueDate: value });
+                      }}
+                    />
+
+                    <CheckboxInput
+                      label="Notify 1 day before"
+                      value={notificationSettings.notifyOneDayBefore}
+                      onValueChange={async value => {
+                        await updateNotificationSettings({ notifyOneDayBefore: value });
+                      }}
+                    />
+                  </>
+                )}
+              </View>
+            </View>
+          )}
+
           {/* Developer Section */}
           <View className="mb-6">
             <ThemedText type="defaultSemiBold" className="mb-3 text-text-secondary">
               Developer
             </ThemedText>
             <View className="bg-background-secondary rounded-lg border border-border p-4">
-              <Button
-                title="View Logs"
-                onPress={handleViewLogs}
-                color="background"
-                size="md"
-                marginY="0"
-              />
+              <Button title="View Logs" onPress={handleViewLogs} color="background" size="md" marginY="0" />
             </View>
           </View>
 

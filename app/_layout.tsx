@@ -12,6 +12,7 @@ import { type ReactNode } from 'react';
 import { DemoProvider } from '@/context/demoContext';
 import { useProfileCheck } from '@/hooks/use-profile-check';
 import { LoggingProvider } from '@/context/loggingContext';
+import { NotificationProvider } from '@/context/NotificationProvider';
 
 // Conditionally import Auth0 - it requires native modules
 let Auth0Provider: React.ComponentType<{
@@ -59,9 +60,11 @@ export default function RootLayout() {
           <ProfileCheckWrapper>
             <LoggingProvider>
               <DependencyProvider>
-                <DemoProvider>
-                  <RootLayoutContent />
-                </DemoProvider>
+                <NotificationProvider>
+                  <DemoProvider>
+                    <RootLayoutContent />
+                  </DemoProvider>
+                </NotificationProvider>
               </DependencyProvider>
             </LoggingProvider>
           </ProfileCheckWrapper>

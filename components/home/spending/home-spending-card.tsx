@@ -11,6 +11,7 @@ import { Q } from '@nozbe/watermelondb';
 import { useMemo, memo } from 'react';
 import dayjs, { getCurrentDate, getMonthRange, getMonthInfo, formatDateOnly, isDateBetween } from '@/helpers/dayjs';
 import SpendingLineChart, { type DataPoint } from './line-chart';
+import { AnimatedNumber } from '@/components/ui/animated-number';
 
 // Constants
 const DATA_POINT_CONFIG = {
@@ -155,7 +156,7 @@ const SpendingHeader = memo(function SpendingHeader({
   return (
     <View className="mb-6 px-4" style={{ minHeight: 50 }} collapsable={false}>
       <View>
-        <ThemedText type="subtitle">{formatMoney(currentTotal)}</ThemedText>
+        <AnimatedNumber value={currentTotal} prefix="$" decimals={2} />
         <ThemedText type="subText">Spent this month</ThemedText>
       </View>
       <View

@@ -1,7 +1,7 @@
 import { appSchema, tableSchema } from '@nozbe/watermelondb';
 
 export const schema = appSchema({
-  version: 16,
+  version: 19,
   tables: [
     tableSchema({
       name: 'merchants',
@@ -175,6 +175,18 @@ export const schema = appSchema({
       ],
     }),
     tableSchema({
+      name: 'budget_item_notifications',
+      columns: [
+        { name: 'budget_item_id', type: 'string', isIndexed: true },
+        { name: 'notification_id', type: 'string' },
+        { name: 'scheduled_for', type: 'number' }, // When the notification is scheduled to fire
+        { name: 'days_before', type: 'number' }, // 0 for due date, 1 for day before
+        { name: 'bill_due_date', type: 'number' }, // The bill's due date when notification was scheduled
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
       name: 'account_daily_balances',
       columns: [
         { name: 'account_id', type: 'string', isIndexed: true },
@@ -192,6 +204,19 @@ export const schema = appSchema({
         { name: 'level', type: 'string', isIndexed: true },
         { name: 'message', type: 'string' },
         { name: 'metadata', type: 'string', isOptional: true },
+        { name: 'created_at', type: 'number' },
+        { name: 'updated_at', type: 'number' },
+      ],
+    }),
+    tableSchema({
+      name: 'notification_settings',
+      columns: [
+        { name: 'bill_reminders_enabled', type: 'boolean' },
+        { name: 'reminder_time_hour', type: 'number' },
+        { name: 'reminder_time_minute', type: 'number' },
+        { name: 'notify_on_due_date', type: 'boolean' },
+        { name: 'notify_one_day_before', type: 'boolean' },
+        { name: 'push_token', type: 'string', isOptional: true },
         { name: 'created_at', type: 'number' },
         { name: 'updated_at', type: 'number' },
       ],

@@ -236,6 +236,9 @@ export class BackgroundTaskService {
       // Check for stale Plaid items
       await this.checkAndRefreshStaleItems();
 
+      // Schedule upcoming bill reminders
+      await this.scheduleUpcomingBillReminders();
+
       return BackgroundTaskResult.Success;
     } catch (error) {
       logger.error(LogType.Background, 'Background sync failed', { error });
@@ -287,6 +290,86 @@ export class BackgroundTaskService {
       }
     } catch (error) {
       logger.error(LogType.Background, 'Stale item check failed', { error });
+    }
+  }
+
+  /**
+   * Schedule upcoming bill reminders (14-day window).
+   * Only runs if notifications are available and enabled.
+   *
+   * BULLETPROOF VERSION:
+   * - Cleans up fired notifications first
+   * - Uses idempotent scheduleBillReminders (won't create duplicates)
+   * - Safe to call multiple times
+   */
+  private static async scheduleUpcomingBillReminders(): Promise<void> {
+    try {
+      // Check if notifications are available (conditional import)
+      let NotificationServiceClass;
+      let NotificationSettings;
+      let BudgetItem;
+      let Q;
+
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('expo-notifications');
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const notifService = require('@/services/notification-service');
+        NotificationServiceClass = notifService.NotificationService;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        NotificationSettings = require('@/model/models/notification-settings').default;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        BudgetItem = require('@/model/models/budget-item').default;
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        Q = require('@nozbe/watermelondb').Q;
+      } catch {
+        // Notifications not available, skip silently
+        return;
+      }
+
+      const notificationService = new NotificationServiceClass(database);
+
+      // Clean up fired/expired notifications first
+      await notificationService.cleanupFiredNotifications();
+
+      // Get notification settings
+      const settingsRecords = await database
+        .get(NotificationSettings.table)
+        .query()
+        .fetch();
+
+      if (settingsRecords.length === 0 || !settingsRecords[0].billRemindersEnabled) {
+        logger.info(LogType.Background, 'Bill reminders disabled, skipping notification scheduling');
+        return;
+      }
+
+      const settings = settingsRecords[0];
+
+      // Get bills due in next 14 days
+      const fourteenDaysFromNow = dayjs().add(14, 'days').endOf('day').toDate();
+
+      const bills = await database
+        .get(BudgetItem.table)
+        .query(
+          Q.where('type', 'expense'),
+          Q.where('due_date', Q.notEq(null)),
+          Q.where('due_date', Q.lte(fourteenDaysFromNow.getTime())),
+          Q.or(Q.where('is_auto_pay', Q.eq(null)), Q.where('is_auto_pay', Q.eq(false)))
+        )
+        .fetch();
+
+      // Schedule notifications (idempotent - won't create duplicates)
+      let scheduledCount = 0;
+      for (const bill of bills) {
+        const ids = await notificationService.scheduleBillReminders(bill, settings);
+        if (ids.length > 0) {
+          scheduledCount++;
+        }
+      }
+
+      logger.info(LogType.Background, `Scheduled notifications for ${scheduledCount}/${bills.length} bills`);
+    } catch (error) {
+      logger.error(LogType.Background, 'Failed to schedule bill reminders', { error });
     }
   }
 

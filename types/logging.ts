@@ -12,6 +12,7 @@ export enum LogType {
   Auth = 'auth',
   Database = 'database',
   UI = 'ui',
+  Notification = 'notification',
   General = 'general',
 }
 

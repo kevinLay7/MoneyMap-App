@@ -8,6 +8,12 @@
     "scheme": "moneymap",
     "newArchEnabled": true,
     "userInterfaceStyle": "automatic",
+    "notification": {
+      "icon": "./assets/images/icon.png",
+      "color": "#00A3E0",
+      "androidMode": "default",
+      "androidCollapsedTitle": "MoneyMap"
+    },
     "splash": {
       "image": "./assets/images/icon.png",
       "resizeMode": "contain",
@@ -18,7 +24,8 @@
       "bundleIdentifier": "com.condenest.moneymap",
       "icon": "./assets/images/icon.png",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "UIBackgroundModes": ["remote-notification"]
       }
     },
     "android": {
@@ -33,7 +40,9 @@
       "package": "com.condenest.moneymap",
       "permissions": [
         "android.permission.RECEIVE_BOOT_COMPLETED",
-        "android.permission.WAKE_LOCK"
+        "android.permission.WAKE_LOCK",
+        "android.permission.VIBRATE",
+        "android.permission.POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -69,7 +78,15 @@
         }
       ],
       "expo-background-task",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#ffffff",
+          "mode": "production"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

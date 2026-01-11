@@ -198,5 +198,54 @@ export default schemaMigrations({
         // WatermelonDB doesn't support dropping columns, so it remains in the DB schema
       ],
     },
+    {
+      toVersion: 17,
+      steps: [
+        createTable({
+          name: 'notification_settings',
+          columns: [
+            { name: 'bill_reminders_enabled', type: 'boolean' },
+            { name: 'reminder_time_hour', type: 'number' },
+            { name: 'reminder_time_minute', type: 'number' },
+            { name: 'notify_on_due_date', type: 'boolean' },
+            { name: 'notify_one_day_before', type: 'boolean' },
+            { name: 'push_token', type: 'string', isOptional: true },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+        addColumns({
+          table: 'budget_items',
+          columns: [{ name: 'scheduled_notification_ids', type: 'string', isOptional: true }],
+        }),
+      ],
+    },
+    {
+      toVersion: 18,
+      steps: [
+        createTable({
+          name: 'budget_item_notifications',
+          columns: [
+            { name: 'budget_item_id', type: 'string', isIndexed: true },
+            { name: 'notification_id', type: 'string' },
+            { name: 'created_at', type: 'number' },
+            { name: 'updated_at', type: 'number' },
+          ],
+        }),
+      ],
+    },
+    {
+      toVersion: 19,
+      steps: [
+        addColumns({
+          table: 'budget_item_notifications',
+          columns: [
+            { name: 'scheduled_for', type: 'number' },
+            { name: 'days_before', type: 'number' },
+            { name: 'bill_due_date', type: 'number' },
+          ],
+        }),
+      ],
+    },
   ],
 });

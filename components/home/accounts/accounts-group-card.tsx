@@ -1,4 +1,4 @@
-import { View } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Card } from '../../ui/card';
 import { ThemedText } from '../../shared/themed-text';
 import { FontAwesome6 } from '@expo/vector-icons';
@@ -6,7 +6,6 @@ import { Colors } from '@/constants/colors';
 import { useDependency } from '@/context/dependencyContext';
 import { create, LinkExit, LinkLogLevel, LinkSuccess, open } from 'react-native-plaid-link-sdk';
 import { ContentType } from '@/api/gen/http-client';
-import { Button } from '../../ui/button';
 import { LoadingOverlay } from '../../ui/loading-overlay';
 import { useState, useEffect, useMemo } from 'react';
 import database from '@/model/database';
@@ -149,7 +148,7 @@ export function AccountsGroupCard({ title = 'Accounts' }: AccountsGroupCardProps
   );
 
   return (
-    <Card variant="elevated" rounded="xl" backgroundColor="secondary">
+    <Card variant="elevated" rounded="xl" backgroundColor="secondary" className="p-4">
       <LoadingOverlay visible={isLinkingAccount} />
       <AddAccountModal
         isVisible={showAddAccountModal}
@@ -158,6 +157,13 @@ export function AccountsGroupCard({ title = 'Accounts' }: AccountsGroupCardProps
         onSelectItem={item => createLinkToken(item.plaidItemId)}
         onAddNew={() => createLinkToken()}
       />
+
+      <View className="flex-row items-center justify-between mb-2">
+        {title ? <ThemedText type="defaultSemiBold" className="text-text-secondary">{title}</ThemedText> : null}
+        <Pressable onPress={handleAddAccount}>
+          <ThemedText type="defaultSemiBold" style={{ color: Colors.primary }}>Add Account</ThemedText>
+        </Pressable>
+      </View>
 
       <View>
         {accounts.length === 0 ? (
@@ -182,18 +188,6 @@ export function AccountsGroupCard({ title = 'Accounts' }: AccountsGroupCardProps
             />
           ))
         )}
-
-        <View className="flex-row items-center">
-          <View className="w-1/2 ml-auto mr-auto">
-            <Button
-              title=" Add Account"
-              color="negative"
-              size="sm"
-              iconLeft={<FontAwesome6 name="plus" size={14} color={Colors.dark.text} />}
-              onPress={handleAddAccount}
-            />
-          </View>
-        </View>
       </View>
     </Card>
   );

@@ -105,7 +105,7 @@ function UncategorizedTransactionItem({
       <Card variant="elevated" rounded="xl" backgroundColor="tertiary" className="w-full h-52 px-4">
         <View className="flex-row items-center">
           <View className="flex-col flex-1 mr-2">
-            <ThemedText numberOfLines={2} ellipsizeMode="tail">
+            <ThemedText type="defaultSemiBold" numberOfLines={2} ellipsizeMode="tail">
               {observedTransaction.name}
             </ThemedText>
             <ThemedText type="subText">{observedTransaction.date}</ThemedText>
@@ -113,7 +113,7 @@ function UncategorizedTransactionItem({
           <ThemedText className="ml-auto w-1/3 text-right">{formatMoney(observedTransaction.amount)}</ThemedText>
         </View>
         <View
-          className="h-12 flex-row items-center w-full border-dashed border-zinc-400 px-2 mt-4"
+          className="h-12 flex-row items-center w-full border-dashed border-zinc-400 px-2 mt-4 justify-center"
           style={{ borderWidth: 1 }}
         >
           <IconCircle
@@ -124,7 +124,7 @@ function UncategorizedTransactionItem({
             borderSize={0}
             opacity={100}
           />
-          <ThemedText type="subText">{selectedCategory ? selectedCategory.name : 'Uncategorized'}</ThemedText>
+          <ThemedText type="default">{selectedCategory ? selectedCategory.name : 'Uncategorized'}</ThemedText>
         </View>
         <View className="flex-row mt-auto">
           <Button
@@ -263,8 +263,8 @@ export function UncategorizedTransactionsCard({
   }
 
   return (
-    <Card variant="elevated" rounded="xl" backgroundColor="secondary" className="mb-4">
-      {title ? <ThemedText type="subtitle">{title}</ThemedText> : null}
+    <Card variant="elevated" rounded="xl" backgroundColor="secondary" className="mb-4 p-4">
+      {title ? <ThemedText type="defaultSemiBold" className="mb-2 text-text-secondary">{title}</ThemedText> : null}
 
       <View
         className="h-64"

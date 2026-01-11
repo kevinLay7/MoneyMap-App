@@ -34,7 +34,7 @@ const SYNC_TABLE_ORDER = [
 /**
  * Tables that should be excluded from sync operations
  */
-const EXCLUDED_TABLES: readonly string[] = ['logs'];
+const EXCLUDED_TABLES: readonly string[] = ['logs', 'notification_settings', 'budget_item_notifications'];
 
 /**
  * Filters out excluded tables from changes object.
@@ -462,7 +462,8 @@ export async function pushOnlyChanges(syncApi: Sync): Promise<void> {
   try {
     // Get local changes from WatermelonDB
     const localChanges = await fetchLocalChanges(database);
-    const changeSummary = Object.entries(localChanges.changes || {}).map(([tableName, tableChanges]) => {
+    const filteredChanges = localChanges.changes ? filterExcludedTables(localChanges.changes) : undefined;
+    const changeSummary = Object.entries(filteredChanges || {}).map(([tableName, tableChanges]) => {
       const typedTableChanges = tableChanges as { created?: any[]; updated?: any[]; deleted?: any[] };
       return {
         table: tableName,
@@ -472,12 +473,17 @@ export async function pushOnlyChanges(syncApi: Sync): Promise<void> {
       };
     });
     appLogger.info(LogType.Sync, 'Local changes fetched', {
-      hasChanges: !!localChanges.changes && Object.keys(localChanges.changes).length > 0,
+      hasChanges: !!filteredChanges && Object.keys(filteredChanges).length > 0,
       tables: changeSummary,
     });
 
     // Return early if no changes exist
     if (!localChanges.changes || Object.keys(localChanges.changes).length === 0) {
+      return;
+    }
+
+    if (!filteredChanges || Object.keys(filteredChanges).length === 0) {
+      await markLocalChangesAsSynced(database, localChanges);
       return;
     }
 
